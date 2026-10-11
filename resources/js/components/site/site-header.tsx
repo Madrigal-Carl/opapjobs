@@ -24,6 +24,8 @@ import { SignedInMenu } from '@/components/site/signed-in-menu';
 export function SiteHeader() {
     const { url, props } = usePage();
     const user = props.auth.user;
+    const canAccessDashboard =
+        props.auth.permissions?.includes('access dashboard') ?? false;
     const [isScrolled, setIsScrolled] = useState(false);
     const [openMenu, setOpenMenu] = useState<
         'jobs' | 'resources' | 'avatar' | null
@@ -252,14 +254,27 @@ export function SiteHeader() {
                     </nav>
                     <div className="nav-actions">
                         {user ? (
-                            <SignedInMenu
-                                open={openMenu === 'avatar'}
-                                onToggle={() =>
-                                    setOpenMenu((current) =>
-                                        current === 'avatar' ? null : 'avatar',
-                                    )
-                                }
-                            />
+                            <>
+                                {canAccessDashboard && (
+                                    <a
+                                        className="nav-signin"
+                                        href="/dashboard/overview"
+                                        data-testid="link-dashboard"
+                                    >
+                                        Dashboard
+                                    </a>
+                                )}
+                                <SignedInMenu
+                                    open={openMenu === 'avatar'}
+                                    onToggle={() =>
+                                        setOpenMenu((current) =>
+                                            current === 'avatar'
+                                                ? null
+                                                : 'avatar',
+                                        )
+                                    }
+                                />
+                            </>
                         ) : (
                             <>
                                 <a

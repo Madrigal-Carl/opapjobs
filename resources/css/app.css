@@ -333,6 +333,7 @@ html {
     scroll-behavior: smooth;
     background: var(--cream);
     color-scheme: light;
+    scrollbar-gutter: stable;
 }
 
 body {

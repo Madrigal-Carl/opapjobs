@@ -19,7 +19,19 @@ test('users can authenticate using the login screen', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('home', absolute: false));
+});
+
+test('staff are redirected to the dashboard overview after login', function () {
+    $user = User::factory()->employer()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('dashboard.overview', absolute: false));
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {

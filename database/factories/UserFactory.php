@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -56,5 +57,37 @@ class UserFactory extends Factory
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),
         ]);
+    }
+
+    /**
+     * Indicate that the user is an applicant.
+     */
+    public function applicant(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Applicant->value));
+    }
+
+    /**
+     * Indicate that the user is an employer.
+     */
+    public function employer(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Employer->value));
+    }
+
+    /**
+     * Indicate that the user is an admin.
+     */
+    public function admin(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Admin->value));
+    }
+
+    /**
+     * Indicate that the user is a superadmin.
+     */
+    public function superadmin(): static
+    {
+        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Superadmin->value));
     }
 }

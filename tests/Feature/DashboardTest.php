@@ -1,16 +1,43 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests are redirected to the login page', function () {
-    $response = $this->get(route('dashboard'));
-    $response->assertRedirect(route('login'));
+    $this->get(route('dashboard'))->assertRedirect(route('login'));
 });
 
-test('authenticated users can visit the dashboard', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
+test('guests cannot access the dashboard overview', function () {
+    $this->get(route('dashboard.overview'))->assertRedirect(route('login'));
+});
 
-    $response = $this->get(route('dashboard'));
-    $response->assertOk();
+test('applicants are redirected home from the dashboard', function () {
+    $this->actingAs(User::factory()->applicant()->create())
+        ->get(route('dashboard'))
+        ->assertRedirect(route('home', absolute: false));
+});
+
+test('applicants are redirected home from the dashboard overview', function () {
+    $this->actingAs(User::factory()->applicant()->create())
+        ->get(route('dashboard.overview'))
+        ->assertRedirect(route('home', absolute: false));
+});
+
+test('applicants requesting the dashboard overview as json receive 403', function () {
+    $this->actingAs(User::factory()->applicant()->create())
+        ->getJson(route('dashboard.overview'))
+        ->assertForbidden();
+});
+
+test('staff are redirected from the dashboard to the overview', function () {
+    $this->actingAs(User::factory()->employer()->create())
+        ->get(route('dashboard'))
+        ->assertRedirect(route('dashboard.overview', absolute: false));
+});
+
+test('staff can visit the dashboard overview', function () {
+    $this->actingAs(User::factory()->employer()->create())
+        ->get(route('dashboard.overview'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview'));
 });
