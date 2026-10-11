@@ -39,7 +39,8 @@ export function SignedInMenu({
         return null;
     }
 
-    const canAccessDashboard = permissions?.includes('access dashboard') ?? false;
+    const canAccessDashboard =
+        permissions?.includes('access dashboard') ?? false;
     const supportLinks = accountSupportLinks.filter(
         ({ label }) => label !== 'Settings' || canAccessDashboard,
     );
