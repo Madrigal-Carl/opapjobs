@@ -4,6 +4,7 @@ export type Job = {
     id: string;
     title: string;
     employer: string;
+    agency: string;
     pathway: Pathway;
     location: string;
     salary: string;

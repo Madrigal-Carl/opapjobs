@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Brand } from '@/components/site/brand';
+import { index as agenciesIndex } from '@/routes/agencies';
 
 export function SiteFooter() {
     const [email, setEmail] = useState('');
@@ -64,7 +65,7 @@ export function SiteFooter() {
                     <div>
                         <strong>Explore</strong>
                         <a href="/#jobs">Find a job</a>
-                        <a href="/agencies">Agencies</a>
+                        <a href={agenciesIndex.url()}>Agencies</a>
                         <a href="/#resources">Resources</a>
                     </div>
                     <div>
@@ -76,7 +77,7 @@ export function SiteFooter() {
                     <div>
                         <strong>About OPAP</strong>
                         <a href="/#trust">Why OPAP</a>
-                        <a href="/agencies">Accreditation</a>
+                        <a href={agenciesIndex.url()}>Accreditation</a>
                         <a href="/contact">Contact us</a>
                     </div>
                 </div>

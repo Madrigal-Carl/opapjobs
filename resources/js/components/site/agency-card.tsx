@@ -8,6 +8,7 @@ import {
     Star,
 } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
+import { show as agencyShow } from '@/routes/agencies';
 import type { Agency } from '@/types/agency';
 
 export function slugifyAgencyName(name: string): string {
@@ -28,7 +29,7 @@ type AgencyCardProps = {
 export function AgencyCard({
     agency,
     testId,
-    linkHref = `/agency/${slugifyAgencyName(agency.name)}`,
+    linkHref = agencyShow.url(agency.slug),
     linkLabel = 'View agency',
 }: AgencyCardProps) {
     const PathwayIcon = agency.pathway === 'landbased' ? Building2 : Ship;

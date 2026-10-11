@@ -8,9 +8,10 @@ import {
     Ship,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { AgencyCard, slugifyAgencyName } from '@/components/site/agency-card';
+import { AgencyCard } from '@/components/site/agency-card';
 import { JobListingCard } from '@/components/site/job-listing-card';
 import { countryOptions } from '@/data/countries';
+import { index as agenciesIndex } from '@/routes/agencies';
 import {
     homeAgencies,
     homeJobs,
@@ -308,13 +309,12 @@ export default function Home() {
                                 agency={agency}
                                 key={agency.name}
                                 testId={`card-agency-${agency.mark}`}
-                                linkHref={`/agency/${slugifyAgencyName(agency.name)}`}
                             />
                         ))}
                     </div>
                     <a
                         className="text-link centered-link"
-                        href="/agencies"
+                        href={agenciesIndex.url()}
                         data-testid="link-view-all-agencies"
                     >
                         View all accredited agencies <ArrowRight size={17} />
@@ -378,7 +378,6 @@ export default function Home() {
                                 agency={agency}
                                 key={agency.name}
                                 testId={`card-top-hirer-${agency.mark}`}
-                                linkHref={`/agency/${slugifyAgencyName(agency.name)}`}
                             />
                         ))}
                     </div>

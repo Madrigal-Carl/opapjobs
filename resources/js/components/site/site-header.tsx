@@ -20,6 +20,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Brand } from '@/components/site/brand';
 import { SignedInMenu } from '@/components/site/signed-in-menu';
+import { index as agenciesIndex } from '@/routes/agencies';
 
 export function SiteHeader() {
     const { url, props } = usePage();
@@ -163,7 +164,7 @@ export function SiteHeader() {
                             )}
                         </div>
                         <a
-                            href="/agencies"
+                            href={agenciesIndex.url()}
                             className={isAgencies ? 'nav-active' : undefined}
                             aria-current={isAgencies ? 'page' : undefined}
                             data-testid="link-nav-agencies"
@@ -351,7 +352,7 @@ export function SiteHeader() {
                             Home <ArrowRight size={18} />
                         </a>
                         <a
-                            href="/agencies"
+                            href={agenciesIndex.url()}
                             onClick={closeMobile}
                             data-testid="link-mobile-agencies"
                         >

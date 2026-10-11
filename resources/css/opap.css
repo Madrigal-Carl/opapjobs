@@ -13,6 +13,10 @@
     overflow: visible;
 }
 
+.opap-page.agency-profile-page {
+    overflow: visible;
+}
+
 .shell {
     width: min(1180px, calc(100% - 48px));
     margin: 0 auto;
@@ -2449,9 +2453,10 @@
 }
 
 .agency-search-field {
-    display: block;
+    display: flex;
     min-width: 0;
-    padding: 10px 14px 11px;
+    align-items: center;
+    padding: 12px 14px;
     border: 1px solid var(--line);
     border-radius: 4px;
     background: #fff;
@@ -2473,7 +2478,6 @@
     box-shadow: 0 0 0 3px rgba(55, 159, 154, 0.14);
 }
 
-.agency-search-field > span,
 .agency-sort-wrap label {
     display: block;
     margin-bottom: 6px;
@@ -2486,6 +2490,8 @@
 
 .agency-search-field > div {
     display: flex;
+    flex: 1;
+    min-width: 0;
     align-items: center;
     gap: 8px;
 }
@@ -2505,6 +2511,12 @@
     background: transparent;
     color: var(--ink);
     font-size: 13px;
+}
+
+.agency-search-field input:focus-visible,
+.search-field input:focus-visible,
+.search-field select:focus-visible {
+    outline: none;
 }
 
 .agency-search-field input::placeholder {
@@ -2556,7 +2568,7 @@
 
 .agency-search-button {
     display: inline-flex;
-    min-height: 69px;
+    min-height: 48px;
     align-items: center;
     justify-content: center;
     gap: 9px;
@@ -2837,18 +2849,17 @@
     .agencies-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
-}
 
-@media (max-width: 767.98px) {
     .agency-search-form {
         grid-template-columns: 1fr 1fr;
     }
 
     .agency-search-button {
-        min-height: 48px;
         grid-column: 1 / -1;
     }
+}
 
+@media (max-width: 767.98px) {
     .agencies-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }

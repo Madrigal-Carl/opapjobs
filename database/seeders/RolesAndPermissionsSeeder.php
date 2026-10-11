@@ -19,13 +19,14 @@ class RolesAndPermissionsSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $accessDashboard = PermissionModel::findOrCreate(Permission::AccessDashboard->value, 'web');
+        $viewAgencyProfile = PermissionModel::findOrCreate(Permission::ViewAgencyProfile->value, 'web');
 
         $roles = collect(Role::cases())
             ->mapWithKeys(fn (Role $role): array => [
                 $role->value => RoleModel::findOrCreate($role->value, 'web'),
             ]);
 
-        $roles[Role::Applicant->value]->syncPermissions([]);
+        $roles[Role::Applicant->value]->syncPermissions([$viewAgencyProfile]);
 
         foreach ([Role::Employer, Role::Admin, Role::Superadmin] as $role) {
             $roles[$role->value]->syncPermissions([$accessDashboard]);

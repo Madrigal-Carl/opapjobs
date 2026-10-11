@@ -22,6 +22,13 @@ void createInertiaApp({
                 return [AppLayout, SettingsLayout];
             case name === 'home':
                 return PublicLayout;
+            case name === 'agencies/index':
+                return [PublicLayout, { className: 'agencies-page' }];
+            case name === 'agencies/show':
+                return [
+                    PublicLayout,
+                    { className: 'agency-profile-page', footer: false },
+                ];
             default:
                 return AppLayout;
         }

@@ -1,12 +1,14 @@
 <?php
 
+use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\ViewController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'dashboard.access'])->group(function () {
-    Route::get('settings', fn () => redirect('/settings/profile'));
+    Route::get('settings', [RedirectController::class, 'settings']);
 
     Route::get('settings/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -23,5 +25,5 @@ Route::middleware(['auth', 'verified', 'dashboard.access'])->group(function () {
         ->middleware('throttle:6,1')
         ->name('user-password.update');
 
-    Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+    Route::get('settings/appearance', [ViewController::class, 'settingsAppearance'])->name('appearance.edit');
 });
