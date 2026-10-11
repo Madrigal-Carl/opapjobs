@@ -1,11 +1,9 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import { ArrowLeft, Eye, EyeOff, Globe, LockKeyhole, Mail } from 'lucide-react';
+import { ArrowLeft, Globe, Mail } from 'lucide-react';
 import { useState } from 'react';
-import {
-    authErrorClasses,
-    authInputClasses,
-    authLabelClasses,
-} from '@/lib/auth-form-styles';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
+import { PasswordField } from '@/components/ui/password-field';
 import { home, register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
@@ -18,7 +16,6 @@ type Props = {
 type SocialProvider = 'Google' | 'Facebook';
 
 export default function Login({ status, canResetPassword }: Props) {
-    const [showPassword, setShowPassword] = useState(false);
     const [notice, setNotice] = useState('');
 
     const handleSocialSignIn = (provider: SocialProvider) => {
@@ -87,9 +84,10 @@ export default function Login({ status, canResetPassword }: Props) {
                     </div>
 
                     <div className="space-y-3">
-                        <button
-                            className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-[var(--line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--teal)] hover:bg-white focus-visible:outline-[var(--teal)]"
+                        <Button
                             type="button"
+                            variant="secondary"
+                            className="w-full gap-3 py-3"
                             onClick={() => handleSocialSignIn('Google')}
                             aria-label="Continue with Google"
                             data-testid="button-signin-google"
@@ -101,10 +99,11 @@ export default function Login({ status, canResetPassword }: Props) {
                                 className="h-4 w-4"
                             />
                             Continue with Google
-                        </button>
-                        <button
-                            className="inline-flex w-full items-center justify-center gap-3 rounded-md bg-[#1877f2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-[var(--teal)]"
+                        </Button>
+                        <Button
                             type="button"
+                            variant="facebook"
+                            className="w-full gap-3 py-3"
                             onClick={() => handleSocialSignIn('Facebook')}
                             aria-label="Continue with Facebook"
                             data-testid="button-signin-facebook"
@@ -116,7 +115,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                 className="h-4 w-4"
                             />
                             Continue with Facebook
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="my-7 flex items-center gap-4 text-[10px] font-bold tracking-[0.14em] text-[var(--slate)] uppercase">
@@ -132,119 +131,28 @@ export default function Login({ status, canResetPassword }: Props) {
                     >
                         {({ processing, errors }) => (
                             <>
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signin-email"
-                                    >
-                                        Email address
-                                    </label>
-                                    <div className="relative">
-                                        <Mail
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pl-11`}
-                                            id="signin-email"
-                                            type="email"
-                                            name="email"
-                                            autoComplete="email"
-                                            aria-invalid={Boolean(errors.email)}
-                                            aria-describedby={
-                                                errors.email
-                                                    ? 'signin-email-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            data-testid="input-signin-email"
-                                        />
-                                    </div>
-                                    {errors.email && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signin-email-error"
-                                            role="alert"
-                                        >
-                                            {errors.email}
-                                        </p>
-                                    )}
-                                </div>
+                                <Field
+                                    id="signin-email"
+                                    label="Email address"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    required
+                                    error={errors.email}
+                                    icon={<Mail size={17} aria-hidden="true" />}
+                                    data-testid="input-signin-email"
+                                />
 
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signin-password"
-                                    >
-                                        Password
-                                    </label>
-                                    <div className="relative">
-                                        <LockKeyhole
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pr-12 pl-11`}
-                                            id="signin-password"
-                                            type={
-                                                showPassword
-                                                    ? 'text'
-                                                    : 'password'
-                                            }
-                                            name="password"
-                                            autoComplete="current-password"
-                                            aria-invalid={Boolean(
-                                                errors.password,
-                                            )}
-                                            aria-describedby={
-                                                errors.password
-                                                    ? 'signin-password-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            data-testid="input-signin-password"
-                                        />
-                                        <button
-                                            className="absolute top-1/2 right-3 -translate-y-1/2 rounded p-1 text-[var(--slate)] transition hover:text-[var(--navy)]"
-                                            type="button"
-                                            onClick={() =>
-                                                setShowPassword(
-                                                    (current) => !current,
-                                                )
-                                            }
-                                            aria-label={
-                                                showPassword
-                                                    ? 'Hide password'
-                                                    : 'Show password'
-                                            }
-                                            aria-pressed={showPassword}
-                                            data-testid="button-signin-toggle-password"
-                                        >
-                                            {showPassword ? (
-                                                <EyeOff
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            ) : (
-                                                <Eye
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            )}
-                                        </button>
-                                    </div>
-                                    {errors.password && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signin-password-error"
-                                            role="alert"
-                                        >
-                                            {errors.password}
-                                        </p>
-                                    )}
-                                </div>
+                                <PasswordField
+                                    id="signin-password"
+                                    label="Password"
+                                    name="password"
+                                    autoComplete="current-password"
+                                    required
+                                    error={errors.password}
+                                    toggleTestId="button-signin-toggle-password"
+                                    data-testid="input-signin-password"
+                                />
 
                                 <div className="flex items-center justify-between gap-4 text-sm">
                                     <label className="flex items-center gap-2 text-[var(--slate)]">
@@ -267,14 +175,14 @@ export default function Login({ status, canResetPassword }: Props) {
                                     )}
                                 </div>
 
-                                <button
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 py-3.5 text-sm font-bold text-[var(--navy)] transition hover:brightness-95 focus-visible:outline-[var(--teal)] disabled:opacity-60"
+                                <Button
                                     type="submit"
+                                    className="w-full"
                                     disabled={processing}
                                     data-testid="button-signin-submit"
                                 >
                                     {processing ? 'Signing in…' : 'Sign in'}
-                                </button>
+                                </Button>
 
                                 <div
                                     className="min-h-5 text-sm"

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AlertError from '@/components/alert-error';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Dialog,
     DialogContent,
@@ -71,7 +72,7 @@ function TwoFactorSetupStep({
             ) : (
                 <>
                     <div className="mx-auto flex max-w-md overflow-hidden">
-                        <div className="mx-auto aspect-square w-64 rounded-lg border border-border">
+                        <div className="mx-auto aspect-square w-64 rounded-lg border border-[var(--line)] bg-white">
                             <div className="z-10 flex h-full w-full items-center justify-center p-5">
                                 {qrCodeSvg ? (
                                     <div
@@ -94,29 +95,31 @@ function TwoFactorSetupStep({
                     </div>
 
                     <div className="relative flex w-full items-center justify-center">
-                        <div className="absolute inset-0 top-1/2 h-px w-full bg-border" />
-                        <span className="relative bg-card px-2 py-1">
+                        <div className="absolute inset-0 top-1/2 h-px w-full bg-[var(--line)]" />
+                        <span className="relative bg-white px-2 py-1 text-[var(--slate)]">
                             or, enter the code manually
                         </span>
                     </div>
 
                     <div className="flex w-full space-x-2">
-                        <div className="flex w-full items-stretch overflow-hidden rounded-xl border border-border">
+                        <div className="flex w-full items-stretch overflow-hidden rounded-md border border-[var(--line)] bg-white">
                             {!manualSetupKey ? (
-                                <div className="flex h-full w-full items-center justify-center bg-muted p-3">
+                                <div className="flex h-full w-full items-center justify-center p-3">
                                     <Spinner />
                                 </div>
                             ) : (
                                 <>
-                                    <input
+                                    <Input
                                         type="text"
                                         readOnly
                                         value={manualSetupKey}
-                                        className="h-full w-full bg-background p-3 text-foreground outline-none"
+                                        className="h-auto rounded-none border-0 font-mono text-[var(--navy)] focus-visible:ring-0"
                                     />
                                     <button
+                                        type="button"
                                         onClick={() => copy(manualSetupKey)}
-                                        className="border-l border-border px-3 hover:bg-muted"
+                                        aria-label="Copy setup key"
+                                        className="border-l border-[var(--line)] px-3 text-[var(--slate)] hover:bg-[var(--surface-soft)] hover:text-[var(--navy)]"
                                     >
                                         <IconComponent className="w-4" />
                                     </button>
@@ -197,7 +200,7 @@ function TwoFactorVerificationStep({
                         <div className="flex w-full space-x-5">
                             <Button
                                 type="button"
-                                variant="outline"
+                                variant="secondary"
                                 className="flex-1"
                                 onClick={onBack}
                                 disabled={processing}
@@ -316,11 +319,13 @@ export default function TwoFactorSetupModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="border-[var(--line)] bg-white sm:max-w-md">
                 <DialogHeader className="flex items-center justify-center">
                     <GridScanIcon />
-                    <DialogTitle>{modalConfig.title}</DialogTitle>
-                    <DialogDescription className="text-center">
+                    <DialogTitle className="font-serif text-xl font-bold text-[var(--navy)]">
+                        {modalConfig.title}
+                    </DialogTitle>
+                    <DialogDescription className="text-center text-[var(--slate)]">
                         {modalConfig.description}
                     </DialogDescription>
                 </DialogHeader>

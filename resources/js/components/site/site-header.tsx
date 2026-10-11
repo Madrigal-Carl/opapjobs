@@ -262,7 +262,7 @@ export function SiteHeader() {
                                         href="/dashboard/overview"
                                         data-testid="link-dashboard"
                                     >
-                                        Dashboard
+                                        Overview
                                     </a>
                                 )}
                                 <SignedInMenu

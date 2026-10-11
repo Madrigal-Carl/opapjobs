@@ -5,7 +5,7 @@ import { overview } from '@/routes/dashboard';
 export default function DashboardOverview() {
     return (
         <>
-            <Head title="Dashboard" />
+            <Head title="Overview" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="grid auto-rows-min gap-4 md:grid-cols-3">
                     <div className="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
@@ -29,7 +29,7 @@ export default function DashboardOverview() {
 DashboardOverview.layout = {
     breadcrumbs: [
         {
-            title: 'Dashboard',
+            title: 'Overview',
             href: overview(),
         },
     ],

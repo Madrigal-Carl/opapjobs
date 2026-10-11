@@ -1,19 +1,9 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    Eye,
-    EyeOff,
-    Globe,
-    LockKeyhole,
-    Mail,
-    User,
-} from 'lucide-react';
+import { ArrowLeft, Globe, Mail, User } from 'lucide-react';
 import { useState } from 'react';
-import {
-    authErrorClasses,
-    authInputClasses,
-    authLabelClasses,
-} from '@/lib/auth-form-styles';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
+import { PasswordField } from '@/components/ui/password-field';
 import { home, login } from '@/routes';
 import { store } from '@/routes/register';
 
@@ -24,8 +14,6 @@ type Props = {
 type SocialProvider = 'Google' | 'Facebook';
 
 export default function Register({ passwordRules }: Props) {
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [notice, setNotice] = useState('');
 
     const handleSocialSignUp = (provider: SocialProvider) => {
@@ -95,9 +83,10 @@ export default function Register({ passwordRules }: Props) {
                     </div>
 
                     <div className="space-y-3">
-                        <button
-                            className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-[var(--line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--teal)] hover:bg-white focus-visible:outline-[var(--teal)]"
+                        <Button
                             type="button"
+                            variant="secondary"
+                            className="w-full gap-3 py-3"
                             onClick={() => handleSocialSignUp('Google')}
                             aria-label="Continue with Google"
                             data-testid="button-signup-google"
@@ -109,10 +98,11 @@ export default function Register({ passwordRules }: Props) {
                                 className="h-4 w-4"
                             />
                             Continue with Google
-                        </button>
-                        <button
-                            className="inline-flex w-full items-center justify-center gap-3 rounded-md bg-[#1877f2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-[var(--teal)]"
+                        </Button>
+                        <Button
                             type="button"
+                            variant="facebook"
+                            className="w-full gap-3 py-3"
                             onClick={() => handleSocialSignUp('Facebook')}
                             aria-label="Continue with Facebook"
                             data-testid="button-signup-facebook"
@@ -124,7 +114,7 @@ export default function Register({ passwordRules }: Props) {
                                 className="h-4 w-4"
                             />
                             Continue with Facebook
-                        </button>
+                        </Button>
                     </div>
 
                     <div className="my-7 flex items-center gap-4 text-[10px] font-bold tracking-[0.14em] text-[var(--slate)] uppercase">
@@ -140,234 +130,52 @@ export default function Register({ passwordRules }: Props) {
                     >
                         {({ processing, errors }) => (
                             <>
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signup-full-name"
-                                    >
-                                        Full name
-                                    </label>
-                                    <div className="relative">
-                                        <User
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pl-11`}
-                                            id="signup-full-name"
-                                            type="text"
-                                            name="name"
-                                            autoComplete="name"
-                                            aria-invalid={Boolean(errors.name)}
-                                            aria-describedby={
-                                                errors.name
-                                                    ? 'signup-full-name-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            data-testid="input-signup-full-name"
-                                        />
-                                    </div>
-                                    {errors.name && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signup-full-name-error"
-                                            role="alert"
-                                        >
-                                            {errors.name}
-                                        </p>
-                                    )}
-                                </div>
+                                <Field
+                                    id="signup-full-name"
+                                    label="Full name"
+                                    type="text"
+                                    name="name"
+                                    autoComplete="name"
+                                    required
+                                    error={errors.name}
+                                    icon={<User size={17} aria-hidden="true" />}
+                                    data-testid="input-signup-full-name"
+                                />
 
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signup-email"
-                                    >
-                                        Email address
-                                    </label>
-                                    <div className="relative">
-                                        <Mail
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pl-11`}
-                                            id="signup-email"
-                                            type="email"
-                                            name="email"
-                                            autoComplete="email"
-                                            aria-invalid={Boolean(errors.email)}
-                                            aria-describedby={
-                                                errors.email
-                                                    ? 'signup-email-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            data-testid="input-signup-email"
-                                        />
-                                    </div>
-                                    {errors.email && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signup-email-error"
-                                            role="alert"
-                                        >
-                                            {errors.email}
-                                        </p>
-                                    )}
-                                </div>
+                                <Field
+                                    id="signup-email"
+                                    label="Email address"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    required
+                                    error={errors.email}
+                                    icon={<Mail size={17} aria-hidden="true" />}
+                                    data-testid="input-signup-email"
+                                />
 
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signup-password"
-                                    >
-                                        Password
-                                    </label>
-                                    <div className="relative">
-                                        <LockKeyhole
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pr-12 pl-11`}
-                                            id="signup-password"
-                                            type={
-                                                showPassword
-                                                    ? 'text'
-                                                    : 'password'
-                                            }
-                                            name="password"
-                                            autoComplete="new-password"
-                                            aria-invalid={Boolean(
-                                                errors.password,
-                                            )}
-                                            aria-describedby={
-                                                errors.password
-                                                    ? 'signup-password-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            passwordrules={passwordRules}
-                                            data-testid="input-signup-password"
-                                        />
-                                        <button
-                                            className="absolute top-1/2 right-3 -translate-y-1/2 rounded p-1 text-[var(--slate)] transition hover:text-[var(--navy)]"
-                                            type="button"
-                                            onClick={() =>
-                                                setShowPassword(
-                                                    (current) => !current,
-                                                )
-                                            }
-                                            aria-label={
-                                                showPassword
-                                                    ? 'Hide password'
-                                                    : 'Show password'
-                                            }
-                                            aria-pressed={showPassword}
-                                            data-testid="button-signup-toggle-password"
-                                        >
-                                            {showPassword ? (
-                                                <EyeOff
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            ) : (
-                                                <Eye
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            )}
-                                        </button>
-                                    </div>
-                                    {errors.password && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signup-password-error"
-                                            role="alert"
-                                        >
-                                            {errors.password}
-                                        </p>
-                                    )}
-                                </div>
+                                <PasswordField
+                                    id="signup-password"
+                                    label="Password"
+                                    name="password"
+                                    autoComplete="new-password"
+                                    required
+                                    passwordrules={passwordRules}
+                                    error={errors.password}
+                                    toggleTestId="button-signup-toggle-password"
+                                    data-testid="input-signup-password"
+                                />
 
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="signup-confirm-password"
-                                    >
-                                        Confirm password
-                                    </label>
-                                    <div className="relative">
-                                        <LockKeyhole
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pr-12 pl-11`}
-                                            id="signup-confirm-password"
-                                            type={
-                                                showConfirmPassword
-                                                    ? 'text'
-                                                    : 'password'
-                                            }
-                                            name="password_confirmation"
-                                            autoComplete="new-password"
-                                            aria-invalid={Boolean(
-                                                errors.password_confirmation,
-                                            )}
-                                            aria-describedby={
-                                                errors.password_confirmation
-                                                    ? 'signup-confirm-password-error'
-                                                    : undefined
-                                            }
-                                            required
-                                            data-testid="input-signup-confirm-password"
-                                        />
-                                        <button
-                                            className="absolute top-1/2 right-3 -translate-y-1/2 rounded p-1 text-[var(--slate)] transition hover:text-[var(--navy)]"
-                                            type="button"
-                                            onClick={() =>
-                                                setShowConfirmPassword(
-                                                    (current) => !current,
-                                                )
-                                            }
-                                            aria-label={
-                                                showConfirmPassword
-                                                    ? 'Hide confirm password'
-                                                    : 'Show confirm password'
-                                            }
-                                            aria-pressed={showConfirmPassword}
-                                            data-testid="button-signup-toggle-confirm-password"
-                                        >
-                                            {showConfirmPassword ? (
-                                                <EyeOff
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            ) : (
-                                                <Eye
-                                                    size={18}
-                                                    aria-hidden="true"
-                                                />
-                                            )}
-                                        </button>
-                                    </div>
-                                    {errors.password_confirmation && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="signup-confirm-password-error"
-                                            role="alert"
-                                        >
-                                            {errors.password_confirmation}
-                                        </p>
-                                    )}
-                                </div>
+                                <PasswordField
+                                    id="signup-confirm-password"
+                                    label="Confirm password"
+                                    name="password_confirmation"
+                                    autoComplete="new-password"
+                                    required
+                                    error={errors.password_confirmation}
+                                    toggleTestId="button-signup-toggle-confirm-password"
+                                    data-testid="input-signup-confirm-password"
+                                />
 
                                 <div className="text-sm">
                                     <label className="flex items-start gap-2.5 text-[var(--slate)]">
@@ -385,16 +193,16 @@ export default function Register({ passwordRules }: Props) {
                                     </label>
                                 </div>
 
-                                <button
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 py-3.5 text-sm font-bold text-[var(--navy)] transition hover:brightness-95 focus-visible:outline-[var(--teal)] disabled:opacity-60"
+                                <Button
                                     type="submit"
+                                    className="w-full"
                                     disabled={processing}
                                     data-testid="button-signup-submit"
                                 >
                                     {processing
                                         ? 'Creating account…'
                                         : 'Create account'}
-                                </button>
+                                </Button>
 
                                 <div
                                     className="min-h-5 text-sm"

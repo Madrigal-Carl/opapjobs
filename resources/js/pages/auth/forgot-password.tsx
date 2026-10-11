@@ -1,10 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Globe, Mail } from 'lucide-react';
-import {
-    authErrorClasses,
-    authInputClasses,
-    authLabelClasses,
-} from '@/lib/auth-form-styles';
+import { Button } from '@/components/ui/button';
+import { Field } from '@/components/ui/field';
 import { home, login } from '@/routes';
 import { email } from '@/routes/password';
 
@@ -85,50 +82,22 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     <Form {...email.form()} className="space-y-5">
                         {({ processing, errors }) => (
                             <>
-                                <div>
-                                    <label
-                                        className={authLabelClasses}
-                                        htmlFor="forgot-email"
-                                    >
-                                        Email address
-                                    </label>
-                                    <div className="relative">
-                                        <Mail
-                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
-                                            size={17}
-                                            aria-hidden="true"
-                                        />
-                                        <input
-                                            className={`${authInputClasses} pl-11`}
-                                            id="forgot-email"
-                                            type="email"
-                                            name="email"
-                                            autoComplete="email"
-                                            autoFocus
-                                            required
-                                            aria-invalid={Boolean(errors.email)}
-                                            aria-describedby={
-                                                errors.email
-                                                    ? 'forgot-email-error'
-                                                    : undefined
-                                            }
-                                            data-testid="input-forgot-email"
-                                        />
-                                    </div>
-                                    {errors.email && (
-                                        <p
-                                            className={authErrorClasses}
-                                            id="forgot-email-error"
-                                            role="alert"
-                                        >
-                                            {errors.email}
-                                        </p>
-                                    )}
-                                </div>
+                                <Field
+                                    id="forgot-email"
+                                    label="Email address"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    autoFocus
+                                    required
+                                    error={errors.email}
+                                    icon={<Mail size={17} aria-hidden="true" />}
+                                    data-testid="input-forgot-email"
+                                />
 
-                                <button
-                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 py-3.5 text-sm font-bold text-[var(--navy)] transition hover:brightness-95 focus-visible:outline-[var(--teal)] disabled:opacity-60"
+                                <Button
                                     type="submit"
+                                    className="w-full"
                                     disabled={processing}
                                     data-test="email-password-reset-link-button"
                                     data-testid="button-forgot-submit"
@@ -136,7 +105,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                     {processing
                                         ? 'Sending link…'
                                         : 'Email password reset link'}
-                                </button>
+                                </Button>
                             </>
                         )}
                     </Form>

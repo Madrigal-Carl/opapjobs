@@ -1,6 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ArrowLeft, Globe } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
+import { Button } from '@/components/ui/button';
 import { home, logout } from '@/routes';
 import { send } from '@/routes/verification';
 
@@ -81,15 +81,14 @@ export default function VerifyEmail({ status }: { status?: string }) {
 
                     <Form {...send.form()} className="space-y-5">
                         {({ processing }) => (
-                            <button
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 py-3.5 text-sm font-bold text-[var(--navy)] transition hover:brightness-95 focus-visible:outline-[var(--teal)] disabled:opacity-60"
+                            <Button
                                 type="submit"
-                                disabled={processing}
+                                className="w-full"
+                                loading={processing}
                                 data-testid="button-verify-resend"
                             >
-                                {processing && <Spinner />}
                                 Resend verification email
-                            </button>
+                            </Button>
                         )}
                     </Form>
 
