@@ -50,6 +50,10 @@ export default defineConfig({
             'resources/js/components/ui/*',
             'resources/js/routes/**',
             'resources/js/wayfinder/**',
+            '.github/**',
+            '.opencode/**',
+            '.codex/**',
+            '.impeccable/**',
         ],
         options: {
             denyWarnings: true,
@@ -65,6 +69,9 @@ export default defineConfig({
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
             '.github/**',
+            '.opencode/**',
+            '.codex/**',
+            '.impeccable/**',
             'composer.json',
             'resources/js/components/ui/*',
             'resources/views/mail/*',

@@ -1,23 +1,23 @@
 {
-  "version": 1,
-  "skills": {
-    "browser-use": {
-      "source": "browser-use/browser-use",
-      "sourceType": "github",
-      "skillPath": "skills/browser-use/SKILL.md",
-      "computedHash": "d35bf6e89bb0c01d925dfb9bf2b7efb1f54d78a8ee41618be39549724135de86"
-    },
-    "design-taste-frontend": {
-      "source": "Leonxlnx/taste-skill",
-      "sourceType": "github",
-      "skillPath": "skills/taste-skill/SKILL.md",
-      "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
-    },
-    "impeccable": {
-      "source": "pbakaus/impeccable",
-      "sourceType": "github",
-      "skillPath": ".agents/skills/impeccable/SKILL.md",
-      "computedHash": "dd39b18a094e4ab8c741e681ee76b02d337356f0442d822a7338fac5b12a03fb"
+    "version": 1,
+    "skills": {
+        "browser-use": {
+            "source": "browser-use/browser-use",
+            "sourceType": "github",
+            "skillPath": "skills/browser-use/SKILL.md",
+            "computedHash": "d35bf6e89bb0c01d925dfb9bf2b7efb1f54d78a8ee41618be39549724135de86"
+        },
+        "design-taste-frontend": {
+            "source": "Leonxlnx/taste-skill",
+            "sourceType": "github",
+            "skillPath": "skills/taste-skill/SKILL.md",
+            "computedHash": "899b84384f74f540ea5284d9b2e9234e050998b42eacc805410b518d4226c0b3"
+        },
+        "impeccable": {
+            "source": "pbakaus/impeccable",
+            "sourceType": "github",
+            "skillPath": ".agents/skills/impeccable/SKILL.md",
+            "computedHash": "dd39b18a094e4ab8c741e681ee76b02d337356f0442d822a7338fac5b12a03fb"
+        }
     }
-  }
 }
