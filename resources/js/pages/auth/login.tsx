@@ -1,13 +1,21 @@
-import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import TextLink from '@/components/text-link';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Spinner } from '@/components/ui/spinner';
-import { register } from '@/routes';
+import { Form, Head, Link } from '@inertiajs/react';
+import {
+    ArrowLeft,
+    Eye,
+    EyeOff,
+    Facebook,
+    Globe,
+    LockKeyhole,
+    Mail,
+} from 'lucide-react';
+import { useState } from 'react';
+import { GoogleIcon } from '@/components/site/google-icon';
+import {
+    authErrorClasses,
+    authInputClasses,
+    authLabelClasses,
+} from '@/lib/auth-form-styles';
+import { home, register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
 
@@ -16,99 +24,296 @@ type Props = {
     canResetPassword: boolean;
 };
 
+type SocialProvider = 'Google' | 'Facebook';
+
 export default function Login({ status, canResetPassword }: Props) {
+    const [showPassword, setShowPassword] = useState(false);
+    const [notice, setNotice] = useState('');
+
+    const handleSocialSignIn = (provider: SocialProvider) => {
+        setNotice(`${provider} sign-in isn't connected yet — this is a demo.`);
+    };
+
     return (
-        <>
-            <Head title="Log in" />
-
-            <Form
-                {...store.form()}
-                resetOnSuccess={['password']}
-                className="flex flex-col gap-6"
+        <main className="signin-page min-h-screen bg-[var(--cream)] text-[var(--ink)] lg:flex">
+            <Head title="Sign in" />
+            <section
+                className="signin-photo relative flex min-h-[30vh] flex-1 items-end overflow-hidden px-6 py-7 text-white sm:px-10 sm:py-9 lg:sticky lg:top-0 lg:h-screen lg:w-1/2 lg:self-start lg:px-12 lg:py-12"
+                role="img"
+                aria-label="A Filipino port worker in a safety helmet looking across a working harbor"
             >
-                {({ processing, errors }) => (
-                    <>
-                        <div className="grid gap-6">
-                            <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    name="email"
-                                    required
-                                    autoFocus
-                                    tabIndex={1}
-                                    autoComplete="email"
-                                    placeholder="email@example.com"
-                                />
-                                <InputError message={errors.email} />
-                            </div>
+                <div
+                    className="signin-photo-wash absolute inset-0"
+                    aria-hidden="true"
+                />
+                <Link
+                    className="brand relative z-10 w-fit"
+                    href={home()}
+                    aria-label="OPAP Job Abroad home"
+                    data-testid="link-signin-brand-home"
+                >
+                    <Globe
+                        className="brand-globe"
+                        size={25}
+                        strokeWidth={1.8}
+                        aria-hidden="true"
+                    />
+                    <span className="brand-name">OPAP Job Abroad</span>
+                </Link>
+                <div className="relative z-10 ml-auto hidden max-w-[410px] pb-1 lg:block">
+                    <p className="font-mono text-[10px] font-bold tracking-[0.16em] text-[var(--amber)] uppercase">
+                        A clearer path forward
+                    </p>
+                    <p className="mt-4 font-serif text-4xl leading-[1.02] font-bold tracking-[-0.06em]">
+                        Overseas jobs you can verify before you apply.
+                    </p>
+                </div>
+            </section>
 
-                            <div className="grid gap-2">
-                                <div className="flex items-center">
-                                    <Label htmlFor="password">Password</Label>
-                                    {canResetPassword && (
-                                        <TextLink
-                                            href={request()}
-                                            className="ml-auto text-sm"
-                                            tabIndex={5}
+            <section className="flex flex-1 items-center bg-[var(--cream)] px-6 py-10 sm:px-12 sm:py-14 lg:min-h-screen lg:w-1/2 lg:px-16 xl:px-20">
+                <div className="mx-auto w-full max-w-[480px]">
+                    <div className="mb-8">
+                        <div className="mb-4 flex items-center gap-3 font-mono text-[10px] font-bold tracking-[0.16em] text-[var(--teal)] uppercase">
+                            <Link
+                                className="inline-flex items-center gap-1.5 transition hover:underline hover:underline-offset-4"
+                                href={home()}
+                                data-testid="link-signin-return"
+                            >
+                                <ArrowLeft
+                                    size={14}
+                                    strokeWidth={2.5}
+                                    aria-hidden="true"
+                                />
+                                RETURN
+                            </Link>
+                        </div>
+                        <h1 className="font-serif text-3xl font-bold tracking-[-0.05em] text-[var(--navy)] sm:text-[40px]">
+                            Sign in to OPAP Job Abroad
+                        </h1>
+                        <p className="mt-3 text-sm leading-6 text-[var(--slate)]">
+                            Candidates, agencies, and admins all sign in here.
+                        </p>
+                    </div>
+
+                    <div className="space-y-3">
+                        <button
+                            className="inline-flex w-full items-center justify-center gap-3 rounded-md border border-[var(--line)] bg-white px-5 py-3 text-sm font-semibold text-[var(--navy)] transition hover:border-[var(--teal)] hover:bg-white focus-visible:outline-[var(--teal)]"
+                            type="button"
+                            onClick={() => handleSocialSignIn('Google')}
+                            aria-label="Continue with Google"
+                            data-testid="button-signin-google"
+                        >
+                            <GoogleIcon />
+                            Continue with Google
+                        </button>
+                        <button
+                            className="inline-flex w-full items-center justify-center gap-3 rounded-md bg-[#1877f2] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95 focus-visible:outline-[var(--teal)]"
+                            type="button"
+                            onClick={() => handleSocialSignIn('Facebook')}
+                            aria-label="Continue with Facebook"
+                            data-testid="button-signin-facebook"
+                        >
+                            <Facebook
+                                size={18}
+                                fill="currentColor"
+                                aria-hidden="true"
+                            />
+                            Continue with Facebook
+                        </button>
+                    </div>
+
+                    <div className="my-7 flex items-center gap-4 text-[10px] font-bold tracking-[0.14em] text-[var(--slate)] uppercase">
+                        <span className="h-px flex-1 bg-[var(--line)]" />
+                        <span>or continue with email</span>
+                        <span className="h-px flex-1 bg-[var(--line)]" />
+                    </div>
+
+                    <Form
+                        {...store.form()}
+                        resetOnSuccess={['password']}
+                        className="space-y-5"
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <div>
+                                    <label
+                                        className={authLabelClasses}
+                                        htmlFor="signin-email"
+                                    >
+                                        Email address
+                                    </label>
+                                    <div className="relative">
+                                        <Mail
+                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
+                                            size={17}
+                                            aria-hidden="true"
+                                        />
+                                        <input
+                                            className={`${authInputClasses} pl-11`}
+                                            id="signin-email"
+                                            type="email"
+                                            name="email"
+                                            autoComplete="email"
+                                            aria-invalid={Boolean(errors.email)}
+                                            aria-describedby={
+                                                errors.email
+                                                    ? 'signin-email-error'
+                                                    : undefined
+                                            }
+                                            required
+                                            data-testid="input-signin-email"
+                                        />
+                                    </div>
+                                    {errors.email && (
+                                        <p
+                                            className={authErrorClasses}
+                                            id="signin-email-error"
+                                            role="alert"
                                         >
-                                            Forgot your password?
-                                        </TextLink>
+                                            {errors.email}
+                                        </p>
                                     )}
                                 </div>
-                                <PasswordInput
-                                    id="password"
-                                    name="password"
-                                    required
-                                    tabIndex={2}
-                                    autoComplete="current-password"
-                                    placeholder="Password"
-                                />
-                                <InputError message={errors.password} />
-                            </div>
 
-                            <div className="flex items-center space-x-3">
-                                <Checkbox
-                                    id="remember"
-                                    name="remember"
-                                    tabIndex={3}
-                                />
-                                <Label htmlFor="remember">Remember me</Label>
-                            </div>
+                                <div>
+                                    <label
+                                        className={authLabelClasses}
+                                        htmlFor="signin-password"
+                                    >
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <LockKeyhole
+                                            className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[var(--teal)]"
+                                            size={17}
+                                            aria-hidden="true"
+                                        />
+                                        <input
+                                            className={`${authInputClasses} pr-12 pl-11`}
+                                            id="signin-password"
+                                            type={
+                                                showPassword
+                                                    ? 'text'
+                                                    : 'password'
+                                            }
+                                            name="password"
+                                            autoComplete="current-password"
+                                            aria-invalid={Boolean(
+                                                errors.password,
+                                            )}
+                                            aria-describedby={
+                                                errors.password
+                                                    ? 'signin-password-error'
+                                                    : undefined
+                                            }
+                                            required
+                                            data-testid="input-signin-password"
+                                        />
+                                        <button
+                                            className="absolute top-1/2 right-3 -translate-y-1/2 rounded p-1 text-[var(--slate)] transition hover:text-[var(--navy)]"
+                                            type="button"
+                                            onClick={() =>
+                                                setShowPassword(
+                                                    (current) => !current,
+                                                )
+                                            }
+                                            aria-label={
+                                                showPassword
+                                                    ? 'Hide password'
+                                                    : 'Show password'
+                                            }
+                                            aria-pressed={showPassword}
+                                            data-testid="button-signin-toggle-password"
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff
+                                                    size={18}
+                                                    aria-hidden="true"
+                                                />
+                                            ) : (
+                                                <Eye
+                                                    size={18}
+                                                    aria-hidden="true"
+                                                />
+                                            )}
+                                        </button>
+                                    </div>
+                                    {errors.password && (
+                                        <p
+                                            className={authErrorClasses}
+                                            id="signin-password-error"
+                                            role="alert"
+                                        >
+                                            {errors.password}
+                                        </p>
+                                    )}
+                                </div>
 
-                            <Button
-                                type="submit"
-                                className="mt-4 w-full"
-                                tabIndex={4}
-                                disabled={processing}
-                                data-test="login-button"
+                                <div className="flex items-center justify-between gap-4 text-sm">
+                                    <label className="flex items-center gap-2 text-[var(--slate)]">
+                                        <input
+                                            className="h-4 w-4 rounded border-[var(--line)] accent-[var(--teal)]"
+                                            type="checkbox"
+                                            name="remember"
+                                            data-testid="checkbox-signin-remember-me"
+                                        />
+                                        Remember me
+                                    </label>
+                                    {canResetPassword && (
+                                        <Link
+                                            className="font-semibold text-[var(--teal)] underline-offset-4 transition hover:text-[var(--navy)] hover:underline"
+                                            href={request()}
+                                            data-testid="link-signin-forgot-password"
+                                        >
+                                            Forgot password?
+                                        </Link>
+                                    )}
+                                </div>
+
+                                <button
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 py-3.5 text-sm font-bold text-[var(--navy)] transition hover:brightness-95 focus-visible:outline-[var(--teal)] disabled:opacity-60"
+                                    type="submit"
+                                    disabled={processing}
+                                    data-testid="button-signin-submit"
+                                >
+                                    {processing ? 'Signing in…' : 'Sign in'}
+                                </button>
+
+                                <div
+                                    className="min-h-5 text-sm"
+                                    role="status"
+                                    aria-live="polite"
+                                    data-testid="status-signin"
+                                >
+                                    {notice && (
+                                        <p className="rounded-md border border-[var(--teal)]/30 bg-[var(--teal-light)] px-3 py-2.5 font-medium text-[var(--navy)]">
+                                            {notice}
+                                        </p>
+                                    )}
+                                    {status && (
+                                        <p className="rounded-md border border-[var(--teal)]/30 bg-[var(--teal-light)] px-3 py-2.5 font-medium text-[var(--navy)]">
+                                            {status}
+                                        </p>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </Form>
+
+                    <div className="mt-8 border-t border-[var(--line)] pt-7 text-center">
+                        <p className="text-sm text-[var(--slate)]">
+                            New to OPAP?{' '}
+                            <Link
+                                className="font-semibold text-[var(--teal)] underline-offset-4 transition hover:text-[var(--navy)] hover:underline"
+                                href={register()}
+                                data-testid="link-signin-create-account"
                             >
-                                {processing && <Spinner />}
-                                Log in
-                            </Button>
-                        </div>
-
-                        <div className="text-center text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <TextLink href={register()} tabIndex={5}>
-                                Sign up
-                            </TextLink>
-                        </div>
-                    </>
-                )}
-            </Form>
-
-            {status && (
-                <div className="mb-4 text-center text-sm font-medium text-green-600">
-                    {status}
+                                Create an account
+                            </Link>
+                        </p>
+                    </div>
                 </div>
-            )}
-        </>
+            </section>
+        </main>
     );
 }
-
-Login.layout = {
-    title: 'Log in to your account',
-    description: 'Enter your email and password below to log in',
-};
