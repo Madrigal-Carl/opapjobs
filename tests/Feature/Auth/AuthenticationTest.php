@@ -34,6 +34,26 @@ test('staff are redirected to the dashboard overview after login', function () {
     $response->assertRedirect(route('dashboard.overview', absolute: false));
 });
 
+test('unverified users are redirected to the verification notice after login', function () {
+    $user = User::factory()->applicant()->unverified()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('verification.notice'));
+});
+
+test('authenticated unverified users visiting the login screen are redirected to the verification notice', function () {
+    $user = User::factory()->unverified()->create();
+
+    $this->actingAs($user)
+        ->get(route('login'))
+        ->assertRedirect(route('verification.notice'));
+});
+
 test('users with two factor enabled are redirected to two factor challenge', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 

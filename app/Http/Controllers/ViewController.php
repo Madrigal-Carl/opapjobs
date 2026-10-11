@@ -28,9 +28,4 @@ class ViewController extends Controller
     {
         return Inertia::render('dashboard/overview');
     }
-
-    public function settingsAppearance(): Response
-    {
-        return Inertia::render('settings/appearance');
-    }
 }

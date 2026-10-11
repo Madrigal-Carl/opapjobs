@@ -50,6 +50,24 @@ test('email verification status is unchanged when the email address is unchanged
     expect($user->refresh()->email_verified_at)->not->toBeNull();
 });
 
+test('changing the email address requires verification on verified-only routes', function () {
+    $user = User::factory()->admin()->create();
+
+    $this
+        ->actingAs($user)
+        ->patch(route('profile.update'), [
+            'name' => 'Test User',
+            'email' => 'changed@example.com',
+        ])
+        ->assertRedirect(route('profile.edit'));
+
+    expect($user->refresh()->email_verified_at)->toBeNull();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertRedirect(route('verification.notice'));
+});
+
 test('user can delete their account', function () {
     $user = User::factory()->admin()->create();
 

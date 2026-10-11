@@ -8,7 +8,12 @@ import SettingsLayout from '@/layouts/settings/layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-const fullBleedAuthPages = ['auth/login', 'auth/register'];
+const fullBleedAuthPages = [
+    'auth/login',
+    'auth/register',
+    'auth/forgot-password',
+    'auth/verify-email',
+];
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
@@ -16,6 +21,8 @@ void createInertiaApp({
         switch (true) {
             case fullBleedAuthPages.includes(name):
                 return null;
+            case name === 'auth/confirm-password':
+                return AppLayout;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name.startsWith('settings/'):

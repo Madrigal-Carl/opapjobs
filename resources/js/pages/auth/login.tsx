@@ -1,15 +1,6 @@
 import { Form, Head, Link } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    Eye,
-    EyeOff,
-    Facebook,
-    Globe,
-    LockKeyhole,
-    Mail,
-} from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Globe, LockKeyhole, Mail } from 'lucide-react';
 import { useState } from 'react';
-import { GoogleIcon } from '@/components/site/google-icon';
 import {
     authErrorClasses,
     authInputClasses,
@@ -103,7 +94,12 @@ export default function Login({ status, canResetPassword }: Props) {
                             aria-label="Continue with Google"
                             data-testid="button-signin-google"
                         >
-                            <GoogleIcon />
+                            <img
+                                src="/images/google-icon.svg"
+                                alt=""
+                                aria-hidden="true"
+                                className="h-4 w-4"
+                            />
                             Continue with Google
                         </button>
                         <button
@@ -113,10 +109,11 @@ export default function Login({ status, canResetPassword }: Props) {
                             aria-label="Continue with Facebook"
                             data-testid="button-signin-facebook"
                         >
-                            <Facebook
-                                size={18}
-                                fill="currentColor"
+                            <img
+                                src="/images/facebook-icon.svg"
+                                alt=""
                                 aria-hidden="true"
+                                className="h-4 w-4"
                             />
                             Continue with Facebook
                         </button>

@@ -12,7 +12,7 @@ Route::middleware('redirect.staff')->group(function () {
 
 Route::get('agency/{slug}', [ViewController::class, 'agency'])
     ->where('slug', '[a-z0-9-]+')
-    ->middleware(['redirect.staff', 'auth', 'can:'.Permission::ViewAgencyProfile->value])
+    ->middleware(['redirect.staff', 'auth', 'verified', 'can:'.Permission::ViewAgencyProfile->value])
     ->name('agencies.show');
 
 Route::middleware(['auth', 'verified'])->group(function () {

@@ -33,17 +33,11 @@ export function SignedInMenu({
     open: boolean;
     onToggle: () => void;
 }) {
-    const { user, permissions } = usePage().props.auth;
+    const { user } = usePage().props.auth;
 
     if (!user) {
         return null;
     }
-
-    const canAccessDashboard =
-        permissions?.includes('access dashboard') ?? false;
-    const supportLinks = accountSupportLinks.filter(
-        ({ label }) => label !== 'Settings' || canAccessDashboard,
-    );
 
     return (
         <div
@@ -97,7 +91,7 @@ export function SignedInMenu({
                         </a>
                     ))}
                     <div className="account-menu-divider" role="separator" />
-                    {supportLinks.map(({ label, icon: Icon, href }) => (
+                    {accountSupportLinks.map(({ label, icon: Icon, href }) => (
                         <a
                             className="account-menu-item"
                             href={href ?? '#'}

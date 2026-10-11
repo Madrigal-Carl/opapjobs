@@ -26,6 +26,11 @@ class DatabaseSeeder extends Seeder
             'email' => 'applicant@example.com',
         ]);
 
+        User::factory()->applicant()->unverified()->create([
+            'name' => 'Unverified Applicant',
+            'email' => 'unverified-applicant@example.com',
+        ]);
+
         User::factory()->employer()->create([
             'name' => 'Employer',
             'email' => 'employer@example.com',
