@@ -1,5 +1,14 @@
 import type { Pathway } from './agency';
 
+export type QuestionAnswerType = 'yesno' | 'short' | 'paragraph';
+
+export type JobQuestion = {
+    id: string;
+    label: string;
+    type: QuestionAnswerType;
+    answer: string;
+};
+
 export type Job = {
     id: string;
     title: string;
@@ -12,4 +21,5 @@ export type Job = {
     featured?: boolean;
     urgent?: boolean;
     recent?: boolean;
+    questions?: JobQuestion[];
 };
