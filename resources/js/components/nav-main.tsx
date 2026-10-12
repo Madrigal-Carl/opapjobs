@@ -20,12 +20,15 @@ export function NavMain({ items }: { items: NavItem[] }) {
                     <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton
                             asChild
+                            size="lg"
                             isActive={isCurrentUrl(item.href)}
                             tooltip={{ children: item.title }}
                         >
                             <Link href={item.href} prefetch>
                                 {item.icon && <item.icon />}
-                                <span>{item.title}</span>
+                                <span className="group-data-[collapsible=icon]:hidden">
+                                    {item.title}
+                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

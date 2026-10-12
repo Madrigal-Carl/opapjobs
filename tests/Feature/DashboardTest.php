@@ -35,9 +35,23 @@ test('staff are redirected from the dashboard to the overview', function () {
         ->assertRedirect(route('dashboard.overview', absolute: false));
 });
 
-test('staff can visit the dashboard overview', function () {
+test('employers see the hiring overview', function () {
     $this->actingAs(User::factory()->employer()->create())
         ->get(route('dashboard.overview'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview'));
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview/hiring'));
+});
+
+test('admins see the platform overview', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->get(route('dashboard.overview'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview/platform'));
+});
+
+test('superadmins see the system overview', function () {
+    $this->actingAs(User::factory()->superadmin()->create())
+        ->get(route('dashboard.overview'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview/system'));
 });

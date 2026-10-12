@@ -22,6 +22,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->prefix('dashboard')
         ->group(function () {
             Route::get('overview', [ViewController::class, 'dashboardOverview'])->name('dashboard.overview');
+
+            Route::get('jobs/new', [ViewController::class, 'dashboardNewJob'])
+                ->middleware('can:'.Permission::ViewJobs->value)
+                ->name('dashboard.jobs.create');
+
+            Route::get('jobs', [ViewController::class, 'dashboardJobs'])
+                ->middleware('can:'.Permission::ViewJobs->value)
+                ->name('dashboard.jobs');
+
+            Route::get('applications/{application}', [ViewController::class, 'dashboardApplication'])
+                ->middleware('can:'.Permission::ViewApplications->value)
+                ->name('dashboard.applications.show');
+
+            Route::get('applications', [ViewController::class, 'dashboardApplications'])
+                ->middleware('can:'.Permission::ViewApplications->value)
+                ->name('dashboard.applications');
+
+            Route::get('candidates', [ViewController::class, 'dashboardCandidates'])
+                ->middleware('can:'.Permission::ViewCandidates->value)
+                ->name('dashboard.candidates');
+
+            Route::get('accounts', [ViewController::class, 'dashboardAccounts'])
+                ->middleware('can:'.Permission::ViewAccounts->value)
+                ->name('dashboard.accounts');
         });
 });
 

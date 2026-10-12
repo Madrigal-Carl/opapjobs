@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\DashboardOverview;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,8 +26,46 @@ class ViewController extends Controller
         ]);
     }
 
-    public function dashboardOverview(): Response
+    public function dashboardOverview(Request $request): Response
     {
-        return Inertia::render('dashboard/overview');
+        $component = DashboardOverview::componentFor($request->user());
+
+        if ($component === null) {
+            abort(403);
+        }
+
+        return Inertia::render($component);
+    }
+
+    public function dashboardJobs(): Response
+    {
+        return Inertia::render('dashboard/jobs');
+    }
+
+    public function dashboardNewJob(): Response
+    {
+        return Inertia::render('dashboard/jobs/new');
+    }
+
+    public function dashboardApplications(): Response
+    {
+        return Inertia::render('dashboard/applications');
+    }
+
+    public function dashboardApplication(string $application): Response
+    {
+        return Inertia::render('dashboard/applications/show', [
+            'applicationId' => $application,
+        ]);
+    }
+
+    public function dashboardCandidates(): Response
+    {
+        return Inertia::render('dashboard/candidates');
+    }
+
+    public function dashboardAccounts(): Response
+    {
+        return Inertia::render('dashboard/accounts');
     }
 }
