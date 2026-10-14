@@ -120,7 +120,7 @@ export default function DashboardCandidates() {
                 <Card>
                     <CardContent className="flex flex-col gap-4 pt-6">
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative min-w-56 flex-1">
+                            <div className="relative w-full sm:w-64">
                                 <Search
                                     className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                                     aria-hidden="true"
@@ -131,9 +131,9 @@ export default function DashboardCandidates() {
                                     onChange={(event) =>
                                         setKeyword(event.target.value)
                                     }
-                                    placeholder="Search by name, role, skills or location"
+                                    placeholder="Search candidates"
                                     aria-label="Search candidates"
-                                    className="pl-9"
+                                    className="h-9 pl-9 text-sm"
                                     data-testid="input-candidate-search"
                                 />
                             </div>
@@ -144,7 +144,7 @@ export default function DashboardCandidates() {
                                 }
                             >
                                 <SelectTrigger
-                                    className="w-40"
+                                    className="h-9 w-36 text-sm"
                                     aria-label="Filter by pathway"
                                     data-testid="select-candidate-pathway"
                                 >
@@ -164,7 +164,7 @@ export default function DashboardCandidates() {
                             </Select>
                             <Select value={sector} onValueChange={setSector}>
                                 <SelectTrigger
-                                    className="w-56"
+                                    className="h-9 w-48 text-sm"
                                     aria-label="Filter by role"
                                     data-testid="select-candidate-sector"
                                 >
@@ -181,10 +181,6 @@ export default function DashboardCandidates() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <span className="text-sm text-[var(--slate)] tabular-nums">
-                                {results.total}{' '}
-                                {results.total === 1 ? 'profile' : 'profiles'}
-                            </span>
                         </div>
 
                         {results.items.length ? (

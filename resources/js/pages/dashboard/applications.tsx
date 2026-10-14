@@ -102,7 +102,7 @@ export default function DashboardApplications() {
                 <Card>
                     <CardContent className="flex flex-col gap-4 pt-6">
                         <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative min-w-56 flex-1">
+                            <div className="relative w-full sm:w-64">
                                 <Search
                                     className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                                     aria-hidden="true"
@@ -113,9 +113,9 @@ export default function DashboardApplications() {
                                     onChange={(event) =>
                                         setKeyword(event.target.value)
                                     }
-                                    placeholder="Search an applicant or role"
+                                    placeholder="Search applications"
                                     aria-label="Search applications"
-                                    className="pl-9"
+                                    className="h-9 pl-9 text-sm"
                                     data-testid="input-search-applications"
                                 />
                             </div>
@@ -126,7 +126,7 @@ export default function DashboardApplications() {
                                 }
                             >
                                 <SelectTrigger
-                                    className="w-40"
+                                    className="h-9 w-36 text-sm"
                                     aria-label="Filter application stage"
                                     data-testid="select-application-stage"
                                 >
@@ -143,12 +143,6 @@ export default function DashboardApplications() {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            <span className="text-sm text-[var(--slate)] tabular-nums">
-                                {results.total}{' '}
-                                {results.total === 1
-                                    ? 'application'
-                                    : 'applications'}
-                            </span>
                         </div>
 
                         {results.items.length ? (
@@ -257,7 +251,7 @@ export default function DashboardApplications() {
                                                             }
                                                         >
                                                             <SelectTrigger
-                                                                className="w-36"
+                                                                className="h-9 w-36 text-sm"
                                                                 aria-label={`Update stage for ${applicant.name}`}
                                                                 data-testid={`select-stage-${application.id}`}
                                                             >

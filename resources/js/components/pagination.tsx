@@ -97,10 +97,14 @@ type PaginationProps = {
     getPageHref?: (page: number) => string;
     onPageChange?: (page: number) => void;
     testIdPrefix?: string;
+    /** Keeps the control visible even when everything fits on one page. */
+    alwaysShow?: boolean;
 };
 
 /**
- * Shared pagination control. Renders nothing for a single page.
+ * Shared pagination control. Renders nothing for a single page unless
+ * `alwaysShow` is set, in which case the disabled controls make the
+ * page size visible.
  */
 export function Pagination({
     page,
@@ -109,8 +113,9 @@ export function Pagination({
     getPageHref,
     onPageChange,
     testIdPrefix = 'pagination',
+    alwaysShow = false,
 }: PaginationProps) {
-    if (totalPages <= 1) {
+    if (totalPages <= 1 && !alwaysShow) {
         return null;
     }
 
