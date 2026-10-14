@@ -1,16 +1,34 @@
 export function SummaryStat({
     label,
     value,
+    active = false,
 }: {
     label: string;
     value: string | number;
+    active?: boolean;
 }) {
     return (
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-1.5">
-            <span className="text-lg font-bold text-[var(--navy)] tabular-nums">
+        <div
+            className={`flex min-w-24 flex-col gap-0.5 rounded-lg border px-3 py-2 ${
+                active
+                    ? 'border-[var(--teal)] bg-[var(--teal-light)]'
+                    : 'border-[var(--line)] bg-white'
+            }`}
+        >
+            <span
+                className={`text-xl leading-none font-bold tabular-nums ${
+                    active ? 'text-[var(--teal)]' : 'text-[var(--navy)]'
+                }`}
+            >
                 {value}
             </span>
-            <span className="text-xs text-[var(--slate)]">{label}</span>
+            <span
+                className={`text-xs ${
+                    active ? 'text-[var(--navy)]' : 'text-[var(--slate)]'
+                }`}
+            >
+                {label}
+            </span>
         </div>
     );
 }

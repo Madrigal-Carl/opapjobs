@@ -2,13 +2,18 @@ import { accounts } from '@/data/accounts';
 import { applicants } from '@/data/applicant';
 import { applications } from '@/data/applications';
 import { agencies } from '@/data/agencies';
+import {
+    getEffectiveStatus,
+    isClosingSoon,
+    type EffectiveStatus,
+} from '@/data/job-attributes';
 import { getJobList } from '@/data/job-store';
 import { overviewDays } from '@/data/overview';
 import type { Account, AccountStatus } from '@/types/account';
 import type { Agency, Pathway } from '@/types/agency';
 import type { Application, ApplicationStage } from '@/types/application';
 import type { Applicant, Availability } from '@/types/applicant';
-import type { Job } from '@/types/job';
+import type { Job, PostingType } from '@/types/job';
 import type { OverviewDayPoint } from '@/types/overview';
 
 export const AGENCIES_PER_PAGE = 12;
@@ -152,6 +157,10 @@ export type JobRow = {
 function filterJobs(query: JobPageQuery, items?: Job[]): JobRow[] {
     const keyword = normalizeKeyword(query.q);
     const pathway = query.pathway ?? 'all';
+    const postingType = query.postingType ?? 'all';
+    const category = query.category ?? 'all';
+    const employer = query.employer ?? 'all';
+    const status = query.status ?? 'all';
     const applicantCounts = getJobApplicantCounts();
 
     const rows: JobRow[] = (items ?? getJobList()).map((job) => ({
@@ -164,13 +173,38 @@ function filterJobs(query: JobPageQuery, items?: Job[]): JobRow[] {
             return false;
         }
 
+        if (postingType !== 'all' && job.postingType !== postingType) {
+            return false;
+        }
+
+        if (category !== 'all' && job.category !== category) {
+            return false;
+        }
+
+        if (employer !== 'all' && job.employer !== employer) {
+            return false;
+        }
+
+        if (status !== 'all' && getEffectiveStatus(job) !== status) {
+            return false;
+        }
+
+        if (query.closingSoon && !isClosingSoon(job.closingDate)) {
+            return false;
+        }
+
         if (!keyword) {
             return true;
         }
 
-        return [job.title, job.employer, job.agency, job.location].some(
-            (value) => value.toLowerCase().includes(keyword),
-        );
+        return [
+            job.title,
+            job.employer,
+            job.agency,
+            job.location,
+            job.category,
+            job.subCategory,
+        ].some((value) => value.toLowerCase().includes(keyword));
     });
 }
 
@@ -187,9 +221,126 @@ export function getTopJobs(limit: number): JobRow[] {
         .slice(0, limit);
 }
 
+export type JobSortField =
+    | 'title'
+    | 'employer'
+    | 'postingType'
+    | 'category'
+    | 'pathway'
+    | 'quantity'
+    | 'gender'
+    | 'salary'
+    | 'posted'
+    | 'applicants';
+
+export type SortDirection = 'asc' | 'desc';
+
 export type JobPageQuery = ListPageQuery & {
     pathway?: Pathway | 'all' | null;
+    postingType?: PostingType | 'all' | null;
+    category?: string | null;
+    employer?: string | null;
+    status?: EffectiveStatus | 'all' | null;
+    closingSoon?: boolean | null;
+    sort?: JobSortField | null;
+    sortDirection?: SortDirection | null;
 };
+
+/**
+ * Turns a relative label such as "2 days ago" or "Just now"
+ * into a comparable number of days.
+ */
+function postedDays(posted: string): number {
+    const value = posted.trim().toLowerCase();
+
+    if (value === 'just now') {
+        return 0;
+    }
+
+    const match = value.match(/^(\d+)\s*(day|week|month)/);
+
+    if (!match) {
+        return Number.MAX_SAFE_INTEGER;
+    }
+
+    const amount = Number.parseInt(match[1], 10);
+
+    if (match[2] === 'week') {
+        return amount * 7;
+    }
+
+    if (match[2] === 'month') {
+        return amount * 30;
+    }
+
+    return amount;
+}
+
+/**
+ * Extracts the leading amount from a salary range so ranges can be
+ * ordered by their lower bound.
+ */
+function salaryAmount(salary: string): number {
+    const match = salary.replaceAll(',', '').match(/\d+/);
+
+    return match ? Number.parseInt(match[0], 10) : 0;
+}
+
+function sortValue(row: JobRow, field: JobSortField): string | number {
+    const { job, applicants } = row;
+
+    switch (field) {
+        case 'applicants':
+            return applicants;
+        case 'quantity':
+            return job.quantity;
+        case 'posted':
+            return postedDays(job.posted);
+        case 'salary':
+            return salaryAmount(job.salary);
+        case 'employer':
+            return job.employer.toLowerCase();
+        case 'category':
+            return `${job.category} ${job.subCategory}`.toLowerCase();
+        case 'pathway':
+            return job.pathway;
+        case 'postingType':
+            return job.postingType;
+        case 'gender':
+            return job.gender;
+        case 'title':
+        default:
+            return job.title.toLowerCase();
+    }
+}
+
+/**
+ * Sorts the filtered jobs. Numeric columns sort by magnitude, text
+ * columns by value. Sorting happens before pagination so the first
+ * page always holds the true top results.
+ */
+export function sortJobRows(
+    rows: JobRow[],
+    field: JobSortField | null | undefined,
+    direction: SortDirection | null | undefined,
+): JobRow[] {
+    if (!field) {
+        return rows;
+    }
+
+    const factor = direction === 'desc' ? -1 : 1;
+
+    return [...rows].sort((left, right) => {
+        const a = sortValue(left, field);
+        const b = sortValue(right, field);
+
+        if (typeof a === 'number' && typeof b === 'number') {
+            return (a - b) * factor;
+        }
+
+        return String(a).localeCompare(String(b)) * factor;
+    });
+}
 
 /**
  * Applicant counts per job, derived from the applications list so the
@@ -214,7 +365,7 @@ export function getJobPage(
     items?: Job[],
 ): PageResult<JobRow> {
     return paginate(
-        filterJobs(query, items),
+        sortJobRows(filterJobs(query, items), query.sort, query.sortDirection),
         query.page,
         query.perPage ?? JOBS_PER_PAGE,
     );
@@ -224,12 +375,19 @@ export type JobSummary = {
     total: number;
     landbased: number;
     seabased: number;
+    jobOrder: number;
+    manpooling: number;
+    vacancies: number;
     applicants: number;
+    published: number;
+    drafts: number;
+    closed: number;
+    closingSoon: number;
 };
 
 /**
  * Totals for the jobs list summary row, reflecting the active
- * keyword and pathway filters.
+ * keyword, pathway, posting type and category filters.
  */
 export function getJobSummary(
     query: JobPageQuery = {},
@@ -243,7 +401,23 @@ export function getJobSummary(
             .length,
         seabased: matches.filter((row) => row.job.pathway === 'seabased')
             .length,
+        jobOrder: matches.filter((row) => row.job.postingType === 'joborder')
+            .length,
+        manpooling: matches.filter(
+            (row) => row.job.postingType === 'manpooling',
+        ).length,
+        vacancies: matches.reduce((sum, row) => sum + row.job.quantity, 0),
         applicants: matches.reduce((sum, row) => sum + row.applicants, 0),
+        published: matches.filter(
+            (row) => getEffectiveStatus(row.job) === 'published',
+        ).length,
+        drafts: matches.filter((row) => getEffectiveStatus(row.job) === 'draft')
+            .length,
+        closed: matches.filter(
+            (row) => getEffectiveStatus(row.job) === 'closed',
+        ).length,
+        closingSoon: matches.filter((row) => isClosingSoon(row.job.closingDate))
+            .length,
     };
 }
 

@@ -1,15 +1,23 @@
 import { Badge } from '@/components/ui/badge';
+import type { EffectiveStatus } from '@/data/job-attributes';
 import type { AccountStatus } from '@/types/account';
 import type { Pathway } from '@/types/agency';
 import type { ApplicationStage } from '@/types/application';
 import type { Availability } from '@/types/applicant';
 
+/**
+ * Badges use a light tint of their hue with dark text, so a table row
+ * stays calm and scannable. Only genuinely terminal or alert states
+ * (Hired, Urgent) use a solid fill, which keeps them standing out.
+ * Every badge always carries its text label, so colour is never the
+ * only signal.
+ */
 const stageClasses: Record<ApplicationStage, string> = {
-    Applied: 'bg-[var(--surface-soft)] text-[var(--navy)]',
-    Reviewed: 'bg-white text-[var(--slate)]',
-    Interview: 'bg-[var(--navy)] text-white',
-    Hired: 'bg-[var(--teal)] text-white',
-    Pending: 'bg-[var(--amber)] text-[var(--navy)]',
+    Applied: 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]',
+    Reviewed: 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]',
+    Interview: 'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
+    Hired: 'border-transparent bg-[var(--teal)] text-white',
+    Pending: 'border-transparent bg-[var(--amber)]/20 text-[var(--navy)]',
 };
 
 export function StageBadge({ stage }: { stage: ApplicationStage }) {
@@ -26,8 +34,8 @@ export function PathwayBadge({ pathway }: { pathway: Pathway }) {
             variant="outline"
             className={
                 pathway === 'landbased'
-                    ? 'bg-[var(--surface-soft)] text-[var(--navy)]'
-                    : 'bg-[var(--navy)] text-white'
+                    ? 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]'
+                    : 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]'
             }
         >
             {pathway === 'landbased' ? 'Landbased' : 'Seabased'}
@@ -45,8 +53,8 @@ export function AvailabilityBadge({
             variant="outline"
             className={
                 availability === 'Available now'
-                    ? 'bg-[var(--teal)] text-white'
-                    : 'bg-[var(--surface-soft)] text-[var(--navy)]'
+                    ? 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]'
+                    : 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]'
             }
         >
             {availability}
@@ -60,11 +68,47 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
             variant="outline"
             className={
                 status === 'Active'
-                    ? 'bg-[var(--teal)] text-white'
-                    : 'bg-destructive text-white'
+                    ? 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]'
+                    : 'border-transparent bg-destructive/10 text-destructive'
             }
         >
             {status}
+        </Badge>
+    );
+}
+
+const statusClasses: Record<EffectiveStatus, string> = {
+    published: 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]',
+    draft: 'border-transparent bg-[var(--navy)]/8 text-[var(--slate)]',
+    closed: 'border-transparent bg-muted text-muted-foreground',
+};
+
+const statusLabels: Record<EffectiveStatus, string> = {
+    published: 'Published',
+    draft: 'Draft',
+    closed: 'Closed',
+};
+
+export function ListingStatusBadge({ status }: { status: EffectiveStatus }) {
+    return (
+        <Badge
+            variant="outline"
+            className={statusClasses[status]}
+            data-testid={`badge-status-${status}`}
+        >
+            {statusLabels[status]}
+        </Badge>
+    );
+}
+
+export function ClosingSoonBadge() {
+    return (
+        <Badge
+            variant="outline"
+            className="border-transparent bg-[var(--amber)]/25 text-[var(--navy)]"
+            data-testid="badge-closing-soon"
+        >
+            Closing soon
         </Badge>
     );
 }
@@ -73,7 +117,7 @@ export function FeaturedBadge() {
     return (
         <Badge
             variant="outline"
-            className="bg-[var(--amber)] text-[var(--navy)]"
+            className="border-transparent bg-[var(--amber)]/20 text-[var(--navy)]"
         >
             Featured
         </Badge>
@@ -82,8 +126,32 @@ export function FeaturedBadge() {
 
 export function UrgentBadge() {
     return (
-        <Badge variant="outline" className="bg-destructive text-white">
+        <Badge
+            variant="outline"
+            className="border-transparent bg-destructive text-white"
+        >
             Urgent
+        </Badge>
+    );
+}
+
+export function PostingTypeBadge({
+    postingType,
+    labels,
+}: {
+    postingType: 'joborder' | 'manpooling';
+    labels: Record<'joborder' | 'manpooling', string>;
+}) {
+    return (
+        <Badge
+            variant="outline"
+            className={
+                postingType === 'manpooling'
+                    ? 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]'
+                    : 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]'
+            }
+        >
+            {labels[postingType]}
         </Badge>
     );
 }
