@@ -8,27 +8,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('redirect.staff')->group(function () {
     Route::get('/', [ViewController::class, 'home'])->name('home');
     Route::get('agencies', [ViewController::class, 'agencies'])->name('agencies.index');
-    Route::get('jobs', [ViewController::class, 'jobs'])->name('jobs.index');
-    Route::get('contact', [ViewController::class, 'contact'])->name('contact');
-});
-
-Route::get('job/{job}', [ViewController::class, 'job'])
-    ->where('job', '[a-z0-9-]+')
-    ->middleware('redirect.staff')
-    ->name('jobs.show');
-
-/**
- * Applicant-only pages. A signed-in verified user lands here; staff are sent
- * back to the overview by `redirect.staff`, and guests by `auth`.
- */
-Route::middleware(['auth', 'verified', 'redirect.staff'])->group(function () {
-    Route::get('job/{job}/apply', [ViewController::class, 'jobApply'])
-        ->where('job', '[a-z0-9-]+')
-        ->name('jobs.apply');
-
-    Route::get('resume', [ViewController::class, 'resume'])->name('resume');
-
-    Route::get('applications', [ViewController::class, 'applications'])->name('applications');
 });
 
 Route::get('agency/{slug}', [ViewController::class, 'agency'])

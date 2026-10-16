@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 import {
     ArrowRight,
+    Bell,
     BriefcaseBusiness,
     Building2,
     ChevronDown,
@@ -8,7 +9,9 @@ import {
     Compass,
     FileText,
     Globe,
+    Landmark,
     Menu,
+    MessagesSquare,
     Ship,
     Star,
     X,
@@ -17,53 +20,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Brand } from '@/components/site/brand';
 import { SignedInMenu } from '@/components/site/signed-in-menu';
-import { applications, contact, home, resume } from '@/routes';
 import { index as agenciesIndex } from '@/routes/agencies';
-import { index as jobsIndex } from '@/routes/jobs';
-
-const HOME_ANCHOR = `${home.url()}#top`;
-const RESOURCES_ANCHOR = `${home.url()}#resources`;
-
-/**
- * Resources menu. "Resume Template" is a real applicant page; the rest deep
- * link into the field guide on the home page.
- */
-const resourceLinks = [
-    { label: 'Resume Template', icon: FileText, href: resume.url() },
-    { label: 'Online Resources', icon: Globe, href: RESOURCES_ANCHOR },
-    { label: 'Career Tips', icon: Compass, href: RESOURCES_ANCHOR },
-    { label: 'Interview Guide', icon: Star, href: RESOURCES_ANCHOR },
-    { label: 'Salary Guide', icon: Building2, href: RESOURCES_ANCHOR },
-];
-
-const jobLinks = [
-    { label: 'All Jobs', icon: BriefcaseBusiness, href: jobsIndex.url() },
-    {
-        label: 'Landbased Jobs',
-        icon: Building2,
-        href: jobsIndex.url({ query: { filter: 'landbased' } }),
-    },
-    {
-        label: 'Seabased Jobs',
-        icon: Ship,
-        href: jobsIndex.url({ query: { filter: 'seabased' } }),
-    },
-    {
-        label: 'Featured Jobs',
-        icon: Star,
-        href: jobsIndex.url({ query: { filter: 'featured' } }),
-    },
-    {
-        label: 'Urgent Jobs',
-        icon: Zap,
-        href: jobsIndex.url({ query: { filter: 'urgent' } }),
-    },
-    {
-        label: 'Recent Jobs',
-        icon: Clock3,
-        href: jobsIndex.url({ query: { filter: 'recent' } }),
-    },
-];
 
 export function SiteHeader() {
     const { url, props } = usePage();
@@ -129,7 +86,7 @@ export function SiteHeader() {
                     <Brand />
                     <nav className="desktop-nav" aria-label="Main navigation">
                         <a
-                            href={HOME_ANCHOR}
+                            href="/#top"
                             className={isHome ? 'nav-active' : undefined}
                             aria-current={isHome ? 'page' : undefined}
                             data-testid="link-nav-home"
@@ -155,25 +112,54 @@ export function SiteHeader() {
                                     role="menu"
                                     data-testid="menu-jobs"
                                 >
-                                    {jobLinks.map(
-                                        ({ label, icon: Icon, href }) => (
-                                            <a
-                                                key={label}
-                                                href={href}
-                                                role="menuitem"
-                                                onClick={closeMenu}
-                                                data-testid={`link-nav-${label
-                                                    .toLowerCase()
-                                                    .replaceAll(' ', '-')}`}
-                                            >
-                                                <Icon
-                                                    size={16}
-                                                    aria-hidden="true"
-                                                />
-                                                {label} <span>→</span>
-                                            </a>
-                                        ),
-                                    )}
+                                    <a
+                                        href="/jobs"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <BriefcaseBusiness size={16} /> All Jobs{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/jobs?filter=landbased"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Building2 size={16} /> Landbased Jobs{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/jobs?filter=seabased"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Ship size={16} /> Seabased Jobs{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/jobs?filter=featured"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Star size={16} /> Featured Jobs{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/jobs?filter=urgent"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Zap size={16} /> Urgent Jobs{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/jobs?filter=recent"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Clock3 size={16} /> Recent Jobs{' '}
+                                        <span>→</span>
+                                    </a>
                                 </div>
                             )}
                         </div>
@@ -207,30 +193,59 @@ export function SiteHeader() {
                                     <div className="dropdown-heading">
                                         THE OPAP FIELD GUIDE
                                     </div>
-                                    {resourceLinks.map(
-                                        ({ label, icon: Icon, href }) => (
-                                            <a
-                                                key={label}
-                                                href={href}
-                                                role="menuitem"
-                                                onClick={closeMenu}
-                                                data-testid={`link-nav-${label
-                                                    .toLowerCase()
-                                                    .replaceAll(' ', '-')}`}
-                                            >
-                                                <Icon
-                                                    size={16}
-                                                    aria-hidden="true"
-                                                />
-                                                {label} <span>→</span>
-                                            </a>
-                                        ),
-                                    )}
+                                    <a
+                                        href="/#resources"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <FileText size={16} /> Resume Template{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/#resources"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Globe size={16} /> Online Resources{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/#resources"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Compass size={16} /> Career Tips{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/#resources"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <MessagesSquare size={16} /> Interview
+                                        Guide <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/#newsletter"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Bell size={16} /> Job Alerts{' '}
+                                        <span>→</span>
+                                    </a>
+                                    <a
+                                        href="/#resources"
+                                        role="menuitem"
+                                        onClick={closeMenu}
+                                    >
+                                        <Landmark size={16} /> Salary Guide{' '}
+                                        <span>→</span>
+                                    </a>
                                 </div>
                             )}
                         </div>
                         <a
-                            href={contact.url()}
+                            href="/contact"
                             className={isContact ? 'nav-active' : undefined}
                             aria-current={isContact ? 'page' : undefined}
                             data-testid="link-nav-contact"
@@ -241,23 +256,15 @@ export function SiteHeader() {
                     <div className="nav-actions">
                         {user ? (
                             <>
-                                <a
-                                    className="nav-signin"
-                                    href={
-                                        canAccessDashboard
-                                            ? '/dashboard/overview'
-                                            : applications.url()
-                                    }
-                                    data-testid={
-                                        canAccessDashboard
-                                            ? 'link-dashboard'
-                                            : 'link-my-jobs'
-                                    }
-                                >
-                                    {canAccessDashboard
-                                        ? 'Overview'
-                                        : 'My Jobs'}
-                                </a>
+                                {canAccessDashboard && (
+                                    <a
+                                        className="nav-signin"
+                                        href="/dashboard/overview"
+                                        data-testid="link-dashboard"
+                                    >
+                                        Overview
+                                    </a>
+                                )}
                                 <SignedInMenu
                                     open={openMenu === 'avatar'}
                                     onToggle={() =>
@@ -322,7 +329,7 @@ export function SiteHeader() {
                 >
                     <div className="mobile-drawer-top">
                         <Brand
-                            href={HOME_ANCHOR}
+                            href="/#top"
                             testId="link-mobile-brand"
                             onClick={closeMobile}
                         />
@@ -338,7 +345,7 @@ export function SiteHeader() {
                     </div>
                     <div className="mobile-nav-groups">
                         <a
-                            href={HOME_ANCHOR}
+                            href="/#top"
                             onClick={closeMobile}
                             data-testid="link-mobile-home"
                         >
@@ -365,15 +372,39 @@ export function SiteHeader() {
                         </button>
                         {mobileGroup === 'jobs' && (
                             <div className="mobile-subgroup">
-                                {jobLinks.map(({ label, href }) => (
-                                    <a
-                                        key={label}
-                                        href={href}
-                                        onClick={closeMobile}
-                                    >
-                                        {label}
-                                    </a>
-                                ))}
+                                <a href="/jobs" onClick={closeMobile}>
+                                    All Jobs
+                                </a>
+                                <a
+                                    href="/jobs?filter=landbased"
+                                    onClick={closeMobile}
+                                >
+                                    Landbased Jobs
+                                </a>
+                                <a
+                                    href="/jobs?filter=seabased"
+                                    onClick={closeMobile}
+                                >
+                                    Seabased Jobs
+                                </a>
+                                <a
+                                    href="/jobs?filter=featured"
+                                    onClick={closeMobile}
+                                >
+                                    Featured Jobs
+                                </a>
+                                <a
+                                    href="/jobs?filter=urgent"
+                                    onClick={closeMobile}
+                                >
+                                    Urgent Jobs
+                                </a>
+                                <a
+                                    href="/jobs?filter=recent"
+                                    onClick={closeMobile}
+                                >
+                                    Recent Jobs
+                                </a>
                             </div>
                         )}
                         <button
@@ -392,28 +423,28 @@ export function SiteHeader() {
                         </button>
                         {mobileGroup === 'resources' && (
                             <div className="mobile-subgroup">
-                                {resourceLinks.map(({ label, href }) => (
-                                    <a
-                                        key={label}
-                                        href={href}
-                                        onClick={closeMobile}
-                                    >
-                                        {label}
-                                    </a>
-                                ))}
+                                <a href="/#resources" onClick={closeMobile}>
+                                    Resume Template
+                                </a>
+                                <a href="/#resources" onClick={closeMobile}>
+                                    Online Resources
+                                </a>
+                                <a href="/#resources" onClick={closeMobile}>
+                                    Career Tips
+                                </a>
+                                <a href="/#resources" onClick={closeMobile}>
+                                    Interview Guide
+                                </a>
+                                <a href="/#newsletter" onClick={closeMobile}>
+                                    Job Alerts
+                                </a>
+                                <a href="/#resources" onClick={closeMobile}>
+                                    Salary Guide
+                                </a>
                             </div>
                         )}
-                        {user && (
-                            <a
-                                href={applications.url()}
-                                onClick={closeMobile}
-                                data-testid="link-mobile-applications"
-                            >
-                                My Jobs <ArrowRight size={18} />
-                            </a>
-                        )}
                         <a
-                            href={contact.url()}
+                            href="/contact"
                             onClick={closeMobile}
                             data-testid="link-mobile-contact"
                         >

@@ -1,8 +1,6 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { ApplicationsProvider } from '@/contexts/applications-context';
-import ApplicantLayout from '@/components/applicant/applicant-layout';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import PublicLayout from '@/layouts/public-layout';
@@ -38,24 +36,6 @@ void createInertiaApp({
                     PublicLayout,
                     { className: 'agency-profile-page', footer: false },
                 ];
-            case name === 'jobs/index':
-                return [PublicLayout, { className: 'jobs-page' }];
-            case name === 'jobs/show':
-                return [PublicLayout, { className: 'job-detail-page' }];
-            case name === 'jobs/apply':
-                return [
-                    ApplicantLayout,
-                    { className: 'apply-page', footer: false },
-                ];
-            case name === 'applicant/applications':
-                return [ApplicantLayout, { className: 'applications-page' }];
-            case name === 'applicant/resume':
-                return [
-                    ApplicantLayout,
-                    { className: 'resume-page', footer: false },
-                ];
-            case name === 'contact':
-                return [PublicLayout, { className: 'contact-page' }];
             default:
                 return AppLayout;
         }
@@ -63,12 +43,10 @@ void createInertiaApp({
     strictMode: true,
     withApp(app) {
         return (
-            <ApplicationsProvider>
-                <TooltipProvider delayDuration={0}>
-                    {app}
-                    <Toaster />
-                </TooltipProvider>
-            </ApplicationsProvider>
+            <TooltipProvider delayDuration={0}>
+                {app}
+                <Toaster />
+            </TooltipProvider>
         );
     },
     progress: {

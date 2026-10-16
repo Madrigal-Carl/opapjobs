@@ -23,10 +23,7 @@ export type JobQuestion = {
     id: string;
     label: string;
     type: QuestionAnswerType;
-    /** The agency's example answer, shown to staff in the preview. */
     answer: string;
-    /** Applicants cannot continue past this question without an answer. */
-    required?: boolean;
 };
 
 export type JobLanguage = {

@@ -44,16 +44,6 @@ import {
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
-    CONTRACT_LABELS,
-    EDUCATION_LABELS,
-    GENDER_LABELS,
-    PROFICIENCY_LABELS,
-    ageRangeLabel,
-    experienceRangeLabel,
-    getPublicEmployer,
-    getPublicLocation,
-} from '@/data/job-attributes';
-import {
     getAgencyContext,
     getAgencyPathway,
     PATHWAY_LABELS,
@@ -74,6 +64,32 @@ import type {
     QuestionAnswerType,
 } from '@/types/job';
 
+const GENDER_LABELS: Record<GenderRequirement, string> = {
+    any: 'Any',
+    male: 'Male only',
+    female: 'Female only',
+};
+
+const EDUCATION_LABELS: Record<EducationLevel, string> = {
+    any: 'Any education level',
+    secondary: 'Secondary / high school',
+    vocational: 'Vocational / TESDA',
+    bachelor: "Bachelor's degree",
+    master: "Master's degree",
+};
+
+const CONTRACT_LABELS: Record<ContractDuration, string> = {
+    permanent: 'Permanent',
+    fixed: 'Fixed term',
+    seasonal: 'Seasonal',
+};
+
+const PROFICIENCY_LABELS: Record<LanguageProficiency, string> = {
+    basic: 'Basic',
+    conversational: 'Conversational',
+    fluent: 'Fluent',
+};
+
 const LANGUAGE_OPTIONS = [
     'English',
     'Arabic',
@@ -87,22 +103,36 @@ const LANGUAGE_OPTIONS = [
     'Japanese',
 ];
 
-/**
- * Thin wrappers over `job-attributes` so the preview text and the
- * applicant-facing text are produced by the same function.
- */
 function experienceRangeText(min: number, max: number): string {
-    return experienceRangeLabel({
-        minExperienceYears: min,
-        maxExperienceYears: max,
-    });
+    if (min > 0 && max > 0) {
+        return `${min}–${max} years experience`;
+    }
+
+    if (min > 0) {
+        return `${min}+ years experience`;
+    }
+
+    if (max > 0) {
+        return `Up to ${max} years experience`;
+    }
+
+    return '';
 }
 
 function ageRangeText(min: string, max: string): string {
-    return ageRangeLabel({
-        ageMin: Number(min) || undefined,
-        ageMax: Number(max) || undefined,
-    });
+    if (min && max) {
+        return `Age ${min}–${max}`;
+    }
+
+    if (min) {
+        return `Age ${min}+`;
+    }
+
+    if (max) {
+        return `Up to age ${max}`;
+    }
+
+    return '';
 }
 
 const POSTING_TYPE_HINTS: Record<PostingType, string> = {
@@ -117,8 +147,6 @@ type QuestionDraft = {
     label: string;
     type: QuestionAnswerType;
     answer: string;
-    /** Blocks the applicant from continuing until this is answered. */
-    required: boolean;
 };
 
 type JobForm = {
@@ -186,7 +214,6 @@ const emptyForm: JobForm = {
             label: 'Are you willing to relocate for this role?',
             type: 'yesno',
             answer: '',
-            required: true,
         },
     ],
 };
@@ -365,7 +392,6 @@ export default function DashboardNewJob() {
                     label: '',
                     type: 'yesno',
                     answer: '',
-                    required: false,
                 },
             ],
         }));
@@ -565,7 +591,6 @@ export default function DashboardNewJob() {
                     label: question.label.trim(),
                     type: question.type,
                     answer: question.answer.trim(),
-                    required: question.required,
                 }))
                 .filter((question) => question.label !== ''),
         });
@@ -1747,9 +1772,8 @@ export default function DashboardNewJob() {
                                         Custom questions
                                     </span>
                                     <p className="text-xs text-[var(--slate)]">
-                                        Choose an answer type, mark it required
-                                        if the applicant must answer, then leave
-                                        the answer blank to skip the question.
+                                        Choose an answer type, then leave the
+                                        answer blank to skip the question.
                                     </p>
                                 </div>
                                 {form.questions.map((question, index) => (
@@ -1816,30 +1840,6 @@ export default function DashboardNewJob() {
                                                 )}
                                             </SelectContent>
                                         </Select>
-                                        <label
-                                            htmlFor={`question-required-${index}`}
-                                            className="flex w-fit cursor-pointer items-center gap-2 text-xs font-medium text-[var(--navy)]"
-                                        >
-                                            <input
-                                                id={`question-required-${index}`}
-                                                type="checkbox"
-                                                checked={question.required}
-                                                onChange={(event) =>
-                                                    updateQuestion(index, {
-                                                        required:
-                                                            event.target
-                                                                .checked,
-                                                    })
-                                                }
-                                                className="size-4 accent-[var(--teal)]"
-                                                data-testid={`checkbox-question-required-${index}`}
-                                            />
-                                            Required to apply
-                                            <span className="text-[var(--slate)]">
-                                                Applicants cannot continue
-                                                without answering
-                                            </span>
-                                        </label>
                                         {question.type === 'yesno' ? (
                                             <Select
                                                 value={question.answer}
@@ -2064,20 +2064,7 @@ export default function DashboardNewJob() {
  */
 function ApplicantPreview({ form }: { form: JobForm }) {
     const employer = form.employer ? getEmployer(form.employer) : undefined;
-
-    // Built from the same fields the listing will carry, then read through
-    // the same redaction helper the applicant pages use, so the preview can
-    // never promise something the applicant will not actually see.
-    const draftJob = {
-        employer: form.employer,
-        employerLocation: employer?.location ?? '',
-        poeaLicenseNo: employer?.poeaLicenseNo ?? '',
-        location: employer?.location ?? '',
-        postingType: form.postingType,
-    };
-    const publicEmployer = getPublicEmployer(draftJob);
-    const isManpooling = publicEmployer === null;
-    const publicLocation = getPublicLocation(draftJob);
+    const isManpooling = form.postingType === 'manpooling';
 
     return (
         <Card className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-hidden">
@@ -2113,14 +2100,14 @@ function ApplicantPreview({ form }: { form: JobForm }) {
                                 className="flex items-center gap-1.5 text-sm text-[var(--slate)]"
                                 data-testid="preview-company-hidden"
                             >
-                                Confidential employer — not shown to applicants
+                                Hidden from applicants
                             </p>
                         ) : (
                             <p
                                 className="text-sm font-semibold text-[var(--navy)]"
                                 data-testid="preview-company"
                             >
-                                {publicEmployer?.name ?? '—'}
+                                {employer?.name ?? '—'}
                             </p>
                         )}
                     </div>
@@ -2131,20 +2118,17 @@ function ApplicantPreview({ form }: { form: JobForm }) {
                         </span>
                         {isManpooling ? (
                             <p
-                                className="flex items-center gap-1.5 text-sm text-[var(--navy)]"
+                                className="text-sm text-[var(--slate)]"
                                 data-testid="preview-location-hidden"
                             >
-                                {publicLocation || '—'}
-                                <span className="text-[var(--slate)]">
-                                    (destination only)
-                                </span>
+                                Hidden from applicants
                             </p>
                         ) : (
                             <p
                                 className="text-sm text-[var(--navy)]"
                                 data-testid="preview-location"
                             >
-                                {publicEmployer?.location ?? '—'}
+                                {employer?.location ?? '—'}
                             </p>
                         )}
                     </div>
@@ -2264,7 +2248,7 @@ function ApplicantPreview({ form }: { form: JobForm }) {
                         </p>
                     </div>
 
-                    {publicEmployer && (
+                    {!isManpooling && employer && (
                         <div>
                             <span className="text-xs font-medium text-[var(--slate)]">
                                 POEA / DMW licence
@@ -2273,48 +2257,8 @@ function ApplicantPreview({ form }: { form: JobForm }) {
                                 className="text-sm text-[var(--navy)]"
                                 data-testid="preview-license"
                             >
-                                {publicEmployer.poeaLicenseNo}
+                                {employer.poeaLicenseNo}
                             </p>
-                        </div>
-                    )}
-
-                    {(form.ageMin || form.ageMax) && (
-                        <div>
-                            <span className="text-xs font-medium text-[var(--slate)]">
-                                Age preference
-                            </span>
-                            <p
-                                className="text-sm text-[var(--navy)]"
-                                data-testid="preview-age-detail"
-                            >
-                                {ageRangeText(form.ageMin, form.ageMax)} years
-                                old
-                            </p>
-                        </div>
-                    )}
-
-                    {form.questions.filter((question) => question.label.trim())
-                        .length > 0 && (
-                        <div>
-                            <span className="text-xs font-medium text-[var(--slate)]">
-                                Questions the applicant must answer
-                            </span>
-                            <ul
-                                className="mt-1 grid gap-1"
-                                data-testid="preview-questions"
-                            >
-                                {form.questions
-                                    .filter((question) => question.required)
-                                    .map((question) => (
-                                        <li
-                                            key={question.id}
-                                            className="text-sm text-[var(--navy)]"
-                                        >
-                                            {question.label.trim() ||
-                                                'Untitled question'}
-                                        </li>
-                                    ))}
-                            </ul>
                         </div>
                     )}
 

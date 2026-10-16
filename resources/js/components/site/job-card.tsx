@@ -1,13 +1,5 @@
 import { BadgeCheck, Bookmark, Clock3, Landmark, MapPin } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
-import {
-    CONFIDENTIAL_EMPLOYER_LABEL,
-    getPublicEmployer,
-    getPublicLocation,
-    isManpooling,
-} from '@/data/job-attributes';
-import { cn } from '@/lib/utils';
-import { show as jobShow } from '@/routes/jobs';
 import type { Job } from '@/types/job';
 
 type JobCardProps = {
@@ -20,7 +12,7 @@ type JobCardProps = {
 };
 
 /**
- * The selectable job row used on agency profiles and in the jobs browser.
+ * The selectable job row used on agency profiles.
  */
 export function JobCard({
     job,
@@ -30,20 +22,21 @@ export function JobCard({
     onToggleSaved,
     testId,
 }: JobCardProps) {
-    // Manpooling listings keep the company to themselves, exactly as the
-    // agency-side preview shows.
-    const publicEmployer = getPublicEmployer(job);
-    const hidden = !publicEmployer;
-
     return (
-        // The card is a plain container: it is not focusable and carries no
-        // role, because the title link and the bookmark are already controls
-        // inside it and nesting a button around them breaks both. The click
-        // handler on the container is only a shortcut for the title link.
         <article
-            className={cn('jobs-list-card', isSelected && 'is-selected')}
+            className={`jobs-list-card ${isSelected ? 'is-selected' : ''}`}
             data-testid={testId}
+            role="button"
+            tabIndex={0}
+            aria-label={`${job.title} at ${job.agency}`}
+            aria-pressed={isSelected}
             onClick={onSelect}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect();
+                }
+            }}
         >
             <div className="jobs-list-card-main">
                 <AppLogo className="job-company-logo" />
@@ -62,30 +55,12 @@ export function JobCard({
                                 Urgent
                             </span>
                         )}
-                        {job.recent && (
-                            <span className="jobs-card-label">New</span>
-                        )}
-                        {isManpooling(job) && (
-                            <span
-                                className="jobs-card-label"
-                                data-testid={`badge-manpooling-${job.id}`}
-                            >
-                                Manpooling
-                            </span>
-                        )}
                     </div>
                     <h3>
-                        {/* The single tab stop for the card. It stays a real
-                            link so the listing can be opened in a new tab,
-                            while a normal click runs the page's selection. */}
                         <a
-                            href={jobShow.url(job.id)}
-                            aria-current={isSelected ? 'true' : undefined}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onSelect();
-                            }}
-                            data-testid={`link-card-job-${job.id}`}
+                            href="#"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
                         >
                             {job.title}
                         </a>
@@ -93,18 +68,7 @@ export function JobCard({
                     <p className="jobs-card-agency">
                         <BadgeCheck size={13} aria-hidden="true" /> {job.agency}
                     </p>
-                    <p
-                        className={
-                            hidden
-                                ? 'jobs-card-employer is-hidden'
-                                : 'jobs-card-employer'
-                        }
-                        data-testid={`card-employer-${job.id}`}
-                    >
-                        {publicEmployer
-                            ? publicEmployer.name
-                            : CONFIDENTIAL_EMPLOYER_LABEL}
-                    </p>
+                    <p className="jobs-card-employer">{job.employer}</p>
                 </div>
             </div>
             <div className="jobs-list-card-meta">
@@ -112,8 +76,7 @@ export function JobCard({
                     <Landmark size={14} aria-hidden="true" /> {job.salary}
                 </span>
                 <span>
-                    <MapPin size={14} aria-hidden="true" />{' '}
-                    {getPublicLocation(job)}
+                    <MapPin size={14} aria-hidden="true" /> {job.location}
                 </span>
                 <span>
                     <Clock3 size={14} aria-hidden="true" /> {job.posted}

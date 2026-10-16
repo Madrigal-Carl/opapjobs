@@ -1,6 +1,4 @@
 import {
-    Archive,
-    ArchiveRestore,
     ArrowRight,
     BadgeCheck,
     Bookmark,
@@ -8,21 +6,7 @@ import {
     MapPin,
 } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
-import {
-    CONFIDENTIAL_EMPLOYER_LABEL,
-    getPublicEmployer,
-    getPublicLocation,
-    isManpooling,
-} from '@/data/job-attributes';
-import { cn } from '@/lib/utils';
-import { show as jobShow } from '@/routes/jobs';
 import type { Job } from '@/types/job';
-
-export type JobListingStatus = {
-    label: string;
-    /** Maps to the `.job-status-pill` tone in `opap.css`. */
-    tone: 'applied' | 'saved' | 'archived';
-};
 
 type JobListingCardProps = {
     job: Job;
@@ -33,10 +17,6 @@ type JobListingCardProps = {
     /** Anchor target so the home page can deep-link into its job sections. */
     anchorId?: string;
     testId?: string;
-    /** Shown on My Jobs so each tab says where the listing sits. */
-    status?: JobListingStatus;
-    /** Archive / restore action, rendered on My Jobs. */
-    onToggleArchive?: () => void;
 };
 
 /**
@@ -49,16 +29,10 @@ export function JobListingCard({
     featured = false,
     anchorId,
     testId,
-    status,
-    onToggleArchive,
 }: JobListingCardProps) {
-    // Manpooling listings keep the company to themselves, exactly as the
-    // agency-side preview shows.
-    const publicEmployer = getPublicEmployer(job);
-
     return (
         <article
-            className={cn('job-card', featured && 'job-card-featured')}
+            className={`job-card ${featured ? 'job-card-featured' : ''}`}
             id={anchorId}
             data-testid={testId}
         >
@@ -72,112 +46,50 @@ export function JobListingCard({
                                 : 'Seabased'}
                         </span>
                         <span className="job-verified">
-                            <BadgeCheck size={13} aria-hidden="true" /> Verified
-                            opening
+                            <BadgeCheck size={13} /> Verified opening
                         </span>
-                        {isManpooling(job) && (
-                            <span
-                                className="job-verified job-verified-manpooling"
-                                data-testid={`badge-manpooling-${job.id}`}
-                            >
-                                Manpooling
-                            </span>
-                        )}
                     </div>
                     <h3>{job.title}</h3>
-                    <p
-                        className="job-agency-line"
-                        data-testid={`card-employer-${job.id}`}
-                    >
-                        <BadgeCheck size={13} aria-hidden="true" />{' '}
-                        {publicEmployer ? (
-                            <>DMW-accredited agency · {publicEmployer.name}</>
-                        ) : (
-                            <>
-                                Posted by {job.agency} ·{' '}
-                                {CONFIDENTIAL_EMPLOYER_LABEL.toLowerCase()}
-                            </>
-                        )}
+                    <p className="job-agency-line">
+                        <BadgeCheck size={13} /> DMW-accredited agency ·{' '}
+                        {job.employer}
                     </p>
                 </div>
             </div>
             <div className="job-details">
                 <span>
-                    <MapPin size={15} aria-hidden="true" />{' '}
-                    {getPublicLocation(job)}
+                    <MapPin size={15} /> {job.location}
                 </span>
                 <span>
-                    <Landmark size={15} aria-hidden="true" /> {job.salary}
+                    <Landmark size={15} /> {job.salary}
                 </span>
                 <span className="job-posted">{job.posted}</span>
             </div>
-            <div
-                className={cn('job-action', status && 'has-status')}
-                data-testid={testId ? `${testId}-actions` : undefined}
-            >
-                <div className="job-action-status">
-                    {onToggleArchive && (
-                        <button
-                            type="button"
-                            className="bookmark-button"
-                            onClick={onToggleArchive}
-                            aria-label={
-                                status?.tone === 'archived'
-                                    ? `Restore ${job.title}`
-                                    : `Archive ${job.title}`
-                            }
-                            aria-pressed={status?.tone === 'archived'}
-                            data-testid={`button-archive-${job.id}`}
-                        >
-                            {status?.tone === 'archived' ? (
-                                <>
-                                    <ArchiveRestore
-                                        size={18}
-                                        aria-hidden="true"
-                                    />
-                                    <span className="sr-only">Restore</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Archive size={18} aria-hidden="true" />
-                                    <span className="sr-only">Archive</span>
-                                </>
-                            )}
-                        </button>
+            <div className="job-action">
+                <button
+                    type="button"
+                    className={`bookmark-button ${isSaved ? 'saved' : ''}`}
+                    onClick={onToggleSaved}
+                    aria-label={
+                        isSaved
+                            ? `Remove ${job.title} from saved jobs`
+                            : `Save ${job.title}`
+                    }
+                    aria-pressed={isSaved}
+                    data-testid={`button-bookmark-${job.id}`}
+                >
+                    {isSaved ? (
+                        <Bookmark size={19} fill="currentColor" />
+                    ) : (
+                        <Bookmark size={19} />
                     )}
-                    <button
-                        type="button"
-                        className={cn('bookmark-button', isSaved && 'saved')}
-                        onClick={onToggleSaved}
-                        aria-label={
-                            isSaved
-                                ? `Remove ${job.title} from saved jobs`
-                                : `Save ${job.title}`
-                        }
-                        aria-pressed={isSaved}
-                        data-testid={`button-bookmark-${job.id}`}
-                    >
-                        <Bookmark
-                            size={19}
-                            fill={isSaved ? 'currentColor' : 'none'}
-                            aria-hidden="true"
-                        />
-                    </button>
-                    {status && (
-                        <span
-                            className={cn('job-status-pill', status.tone)}
-                            data-testid={`status-pill-${job.id}`}
-                        >
-                            {status.label}
-                        </span>
-                    )}
-                </div>
+                </button>
                 <a
                     className="job-view-link"
-                    href={jobShow.url(job.id)}
+                    href={`/job/${job.id}`}
                     data-testid={`link-view-job-${job.id}`}
                 >
-                    View Job <ArrowRight size={17} aria-hidden="true" />
+                    View Job <ArrowRight size={17} />
                 </a>
             </div>
         </article>

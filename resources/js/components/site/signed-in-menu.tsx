@@ -5,23 +5,23 @@ import {
     FileText,
     LogOut,
     Settings,
+    Sparkles,
+    Star,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getNameInitials } from '@/lib/name-initials';
-import { applications, contact, resume } from '@/routes';
 
-const accountLinks = [
-    { label: 'Resume', icon: FileText, href: resume.url() },
-    {
-        label: 'Applications',
-        icon: BriefcaseBusiness,
-        href: applications.url(),
-    },
-];
+const accountLinks: { label: string; icon: typeof FileText; href?: string }[] =
+    [
+        { label: 'Resume', icon: FileText },
+        { label: 'Applications', icon: BriefcaseBusiness },
+        { label: 'Matches', icon: Sparkles },
+        { label: 'Reviews', icon: Star },
+    ];
 
 const accountSupportLinks = [
     { label: 'Settings', icon: Settings, href: '/settings/profile' },
-    { label: 'Help', icon: CircleHelp, href: contact.url() },
+    { label: 'Help', icon: CircleHelp },
 ];
 
 export function SignedInMenu({
@@ -80,7 +80,7 @@ export function SignedInMenu({
                     {accountLinks.map(({ label, icon: Icon, href }) => (
                         <a
                             className="account-menu-item"
-                            href={href}
+                            href={href ?? '#'}
                             key={label}
                             role="menuitem"
                             onClick={onToggle}
@@ -94,7 +94,7 @@ export function SignedInMenu({
                     {accountSupportLinks.map(({ label, icon: Icon, href }) => (
                         <a
                             className="account-menu-item"
-                            href={href}
+                            href={href ?? '#'}
                             key={label}
                             role="menuitem"
                             onClick={onToggle}
