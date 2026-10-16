@@ -1,7 +1,9 @@
 import type {
     EducationLevel,
+    GenderRequirement,
     LanguageProficiency,
     ListingStatus,
+    PostingType,
 } from '@/types/job';
 
 export type EffectiveStatus = ListingStatus | 'closed';
@@ -18,6 +20,17 @@ export const EDUCATION_LABELS: Record<EducationLevel, string> = {
     vocational: 'Vocational certificate',
     bachelor: "Bachelor's degree",
     master: "Master's degree",
+};
+
+export const GENDER_LABELS: Record<GenderRequirement, string> = {
+    any: 'Any',
+    male: 'Male only',
+    female: 'Female only',
+};
+
+export const POSTING_TYPE_LABELS: Record<PostingType, string> = {
+    joborder: 'With job order',
+    manpooling: 'Manpooling',
 };
 
 export const PROFICIENCY_LABELS: Record<LanguageProficiency, string> = {
@@ -127,6 +140,141 @@ export function hasClosingPassed(dateValue: string | undefined): boolean {
     const days = daysUntil(dateValue ?? '');
 
     return days !== null && days < 0;
+}
+
+/**
+ * What an applicant is allowed to see about the hiring employer.
+ *
+ * A manpooling listing keeps the company, its location and its licence to
+ * itself; applicants only ever deal with the agency. Both the agency-side
+ * preview and every applicant-facing card read this one function, so the
+ * redaction rule cannot drift between the two.
+ */
+export type PublicEmployer = {
+    name: string;
+    location: string;
+    poeaLicenseNo: string;
+};
+
+export function isManpooling(job: { postingType?: PostingType }): boolean {
+    return (job.postingType ?? 'joborder') === 'manpooling';
+}
+
+/** The employer details an applicant may see, or `null` when redacted. */
+export function getPublicEmployer(job: {
+    employer: string;
+    employerLocation: string;
+    poeaLicenseNo: string;
+    postingType?: PostingType;
+}): PublicEmployer | null {
+    if (isManpooling(job)) {
+        return null;
+    }
+
+    return {
+        name: job.employer,
+        location: job.employerLocation,
+        poeaLicenseNo: job.poeaLicenseNo,
+    };
+}
+
+/** The line shown in place of a redacted employer name. */
+export const CONFIDENTIAL_EMPLOYER_LABEL = 'Confidential employer';
+
+/** The trailing region of "Doha, Qatar" — "Qatar". */
+function destinationOf(location: string): string {
+    const parts = location
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    return parts.length > 1 ? parts[parts.length - 1] : location;
+}
+
+/**
+ * Where the role actually is, as an applicant may read it.
+ *
+ * A manpooling listing keeps the employer's exact site to itself and shows
+ * only the destination region, which is how these vacancies are advertised.
+ * A job-order listing shows its full location.
+ */
+export function getPublicLocation(job: {
+    location: string;
+    employerLocation: string;
+    postingType?: PostingType;
+}): string {
+    const location = job.location || job.employerLocation;
+
+    if (!isManpooling(job)) {
+        return location;
+    }
+
+    return destinationOf(location);
+}
+
+/**
+ * The experience band as applicants read it: "3–7 years", "5+ years" or an
+ * empty string when the agency set no requirement.
+ */
+export function experienceRangeLabel(job: {
+    minExperienceYears?: number;
+    maxExperienceYears?: number;
+}): string {
+    const { minExperienceYears: min, maxExperienceYears: max } = job;
+
+    if (min && max) {
+        return `${min}–${max} years`;
+    }
+
+    if (min) {
+        return `${min}+ years`;
+    }
+
+    if (max) {
+        return `Up to ${max} years`;
+    }
+
+    return '';
+}
+
+/**
+ * The age band as applicants read it, or an empty string when the agency
+ * left both bounds blank.
+ */
+export function ageRangeLabel(job: {
+    ageMin?: number;
+    ageMax?: number;
+}): string {
+    const { ageMin, ageMax } = job;
+
+    if (ageMin && ageMax) {
+        return `${ageMin}–${ageMax}`;
+    }
+
+    if (ageMin) {
+        return `${ageMin}+`;
+    }
+
+    if (ageMax) {
+        return `Up to ${ageMax}`;
+    }
+
+    return '';
+}
+
+/**
+ * "Category / Sub-category" as applicants read it. Empty when the agency has
+ * not classified the listing yet.
+ */
+export function categoryLabel(job: {
+    category?: string;
+    subCategory?: string;
+}): string {
+    if (job.category && job.subCategory) {
+        return `${job.category} · ${job.subCategory}`;
+    }
+
+    return job.subCategory ?? job.category ?? '';
 }
 
 /**
