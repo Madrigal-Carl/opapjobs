@@ -11,7 +11,7 @@ import {
     Trash2,
     TriangleAlert,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import InputError from '@/components/input-error';
 import { DashboardPageHeader } from '@/components/dashboard/page-header';
@@ -259,11 +259,84 @@ export default function DashboardNewJob() {
     const selectedEmployer = form.employer
         ? getEmployer(form.employer)
         : undefined;
+    const employerQuery = employerSearch.trim().toLowerCase();
     const visibleEmployers = employerList.filter((employer) =>
         `${employer.name} ${employer.location}`
             .toLowerCase()
-            .includes(employerSearch.trim().toLowerCase()),
+            .includes(employerQuery),
     );
+    const [highlight, setHighlight] = useState(0);
+    const [searchFocused, setSearchFocused] = useState(false);
+    const employerBoxRef = useRef<HTMLDivElement>(null);
+    // Suggestions only appear once there is something to search for
+    // and the field has focus, so an untouched form stays quiet.
+    const suggestionsOpen = employerQuery !== '' && searchFocused;
+    const suggestionOptions = employerQuery ? visibleEmployers : [];
+
+    useEffect(() => {
+        setHighlight(0);
+    }, [employerQuery]);
+
+    const chooseEmployer = (name: string) => {
+        setField('employer', name);
+        setEmployerSearch('');
+        setSearchFocused(false);
+    };
+
+    // Clicking anywhere else closes the suggestion list.
+    useEffect(() => {
+        if (!suggestionsOpen) {
+            return;
+        }
+
+        const onPointerDown = (event: PointerEvent) => {
+            if (!employerBoxRef.current?.contains(event.target as Node)) {
+                setSearchFocused(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', onPointerDown);
+
+        return () => document.removeEventListener('pointerdown', onPointerDown);
+    }, [suggestionsOpen]);
+
+    const onEmployerSearchKeyDown = (
+        event: React.KeyboardEvent<HTMLInputElement>,
+    ) => {
+        if (event.key === 'Escape') {
+            setEmployerSearch('');
+            return;
+        }
+
+        if (suggestionOptions.length === 0) {
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setHighlight((current) => (current + 1) % suggestionOptions.length);
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setHighlight(
+                (current) =>
+                    (current - 1 + suggestionOptions.length) %
+                    suggestionOptions.length,
+            );
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            const option = suggestionOptions[highlight];
+
+            if (option) {
+                event.preventDefault();
+                chooseEmployer(option.name);
+            }
+        }
+    };
 
     const setField = <K extends keyof JobForm>(field: K, value: JobForm[K]) => {
         setForm((current) => ({ ...current, [field]: value }));
@@ -693,7 +766,7 @@ export default function DashboardNewJob() {
                                         Add new employer
                                     </Button>
                                 </div>
-                                <div className="relative">
+                                <div className="relative" ref={employerBoxRef}>
                                     <Search
                                         className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                                         aria-hidden="true"
@@ -701,16 +774,102 @@ export default function DashboardNewJob() {
                                     <Input
                                         type="search"
                                         value={employerSearch}
-                                        onChange={(event) =>
+                                        onChange={(event) => {
                                             setEmployerSearch(
                                                 event.target.value,
-                                            )
-                                        }
+                                            );
+                                            setSearchFocused(true);
+                                        }}
+                                        onFocus={() => setSearchFocused(true)}
+                                        onKeyDown={onEmployerSearchKeyDown}
                                         placeholder="Search employers"
                                         aria-label="Search employers"
+                                        role="combobox"
+                                        aria-expanded={suggestionsOpen}
+                                        aria-controls="employer-suggestions"
+                                        aria-autocomplete="list"
+                                        aria-activedescendant={
+                                            suggestionsOpen &&
+                                            suggestionOptions[highlight]
+                                                ? `employer-option-${highlight}`
+                                                : undefined
+                                        }
                                         className="h-9 max-w-72 pl-9 text-sm"
                                         data-testid="input-employer-search"
                                     />
+
+                                    {suggestionsOpen && (
+                                        <div
+                                            id="employer-suggestions"
+                                            role="listbox"
+                                            aria-label="Employer suggestions"
+                                            className="absolute left-0 z-20 mt-1 max-h-64 w-72 overflow-y-auto rounded-lg border border-[var(--line)] bg-white py-1 shadow-lg"
+                                            data-testid="employer-suggestions"
+                                        >
+                                            {suggestionOptions.length ? (
+                                                suggestionOptions.map(
+                                                    (employer, index) => (
+                                                        <button
+                                                            key={employer.name}
+                                                            id={`employer-option-${index}`}
+                                                            type="button"
+                                                            role="option"
+                                                            aria-selected={
+                                                                highlight ===
+                                                                index
+                                                            }
+                                                            onMouseEnter={() =>
+                                                                setHighlight(
+                                                                    index,
+                                                                )
+                                                            }
+                                                            onClick={() =>
+                                                                chooseEmployer(
+                                                                    employer.name,
+                                                                )
+                                                            }
+                                                            className={`flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left transition-colors ${
+                                                                highlight ===
+                                                                index
+                                                                    ? 'bg-[var(--teal-light)]'
+                                                                    : 'hover:bg-[var(--surface-soft)]'
+                                                            }`}
+                                                            data-testid={`employer-suggestion-${index}`}
+                                                        >
+                                                            <span className="truncate text-sm font-medium text-[var(--navy)]">
+                                                                {employer.name}
+                                                            </span>
+                                                            <span className="truncate text-xs text-[var(--slate)]">
+                                                                {
+                                                                    employer.location
+                                                                }{' '}
+                                                                ·{' '}
+                                                                {
+                                                                    employer.poeaLicenseNo
+                                                                }
+                                                            </span>
+                                                        </button>
+                                                    ),
+                                                )
+                                            ) : (
+                                                <div className="px-3 py-2.5">
+                                                    <p className="text-sm text-[var(--navy)]">
+                                                        No employer matches
+                                                        &ldquo;
+                                                        {employerSearch.trim()}
+                                                        &rdquo;.
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-[var(--slate)]">
+                                                        Use{' '}
+                                                        <strong>
+                                                            Add new employer
+                                                        </strong>{' '}
+                                                        to register it.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <Select
                                     value={form.employer}
