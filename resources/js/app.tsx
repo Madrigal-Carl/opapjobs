@@ -36,6 +36,18 @@ void createInertiaApp({
                     PublicLayout,
                     { className: 'agency-profile-page', footer: false },
                 ];
+            case name === 'jobs/index':
+                return [PublicLayout, { className: 'jobs-page' }];
+            case name === 'jobs/show':
+                return [PublicLayout, { className: 'job-detail-page' }];
+            case name === 'jobs/apply':
+                return [PublicLayout, { className: 'applicant-page' }];
+            case name === 'applicant/applications':
+                return [PublicLayout, { className: 'applicant-page' }];
+            case name === 'applicant/resume':
+                return [PublicLayout, { className: 'applicant-page' }];
+            case name === 'contact':
+                return [PublicLayout, { className: 'contact-page' }];
             default:
                 return AppLayout;
         }

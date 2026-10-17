@@ -8,12 +8,33 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('redirect.staff')->group(function () {
     Route::get('/', [ViewController::class, 'home'])->name('home');
     Route::get('agencies', [ViewController::class, 'agencies'])->name('agencies.index');
+    Route::get('jobs', [ViewController::class, 'jobs'])->name('jobs.index');
+    Route::get('contact', [ViewController::class, 'contact'])->name('contact');
 });
 
 Route::get('agency/{slug}', [ViewController::class, 'agency'])
     ->where('slug', '[a-z0-9-]+')
     ->middleware(['redirect.staff', 'auth', 'verified', 'can:'.Permission::ViewAgencyProfile->value])
     ->name('agencies.show');
+
+Route::get('job/{job}', [ViewController::class, 'job'])
+    ->where('job', '[a-z0-9-]+')
+    ->middleware('redirect.staff')
+    ->name('jobs.show');
+
+/**
+ * Applicant-only pages. `redirect.staff` sends the agency side back to the
+ * overview; `auth` sends guests to sign in and back again afterwards.
+ */
+Route::middleware(['auth', 'verified', 'redirect.staff'])->group(function () {
+    Route::get('job/{job}/apply', [ViewController::class, 'jobApply'])
+        ->where('job', '[a-z0-9-]+')
+        ->name('jobs.apply');
+
+    Route::get('resume', [ViewController::class, 'resume'])->name('resume');
+
+    Route::get('applications', [ViewController::class, 'applications'])->name('applications');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [RedirectController::class, 'dashboard'])->name('dashboard');

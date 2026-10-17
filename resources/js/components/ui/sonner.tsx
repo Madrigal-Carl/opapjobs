@@ -25,3 +25,6 @@ function Toaster({ ...props }: ToasterProps) {
 }
 
 export { Toaster };
+// Re-exported so callers can raise a toast without depending on `sonner`
+// directly — the package is the implementation detail, not the API.
+export { toast } from 'sonner';
