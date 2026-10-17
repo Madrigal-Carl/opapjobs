@@ -10,6 +10,7 @@ enum Permission: string
     case ViewPlatformOverview = 'view platform overview';
     case ViewSystemOverview = 'view system overview';
     case ViewJobs = 'view jobs';
+    case ManageJob = 'managejob';
     case ViewApplications = 'view applications';
     case ViewCandidates = 'view candidates';
     case ViewAccounts = 'view accounts';

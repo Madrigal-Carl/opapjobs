@@ -1,7 +1,11 @@
 <?php
 
+use App\Enums\Permission;
+use App\Enums\Role;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Permission as PermissionModel;
+use Spatie\Permission\Models\Role as RoleModel;
 
 $dashboardPages = [
     'overview' => 'dashboard.overview',
@@ -66,6 +70,68 @@ test('staff can open the new job form', function (string $role) {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
 })->with(['employer', 'admin', 'superadmin']);
+
+test('staff with only view jobs cannot open the new job form', function () {
+    RoleModel::findByName(Role::Employer->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+    $user = User::factory()->employer()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard.jobs.create'))
+        ->assertForbidden();
+});
+
+test('view only staff receive no job management capability', function () {
+    RoleModel::findByName(Role::Employer->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+
+    $this->actingAs(User::factory()->employer()->create())
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/jobs')
+            ->where('canManageJobs', false)
+        );
+});
+
+test('managejob authorizes the new job form without a separate add permission', function () {
+    PermissionModel::findOrCreate('managejob', 'web');
+    RoleModel::findByName(Role::Employer->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        'managejob',
+    ]);
+
+    $this->actingAs(User::factory()->employer()->create())
+        ->get(route('dashboard.jobs.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
+});
+
+test('job managers receive the management capability on the jobs page', function (string $role) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('canManageJobs', true));
+})->with(['employer', 'admin', 'superadmin']);
+
+test('the superadmin gate still grants job management without an assigned permission', function () {
+    RoleModel::findByName(Role::Superadmin->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+    $user = User::factory()->superadmin()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('canManageJobs', true));
+
+    $this->get(route('dashboard.jobs.create'))->assertOk();
+});
 
 test('staff can open an application detail page', function (string $role) {
     $this->actingAs(User::factory()->{$role}()->create())

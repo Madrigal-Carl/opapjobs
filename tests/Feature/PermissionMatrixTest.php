@@ -28,6 +28,14 @@ test('an employer cannot pass the view agency profile ability', function () {
         ->can(Permission::ViewAgencyProfile->value))->toBeFalse();
 });
 
+test('staff roles can manage jobs with one permission', function (string $role) {
+    expect(User::factory()->{$role}()->create()->can('managejob'))->toBeTrue();
+})->with(['employer', 'admin', 'superadmin']);
+
+test('applicants cannot manage jobs', function () {
+    expect(User::factory()->applicant()->create()->can('managejob'))->toBeFalse();
+});
+
 test('superadmin passes the view agency profile ability through the superuser gate', function () {
     expect(User::factory()->superadmin()->create()
         ->can(Permission::ViewAgencyProfile->value))->toBeTrue();
@@ -87,6 +95,7 @@ test('superadmins have every dashboard permission assigned directly', function (
         Permission::ViewPlatformOverview,
         Permission::ViewSystemOverview,
         Permission::ViewJobs,
+        Permission::ManageJob,
         Permission::ViewApplications,
         Permission::ViewCandidates,
         Permission::ViewAccounts,
@@ -108,6 +117,7 @@ test('superadmins pass every dashboard ability through the superuser gate', func
     Permission::ViewPlatformOverview,
     Permission::ViewSystemOverview,
     Permission::ViewJobs,
+    Permission::ManageJob,
     Permission::ViewApplications,
     Permission::ViewCandidates,
     Permission::ViewAccounts,
@@ -122,6 +132,7 @@ test('the shared auth props include the superadmin dashboard permissions', funct
                 && $permissions->contains(Permission::ViewHiringOverview->value)
                 && $permissions->contains(Permission::ViewPlatformOverview->value)
                 && $permissions->contains(Permission::ViewJobs->value)
+                && $permissions->contains(Permission::ManageJob->value)
                 && $permissions->contains(Permission::ViewApplications->value)
                 && $permissions->contains(Permission::ViewCandidates->value)
                 && $permissions->contains(Permission::ViewAccounts->value)
