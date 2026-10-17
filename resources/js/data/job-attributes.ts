@@ -2,7 +2,6 @@ import type {
     EducationLevel,
     GenderRequirement,
     LanguageProficiency,
-    ListingStatus,
     PostingType,
 } from '@/types/job';
 
@@ -12,6 +11,7 @@ export const STATUS_LABELS: Record<EffectiveStatus, string> = {
     published: 'Active',
     expired: 'Expired',
     closed: 'Closed',
+    archived: 'Archived',
 };
 
 export const GENDER_LABELS: Record<GenderRequirement, string> = {
@@ -47,6 +47,21 @@ export const CONTRACT_LABELS: Record<
     fixed: 'Fixed term',
     seasonal: 'Seasonal',
 };
+
+/** Splits a salary's amount and optional payment period for listing tables. */
+export function formatSalary(salary: string): {
+    amount: string;
+    period: string;
+} {
+    const separator = salary.lastIndexOf('/');
+
+    return separator === -1
+        ? { amount: salary.trim(), period: '' }
+        : {
+              amount: salary.slice(0, separator).trim(),
+              period: salary.slice(separator + 1).trim(),
+          };
+}
 
 /**
  * Languages commonly requested by overseas employers in these
