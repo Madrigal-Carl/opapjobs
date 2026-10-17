@@ -2,12 +2,6 @@ import type { Pathway } from './agency';
 
 export type PostingType = 'manpooling' | 'joborder';
 export type GenderRequirement = 'any' | 'male' | 'female';
-/**
- * What the agency intends. "Closed" is never set by hand: a listing
- * closes itself once its closing date passes, or when the agency
- * closes it early.
- */
-export type ListingStatus = 'draft' | 'published';
 export type ContractDuration = 'permanent' | 'fixed' | 'seasonal';
 export type EducationLevel =
     | 'any'
@@ -43,7 +37,6 @@ export type Job = {
     location: string;
     salary: string;
     posted: string;
-    status: ListingStatus;
     postingType: PostingType;
     employerLocation: string;
     poeaLicenseNo: string;
@@ -58,6 +51,8 @@ export type Job = {
     closingDate?: string;
     /** Set when the agency stops a listing before its closing date. */
     closedEarly?: boolean;
+    /** Set when the agency files a listing away without closing it. */
+    archived?: boolean;
     /** Experience band in years, omitted when open-ended. */
     minExperienceYears?: number;
     maxExperienceYears?: number;

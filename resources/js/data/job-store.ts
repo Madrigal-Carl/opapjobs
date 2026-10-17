@@ -1,6 +1,6 @@
 import { findSimilarListing, getEffectiveStatus } from './job-attributes';
 import { jobs } from './jobs';
-import type { Job, ListingStatus } from '@/types/job';
+import type { Job } from '@/types/job';
 
 let jobList: Job[] = [...jobs];
 
@@ -17,18 +17,10 @@ export function getJobById(id: string): Job | undefined {
 }
 
 /**
- * Publishes a listing, or leaves it as a draft. The admin never picks
- * a "closed" state: that follows from the closing date.
- */
-export function setJobStatus(id: string, status: ListingStatus): void {
-    jobList = jobList.map((job) => (job.id === id ? { ...job, status } : job));
-}
-
-/**
  * Stops a listing before its closing date, for example once the role
  * is filled. Reopening clears the marker and, if the closing date has
  * already passed, pushes it out so the listing does not immediately
- * close again.
+ * expire again.
  */
 export function closeJob(id: string, closedEarly = true): void {
     jobList = jobList.map((job) =>
@@ -44,11 +36,21 @@ export function reopenJob(id: string, newClosingDate?: string): void {
 
         return {
             ...job,
-            status: 'published',
             closedEarly: false,
             closingDate: newClosingDate ?? job.closingDate,
         };
     });
+}
+
+/**
+ * Files a listing away, or brings it back. Archiving leaves the closing
+ * date and closed state untouched, so unarchiving restores the listing
+ * exactly as it was.
+ */
+export function archiveJob(id: string, archived = true): void {
+    jobList = jobList.map((job) =>
+        job.id === id ? { ...job, archived } : job,
+    );
 }
 
 export function getJobEffectiveStatus(id: string) {
@@ -58,7 +60,7 @@ export function getJobEffectiveStatus(id: string) {
 }
 
 /**
- * Existing listings that look like the one being drafted, so an admin
+ * Existing listings that look like the one being created, so an admin
  * can catch the same role being posted twice.
  */
 export function findSimilarJob(

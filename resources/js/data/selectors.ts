@@ -3,6 +3,7 @@ import { applicants } from '@/data/applicant';
 import { applications } from '@/data/applications';
 import { agencies } from '@/data/agencies';
 import {
+    daysUntil,
     getEffectiveStatus,
     isClosingSoon,
     type EffectiveStatus,
@@ -185,7 +186,16 @@ function filterJobs(query: JobPageQuery, items?: Job[]): JobRow[] {
             return false;
         }
 
-        if (status !== 'all' && getEffectiveStatus(job) !== status) {
+        const effectiveStatus = getEffectiveStatus(job);
+
+        // Archived listings are tucked away and only surface when the
+        // status filter asks for them.
+        const matchesStatus =
+            status === 'all'
+                ? effectiveStatus !== 'archived'
+                : effectiveStatus === status;
+
+        if (!matchesStatus) {
             return false;
         }
 
@@ -231,6 +241,7 @@ export type JobSortField =
     | 'gender'
     | 'salary'
     | 'posted'
+    | 'closingDate'
     | 'applicants';
 
 export type SortDirection = 'asc' | 'desc';
@@ -277,6 +288,17 @@ function postedDays(posted: string): number {
 }
 
 /**
+ * Days until the closing date, for ordering the "Expiring soon" list.
+ * Listings that already expired sink to the bottom instead of topping a
+ * soonest-first list, and so does a missing date.
+ */
+function closingDays(dateValue: string | undefined): number {
+    const days = daysUntil(dateValue ?? '');
+
+    return days === null || days < 0 ? Number.MAX_SAFE_INTEGER : days;
+}
+
+/**
  * Extracts the leading amount from a salary range so ranges can be
  * ordered by their lower bound.
  */
@@ -296,6 +318,8 @@ function sortValue(row: JobRow, field: JobSortField): string | number {
             return job.quantity;
         case 'posted':
             return postedDays(job.posted);
+        case 'closingDate':
+            return closingDays(job.closingDate);
         case 'salary':
             return salaryAmount(job.salary);
         case 'employer':
@@ -380,7 +404,6 @@ export type JobSummary = {
     vacancies: number;
     applicants: number;
     published: number;
-    drafts: number;
     closed: number;
     closingSoon: number;
 };
@@ -411,8 +434,6 @@ export function getJobSummary(
         published: matches.filter(
             (row) => getEffectiveStatus(row.job) === 'published',
         ).length,
-        drafts: matches.filter((row) => getEffectiveStatus(row.job) === 'draft')
-            .length,
         closed: matches.filter(
             (row) => getEffectiveStatus(row.job) === 'closed',
         ).length,
@@ -679,4 +700,27 @@ export function getOverviewSummary(): OverviewSummary {
 
 export function getOverviewDays(): OverviewDayPoint[] {
     return overviewDays;
+}
+
+export type JobsDashboardKpis = {
+    activeJobs: number;
+    totalApplicants: number;
+    withJobOrder: number;
+    successfulPlacements: number;
+};
+
+/**
+ * Headline figures for the jobs dashboard KPI row. The demo data set
+ * only holds a handful of listings, so these stand in for the full
+ * platform numbers the design shows.
+ */
+const JOBS_DASHBOARD_KPIS: JobsDashboardKpis = {
+    activeJobs: 1248,
+    totalApplicants: 3562,
+    withJobOrder: 186,
+    successfulPlacements: 324,
+};
+
+export function getJobsDashboardKpis(): JobsDashboardKpis {
+    return JOBS_DASHBOARD_KPIS;
 }

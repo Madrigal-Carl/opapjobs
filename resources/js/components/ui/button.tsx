@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary:
-          "bg-[var(--amber)] font-bold text-[var(--navy)] hover:brightness-95",
+          "bg-[var(--amber)] font-bold text-[var(--navy)] hover:bg-[var(--amber-hover)]",
         secondary:
           "border border-[var(--line)] bg-white font-semibold text-[var(--navy)] hover:border-[var(--teal)]",
         destructive:

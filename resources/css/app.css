@@ -88,12 +88,14 @@
     --card: 0 0% 100%;
     --card-foreground: 213 44% 16%;
     --card-border: 209 23% 86%;
-    --sidebar: 213 53% 17%;
+    /* Sidebar sits on navy-deep; hover is a subtle white overlay and the
+       border/divider is a slightly lighter navy (see --sidebar-active). */
+    --sidebar: 209 61% 16%;
     --sidebar-foreground: 42 33% 97%;
-    --sidebar-border: 211 37% 28%;
+    --sidebar-border: 209 45% 29%;
     --sidebar-primary: 178 53% 42%;
     --sidebar-primary-foreground: 213 53% 12%;
-    --sidebar-accent: 211 37% 28%;
+    --sidebar-accent: 0 0% 100% / 0.06;
     --sidebar-accent-foreground: 42 33% 97%;
     --sidebar-ring: 178 53% 42%;
     --popover: 0 0% 100%;
@@ -321,12 +323,33 @@
     --navy-soft: #244b66;
     --teal: #379f9a;
     --teal-light: #d9eeeb;
+    --teal-ink: #1f6f66;
     --amber: #f3b344;
+    --amber-hover: #e5a32b;
     --cream: #f8f5ed;
     --surface-soft: #eef2f5;
     --ink: #17334b;
     --slate: #5d7180;
     --line: #dbe3e5;
+
+    /* Status and tone colors for pills, accents and KPI icons. */
+    --danger: #e5484d;
+    --danger-soft: #fdecec;
+    --success: #16a36d;
+    --success-soft: #e1f5ec;
+    --success-ink: #12805c;
+    --neutral-soft: #eceef2;
+    --neutral-ink: #4b5b6b;
+    --neutral-dot: #8a97a5;
+    --indigo-soft: #e3e8f5;
+    --tone-blue: #2f6fdb;
+    --tone-violet: #6d4fd8;
+    --tone-orange: #e07a1f;
+    --tone-emerald: #10936b;
+
+    /* Dashboard sidebar active state. */
+    --sidebar-active: #1b3658;
+    --sidebar-active-border: #2a4a70;
 }
 
 html {

@@ -1,12 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
+    Globe,
     LayoutGrid,
     ShieldCheck,
     UserSearch,
     Users,
 } from 'lucide-react';
-import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -80,12 +80,25 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader>
+            <SidebarHeader className="p-0">
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
+                        <SidebarMenuButton
+                            size="lg"
+                            asChild
+                            className="h-20 gap-3 rounded-none px-4 group-data-[collapsible=icon]:h-20! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0! hover:bg-transparent hover:text-white data-[state=open]:bg-transparent"
+                        >
                             <Link href={overview()} prefetch>
-                                <AppLogo />
+                                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--amber)]">
+                                    <Globe
+                                        className="size-[18px] text-[var(--navy-deep)]"
+                                        strokeWidth={1.8}
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                                <span className="truncate text-[18px] font-bold text-white group-data-[collapsible=icon]:hidden">
+                                    OPAP Job Abroad
+                                </span>
                             </Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>

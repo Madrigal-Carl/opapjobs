@@ -6,11 +6,11 @@ import type {
     PostingType,
 } from '@/types/job';
 
-export type EffectiveStatus = ListingStatus | 'closed';
+export type EffectiveStatus = 'published' | 'expired' | 'closed' | 'archived';
 
 export const STATUS_LABELS: Record<EffectiveStatus, string> = {
-    draft: 'Draft',
-    published: 'Published',
+    published: 'Active',
+    expired: 'Expired',
     closed: 'Closed',
 };
 
@@ -136,28 +136,28 @@ export function closingUrgencyLabel(
  * the agency stops them early. Nothing here is set by hand.
  */
 export function getEffectiveStatus(job: {
-    status?: ListingStatus;
     closingDate?: string;
     closedEarly?: boolean;
+    archived?: boolean;
 }): EffectiveStatus {
-    if ((job.status ?? 'published') === 'draft') {
-        return 'draft';
+    if (job.archived) {
+        return 'archived';
     }
 
     if (job.closedEarly) {
         return 'closed';
     }
 
-    return hasClosingPassed(job.closingDate) ? 'closed' : 'published';
+    return hasClosingPassed(job.closingDate) ? 'expired' : 'published';
 }
 
 /**
  * Whether applicants can currently see and apply to the listing.
  */
 export function isAcceptingApplications(job: {
-    status?: ListingStatus;
     closingDate?: string;
     closedEarly?: boolean;
+    archived?: boolean;
 }): boolean {
     return getEffectiveStatus(job) === 'published';
 }
@@ -327,8 +327,8 @@ export function closingLabel(closingDate: string | undefined): string {
 
 /**
  * A listing counts as similar when the same employer already has a
- * listing for the same title and category. Closed listings are
- * ignored so a re-post after closing is not flagged.
+ * listing for the same title and category. Listings that are done with
+ * are ignored so a re-post after closing or expiry is not flagged.
  */
 export function findSimilarListing<
     T extends {
@@ -336,13 +336,19 @@ export function findSimilarListing<
         employer: string;
         title: string;
         category: string;
-        status?: ListingStatus;
+        closingDate?: string;
+        closedEarly?: boolean;
+        archived?: boolean;
     },
 >(
-    draft: { employer: string; title: string; category: string },
+    candidate: { employer: string; title: string; category: string },
     existing: T[],
 ): T[] {
-    if (!draft.employer.trim() || !draft.title.trim() || !draft.category) {
+    if (
+        !candidate.employer.trim() ||
+        !candidate.title.trim() ||
+        !candidate.category
+    ) {
         return [];
     }
 
@@ -352,13 +358,18 @@ export function findSimilarListing<
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, ' ');
 
-    const title = normalise(draft.title);
+    const title = normalise(candidate.title);
 
-    return existing.filter(
-        (job) =>
-            getEffectiveStatus(job) !== 'closed' &&
-            normalise(job.employer) === normalise(draft.employer) &&
+    return existing.filter((job) => {
+        const status = getEffectiveStatus(job);
+
+        return (
+            status !== 'closed' &&
+            status !== 'expired' &&
+            status !== 'archived' &&
+            normalise(job.employer) === normalise(candidate.employer) &&
             normalise(job.title) === title &&
-            job.category === draft.category,
-    );
+            job.category === candidate.category
+        );
+    });
 }

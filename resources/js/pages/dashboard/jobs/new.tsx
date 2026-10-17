@@ -59,7 +59,6 @@ import type {
     GenderRequirement,
     JobLanguage,
     LanguageProficiency,
-    ListingStatus,
     PostingType,
     QuestionAnswerType,
 } from '@/types/job';
@@ -151,7 +150,6 @@ type QuestionDraft = {
 
 type JobForm = {
     postingType: PostingType;
-    status: ListingStatus;
     employer: string;
     title: string;
     agency: string;
@@ -183,7 +181,6 @@ type FieldErrors = Partial<Record<keyof JobForm, string>>;
 
 const emptyForm: JobForm = {
     postingType: 'joborder',
-    status: 'published',
     employer: '',
     title: '',
     agency: '',
@@ -511,14 +508,10 @@ export default function DashboardNewJob() {
     const submitForm = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        const submitter = event.nativeEvent as SubmitEvent;
-        const intent =
-            submitter.submitter?.getAttribute('data-intent') ?? 'publish';
-
-        publish(intent === 'draft' ? 'draft' : 'published');
+        publish();
     };
 
-    const publish = (status: ListingStatus) => {
+    const publish = () => {
         const fieldErrors = validate();
 
         setErrors(fieldErrors);
@@ -551,7 +544,6 @@ export default function DashboardNewJob() {
             location: employer?.location ?? '',
             salary: form.salary.trim() || 'Competitive salary',
             posted: 'Just now',
-            status,
             postingType: form.postingType,
             employerLocation: employer?.location ?? '',
             poeaLicenseNo: employer?.poeaLicenseNo ?? '',
@@ -603,11 +595,7 @@ export default function DashboardNewJob() {
         });
         setErrors({});
 
-        toast.success(
-            status === 'draft'
-                ? 'Listing saved as a draft.'
-                : 'Job listing published.',
-        );
+        toast.success('Job listing published.');
     };
 
     return (
@@ -700,9 +688,8 @@ export default function DashboardNewJob() {
                                 />
                                 <p className="text-xs text-[var(--slate)]">
                                     The listing goes live as soon as you
-                                    publish, and closes itself once the closing
-                                    date passes. Save it as a draft instead if
-                                    you want to review it first.
+                                    publish, and expires itself once the closing
+                                    date passes.
                                 </p>
                             </div>
 
@@ -1933,18 +1920,8 @@ export default function DashboardNewJob() {
                             <Link href={jobs()}>Cancel</Link>
                         </Button>
                         <Button
-                            variant="secondary"
                             type="submit"
                             form="form-new-job"
-                            data-intent="draft"
-                            data-testid="button-save-draft"
-                        >
-                            Save as draft
-                        </Button>
-                        <Button
-                            type="submit"
-                            form="form-new-job"
-                            data-intent="publish"
                             data-testid="button-publish-job"
                         >
                             Publish listing
