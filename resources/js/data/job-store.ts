@@ -5,7 +5,7 @@ import type { Job } from '@/types/job';
 let jobList: Job[] = [...jobs];
 
 export function getJobList(): Job[] {
-    return jobList;
+    return jobList.filter((job) => job.status !== 'draft');
 }
 
 export function addJob(job: Job): void {

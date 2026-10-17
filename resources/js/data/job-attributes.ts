@@ -39,6 +39,51 @@ export const PROFICIENCY_LABELS: Record<LanguageProficiency, string> = {
     fluent: 'Fluent',
 };
 
+export const PROFICIENCY_FORM_LABELS: Record<LanguageProficiency, string> = {
+    basic: 'Basic / Advantageous',
+    conversational: 'Conversational / Working proficiency',
+    fluent: 'Fluent / Native',
+};
+
+export const PROFICIENCY_PREVIEW_LABELS: Record<LanguageProficiency, string> = {
+    basic: 'Basic / Advantageous',
+    conversational: 'Professional / Conversational',
+    fluent: 'Fluent / Native',
+};
+
+/** Formats the optional monthly salary bounds entered in the listing form. */
+export function formatSalaryRange(
+    currency: string,
+    min: string,
+    max: string,
+): string {
+    const format = (value: string) =>
+        Number(value.replaceAll(',', '')).toLocaleString('en-US');
+
+    if (min && max) {
+        return `${currency} ${format(min)}–${format(max)}`;
+    }
+
+    if (min) {
+        return `${currency} ${format(min)}+`;
+    }
+
+    return max ? `${currency} Up to ${format(max)}` : 'Competitive salary';
+}
+
+/** Formats a local calendar date for the applicant preview. */
+export function formatApplyBy(value?: string): string {
+    const date = value ? new Date(`${value}T00:00:00`) : null;
+
+    return date && Number.isFinite(date.getTime())
+        ? new Intl.DateTimeFormat('en-GB', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+          }).format(date)
+        : 'Open';
+}
+
 export const CONTRACT_LABELS: Record<
     'permanent' | 'fixed' | 'seasonal',
     string
@@ -170,11 +215,12 @@ export function getEffectiveStatus(job: {
  * Whether applicants can currently see and apply to the listing.
  */
 export function isAcceptingApplications(job: {
+    status?: 'draft' | 'published';
     closingDate?: string;
     closedEarly?: boolean;
     archived?: boolean;
 }): boolean {
-    return getEffectiveStatus(job) === 'published';
+    return job.status !== 'draft' && getEffectiveStatus(job) === 'published';
 }
 
 export function hasClosingPassed(dateValue: string | undefined): boolean {
@@ -354,6 +400,7 @@ export function findSimilarListing<
         closingDate?: string;
         closedEarly?: boolean;
         archived?: boolean;
+        status?: 'draft' | 'published';
     },
 >(
     candidate: { employer: string; title: string; category: string },
@@ -379,6 +426,7 @@ export function findSimilarListing<
         const status = getEffectiveStatus(job);
 
         return (
+            job.status !== 'draft' &&
             status !== 'closed' &&
             status !== 'expired' &&
             status !== 'archived' &&
