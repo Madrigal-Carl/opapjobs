@@ -26,6 +26,40 @@ class ViewController extends Controller
         ]);
     }
 
+    public function jobs(): Response
+    {
+        return Inertia::render('jobs/index');
+    }
+
+    public function job(string $job): Response
+    {
+        return Inertia::render('jobs/show', [
+            'jobId' => $job,
+        ]);
+    }
+
+    public function jobApply(string $job): Response
+    {
+        return Inertia::render('jobs/apply', [
+            'jobId' => $job,
+        ]);
+    }
+
+    public function resume(): Response
+    {
+        return Inertia::render('applicant/resume');
+    }
+
+    public function applications(): Response
+    {
+        return Inertia::render('applicant/applications');
+    }
+
+    public function contact(): Response
+    {
+        return Inertia::render('contact');
+    }
+
     public function dashboardOverview(Request $request): Response
     {
         $component = DashboardOverview::componentFor($request->user());

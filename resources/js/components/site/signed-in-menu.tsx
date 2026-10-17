@@ -5,23 +5,21 @@ import {
     FileText,
     LogOut,
     Settings,
-    Sparkles,
-    Star,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getNameInitials } from '@/lib/name-initials';
+import { applications, contact, resume } from '@/routes';
+import { edit as profileEdit } from '@/routes/profile';
 
-const accountLinks: { label: string; icon: typeof FileText; href?: string }[] =
-    [
-        { label: 'Resume', icon: FileText },
-        { label: 'Applications', icon: BriefcaseBusiness },
-        { label: 'Matches', icon: Sparkles },
-        { label: 'Reviews', icon: Star },
-    ];
+/** Where an applicant goes next, in the order they use it. */
+const accountLinks = [
+    { label: 'My Jobs', icon: BriefcaseBusiness, href: applications.url() },
+    { label: 'Resume', icon: FileText, href: resume.url() },
+];
 
 const accountSupportLinks = [
-    { label: 'Settings', icon: Settings, href: '/settings/profile' },
-    { label: 'Help', icon: CircleHelp },
+    { label: 'Settings', icon: Settings, href: profileEdit.url() },
+    { label: 'Help', icon: CircleHelp, href: contact.url() },
 ];
 
 export function SignedInMenu({
@@ -80,11 +78,11 @@ export function SignedInMenu({
                     {accountLinks.map(({ label, icon: Icon, href }) => (
                         <a
                             className="account-menu-item"
-                            href={href ?? '#'}
+                            href={href}
                             key={label}
                             role="menuitem"
                             onClick={onToggle}
-                            data-testid={`link-account-${label.toLowerCase()}`}
+                            data-testid={`link-account-${label.toLowerCase().replaceAll(' ', '-')}`}
                         >
                             <Icon aria-hidden="true" />
                             {label}
@@ -94,7 +92,7 @@ export function SignedInMenu({
                     {accountSupportLinks.map(({ label, icon: Icon, href }) => (
                         <a
                             className="account-menu-item"
-                            href={href ?? '#'}
+                            href={href}
                             key={label}
                             role="menuitem"
                             onClick={onToggle}
