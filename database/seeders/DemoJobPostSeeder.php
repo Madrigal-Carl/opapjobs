@@ -32,10 +32,12 @@ class DemoJobPostSeeder extends Seeder
                 $employers = $agency->employers()->orderBy('id')->get();
                 $staff = $agency->staffUsers()->withTrashed()->orderBy('id')->get();
 
-                for ($index = 0; $index < 12; $index++) {
+                $postCount = max(12, $staff->count() * 4);
+
+                for ($index = 0; $index < $postCount; $index++) {
                     $role = $roles[($index + $agencyIndex * 2) % count($roles)];
                     $employer = $employers[$index % $employers->count()];
-                    $poster = $staff[$index % $staff->count()];
+                    $poster = $staff[intdiv($index, 4) % $staff->count()];
                     $location = $employer->employer_location;
                     [$currency, $rate] = match (true) {
                         $pathway === 'seabased' => ['USD', 100],
@@ -46,32 +48,32 @@ class DemoJobPostSeeder extends Seeder
                         default => ['SGD', 135],
                     };
                     $minimum = intdiv($role['pay'] * $rate, 5000) * 50;
-                    $created = $today->subDays(84 - $index * 6 - $agencyIndex)->setHour(9);
+                    $created = $today->subDays(30 + ($postCount - 1 - $index) * 6 + $agencyIndex)->setHour(9);
                     $subcategory = JobSubcategory::where('subcategory_name', $role['subcategory'])
                         ->whereHas('category', fn ($query) => $query->where('pathway', $pathway))->firstOrFail();
-                    $status = match ($index) {
-                        6, 9 => 'closed', 7 => 'archived', default => 'pending'
+                    $status = match ($index % 4) {
+                        2 => 'closed', 3 => 'archived', default => 'pending'
                     };
-                    $closingDate = match ($index) {
-                        2 => null,
-                        5 => $today->subDays(10),
-                        6 => $today->subDays(6),
+                    $closingDate = match ($index % 4) {
+                        0 => $index % 8 === 0 ? null : $today,
+                        1 => $today->subDays(10),
                         default => $today->addDays(14 + $index * 2),
                     };
                     $recruitment = in_array($index, [2, 7, 10], true) ? 'manpooling' : 'joborder';
                     $workLocation = $pathway === 'seabased' ? 'International waters; joining in '.$location : $location;
                     $title = $role['title'].' — '.$location;
-                    $job = JobPost::firstOrNew(['agency_id' => $agency->id, 'job_title' => $title]);
+                    $job = JobPost::firstOrNew([
+                        'agency_id' => $agency->id, 'posted_by_user_id' => $poster->id, 'job_title' => $title,
+                    ]);
                     $description = "## The assignment\nJoin an established partner operation in {$workLocation} as a **{$role['title']}**. {$agency->agency_name} will coordinate your interview, document review and contract briefing. This is a hands-on position for someone who takes pride in reliable work, clear communication and respectful cooperation with colleagues.\n\n"
                         ."## Duties and requirements\n{$role['duties']}\n\n"
                         ."- Bring at least {$role['experience']} years of relevant experience and evidence of your **{$role['certificate']}**.\n"
                         .'- Be ready to discuss '.implode(', ', $role['skills'])." during the interview.\n"
                         ."- Follow approved safety procedures, report concerns promptly and maintain accurate handover records.\n\n"
                         ."## Pay and support\nThe monthly salary range is stated separately and will be confirmed in the written contract. The employment briefing covers accommodation or its allowance, transport arrangements, medical coverage, rest periods and leave. Review these details before accepting an offer. Recruitment staff will explain the next steps and will not ask applicants to pay through a personal account.";
-                    $updated = match ($index) {
-                        6, 9 => $created->addDays(14),
-                        7 => $created->addDays(20),
-                        10, 11 => $created->addDays(10),
+                    $updated = match ($index % 4) {
+                        2 => $created->addDays(14),
+                        3 => $created->addDays(20),
                         default => $created,
                     };
                     $job->forceFill([

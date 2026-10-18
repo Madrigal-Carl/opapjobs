@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Dashboard\JobPostController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
@@ -48,7 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ManageJob->value)
                 ->name('dashboard.jobs.create');
 
-            Route::get('jobs', [ViewController::class, 'dashboardJobs'])
+            Route::get('jobs', [JobPostController::class, 'index'])
                 ->middleware('can:'.Permission::ViewJobs->value)
                 ->name('dashboard.jobs');
 

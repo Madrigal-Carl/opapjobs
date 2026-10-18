@@ -5,6 +5,7 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import PublicLayout from '@/layouts/public-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { jobs } from '@/routes/dashboard';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -17,6 +18,17 @@ const fullBleedAuthPages = [
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
+    defaults: {
+        visitOptions: (href, options) => {
+            // A late deferred KPI response must not undo a newer Jobs filter URL.
+            const isJobPostKpiReload =
+                new URL(href, window.location.href).pathname === jobs().url &&
+                options.only?.length === 1 &&
+                options.only[0] === 'kpis';
+
+            return isJobPostKpiReload ? { preserveUrl: true } : {};
+        },
+    },
     layout: (name) => {
         switch (true) {
             case fullBleedAuthPages.includes(name):

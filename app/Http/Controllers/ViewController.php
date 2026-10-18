@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\Permission;
 use App\Support\DashboardOverview;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -70,13 +69,6 @@ class ViewController extends Controller
         }
 
         return Inertia::render($component);
-    }
-
-    public function dashboardJobs(Request $request): Response
-    {
-        return Inertia::render('dashboard/jobs', [
-            'canManageJobs' => $request->user()?->can(Permission::ManageJob->value) ?? false,
-        ]);
     }
 
     public function dashboardNewJob(): Response

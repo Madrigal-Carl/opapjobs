@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\Role;
+use App\Models\Agency;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -80,7 +81,18 @@ class UserFactory extends Factory
      */
     public function admin(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Admin->value));
+        return $this->afterCreating(function (User $user): void {
+            $user->assignRole(Role::Admin->value);
+
+            if ($user->agency_id !== null) {
+                Agency::whereKey($user->agency_id)->update(['admin_user_id' => $user->id]);
+            }
+        });
+    }
+
+    public function forAgency(Agency $agency): static
+    {
+        return $this->state(['agency_id' => $agency->id]);
     }
 
     /**

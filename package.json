@@ -8,6 +8,7 @@
         "dev": "vp dev",
         "check": "vp check",
         "check:fix": "vp check --fix",
+        "test": "node --test \"tests/**/*.test.mjs\"",
         "types:check": "tsc --noEmit"
     },
     "dependencies": {
