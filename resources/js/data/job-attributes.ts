@@ -20,31 +20,6 @@ export const GENDER_LABELS: Record<GenderRequirement, string> = {
     female: 'Female only',
 };
 
-/**
- * Splits a free-text salary such as "USD 3,700–4,200 / month" into the
- * figure and the period, so a table can weight the number over the unit.
- *
- * Everything before the first slash is the amount and everything after is
- * the period, because agencies write the unit in both orders ("per month"
- * and "monthly"). A value with no slash has no period rather than having the
- * whole string guessed at.
- */
-export function formatSalary(salary: string): {
-    amount: string;
-    period: string;
-} {
-    const separator = salary.indexOf('/');
-
-    if (separator === -1) {
-        return { amount: salary.trim(), period: '' };
-    }
-
-    return {
-        amount: salary.slice(0, separator).trim(),
-        period: salary.slice(separator + 1).trim(),
-    };
-}
-
 export const POSTING_TYPE_LABELS: Record<PostingType, string> = {
     joborder: 'With job order',
     manpooling: 'Manpooling',
