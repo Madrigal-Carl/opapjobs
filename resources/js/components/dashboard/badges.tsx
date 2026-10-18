@@ -6,6 +6,7 @@ import type { AccountStatus } from '@/types/account';
 import type { Pathway } from '@/types/agency';
 import type { ApplicationStage } from '@/types/application';
 import type { Availability } from '@/types/applicant';
+import type { JobPostDisplayStatus } from '@/types/job-post';
 
 /**
  * Generic pill primitive: a light tint of the tone's hue with dark text
@@ -185,14 +186,22 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
     );
 }
 
-const statusTone: Record<EffectiveStatus, StatusPillTone> = {
+const statusTone: Record<
+    EffectiveStatus | JobPostDisplayStatus,
+    StatusPillTone
+> = {
+    active: 'success',
     published: 'success',
     expired: 'warning',
     closed: 'danger',
     archived: 'neutral',
 };
 
-export function ListingStatusBadge({ status }: { status: EffectiveStatus }) {
+export function JobPostStatusBadge({
+    status,
+}: {
+    status: EffectiveStatus | JobPostDisplayStatus;
+}) {
     return (
         <StatusPill
             tone={statusTone[status]}
@@ -202,10 +211,12 @@ export function ListingStatusBadge({ status }: { status: EffectiveStatus }) {
             }
             data-testid={`badge-status-${status}`}
         >
-            {STATUS_LABELS[status]}
+            {status === 'active' ? 'Active' : STATUS_LABELS[status]}
         </StatusPill>
     );
 }
+
+export { JobPostStatusBadge as ListingStatusBadge };
 
 export function ClosingSoonBadge() {
     return (

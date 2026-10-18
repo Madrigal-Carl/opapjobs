@@ -9,9 +9,12 @@ use App\Enums\GenderRequirement;
 use App\Enums\JobPostDisplayStatus;
 use App\Enums\JobPostStatus;
 use App\Enums\RecruitmentType;
+use App\Models\Concerns\ScopedToUser;
+use Database\Factories\JobPostFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -21,11 +24,18 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property JobPostStatus $status
+ * @property RecruitmentType $recruitment_type
+ * @property Currency|null $salary_currency
  * @property Carbon|null $closing_date
  * @property-read JobPostDisplayStatus $display_status
  */
 class JobPost extends Model
 {
+    /** @use HasFactory<JobPostFactory> */
+    use HasFactory;
+
+    use ScopedToUser;
+
     protected $attributes = ['status' => 'pending'];
 
     protected $fillable = [
@@ -57,7 +67,7 @@ class JobPost extends Model
         ];
     }
 
-    /** @return array{sql: string, bindings: array{string}} */
+    /** @return array{sql: literal-string, bindings: array{string}} */
     public static function displayStatusExpression(): array
     {
         return [

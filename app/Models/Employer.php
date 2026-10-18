@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Database\Factories\EmployerFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +11,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employer extends Model
 {
+    /** @use HasFactory<EmployerFactory> */
+    use HasFactory;
+
     use SoftDeletes;
 
     protected $fillable = ['agency_id', 'employer_name', 'employer_location', 'employer_license_number'];

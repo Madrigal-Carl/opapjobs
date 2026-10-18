@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\Pathway;
+use Database\Factories\JobCategoryFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -10,6 +12,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JobCategory extends Model
 {
+    /** @use HasFactory<JobCategoryFactory> */
+    use HasFactory;
+
     use SoftDeletes;
 
     protected $fillable = ['pathway', 'category_name', 'sort_order'];

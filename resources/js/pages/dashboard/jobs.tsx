@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import {
     BadgeCheck,
     BriefcaseBusiness,
@@ -8,10 +8,8 @@ import {
     SearchX,
     Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 import {
-    ListingStatusBadge,
+    JobPostStatusBadge,
     PostingTypeBadge,
 } from '@/components/dashboard/badges';
 import {
@@ -27,6 +25,7 @@ import { DashboardEmptyState } from '@/components/dashboard/empty-state';
 import { KpiCard, KpiGrid } from '@/components/dashboard/kpi-card';
 import { DashboardPage } from '@/components/dashboard/page';
 import { PageHeader } from '@/components/dashboard/page-header';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -34,31 +33,29 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getAgencyPathway } from '@/data/agency-context';
-import {
-    formatSalary,
-    getEffectiveStatus,
-    STATUS_LABELS,
-    type EffectiveStatus,
-} from '@/data/job-attributes';
-import { archiveJob, closeJob, getJobList, reopenJob } from '@/data/job-store';
-import {
-    getJobPage,
-    getJobsDashboardKpis,
-    JOBS_PER_PAGE,
-    type JobRow,
-    type JobSortField,
-    type SortDirection,
-} from '@/data/selectors';
+import { useServerTable } from '@/hooks/use-server-table';
+import { formatJobPostSalary } from '@/lib/job-post-salary';
 import { jobs } from '@/routes/dashboard';
 import { create as jobsCreate } from '@/routes/dashboard/jobs';
-import type { Job, PostingType } from '@/types/job';
+import type { PostingType } from '@/types/job';
+import type {
+    JobPostDisplayStatus,
+    JobPostIndexFilters,
+    JobPostKpis,
+    JobPostRow,
+} from '@/types/job-post';
+import type { Paginated } from '@/types/pagination';
 
-type PostingTypeFilter = PostingType | 'all';
-type StatusFilter = EffectiveStatus | 'all';
-type SortOption = 'newest' | 'oldest' | 'expiring' | 'applicants' | 'salary';
+const DEFAULT_FILTERS: JobPostIndexFilters = {
+    q: null,
+    status: null,
+    recruitment_type: null,
+    sort: 'newest',
+    per_page: 10,
+};
+const TABLE_PROPS = ['jobPosts', 'filters'];
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+const SORT_OPTIONS = [
     { value: 'newest', label: 'Newest' },
     { value: 'oldest', label: 'Oldest' },
     { value: 'expiring', label: 'Expiring soon' },
@@ -66,7 +63,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
     { value: 'salary', label: 'Salary: high to low' },
 ];
 
-const POSTING_TYPE_OPTIONS = [
+const RECRUITMENT_TYPE_OPTIONS = [
     { value: 'all', label: 'All' },
     { value: 'joborder', label: 'Job order' },
     { value: 'manpooling', label: 'Manpooling' },
@@ -74,56 +71,43 @@ const POSTING_TYPE_OPTIONS = [
 
 const STATUS_OPTIONS = [
     { value: 'all', label: 'All status' },
-    { value: 'published', label: STATUS_LABELS.published },
-    { value: 'expired', label: STATUS_LABELS.expired },
-    { value: 'closed', label: STATUS_LABELS.closed },
-    { value: 'archived', label: STATUS_LABELS.archived },
+    { value: 'active', label: 'Active' },
+    { value: 'expired', label: 'Expired' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'archived', label: 'Archived' },
 ];
 
-const POSTING_TYPE_LABELS: Record<PostingType, string> = {
+const RECRUITMENT_TYPE_LABELS: Record<PostingType, string> = {
     joborder: 'Job order',
     manpooling: 'Manpooling',
 };
 
-/** Accent bar colour per effective status: published amber, closed red. */
-const ACCENT_BY_STATUS: Record<EffectiveStatus, 'amber' | 'red' | 'neutral'> = {
-    published: 'amber',
+const ACCENT_BY_STATUS: Record<
+    JobPostDisplayStatus,
+    'amber' | 'red' | 'neutral'
+> = {
+    active: 'amber',
     closed: 'red',
     expired: 'neutral',
     archived: 'neutral',
 };
+const postedDate = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
 
-/** The Sort by select drives ordering, so column headers stay static. */
-function sortQuery(option: SortOption): {
-    sort: JobSortField;
-    sortDirection: SortDirection;
-} {
-    switch (option) {
-        case 'oldest':
-            return { sort: 'posted', sortDirection: 'desc' };
-        case 'expiring':
-            return { sort: 'closingDate', sortDirection: 'asc' };
-        case 'applicants':
-            return { sort: 'applicants', sortDirection: 'desc' };
-        case 'salary':
-            return { sort: 'salary', sortDirection: 'desc' };
-        case 'newest':
-        default:
-            return { sort: 'posted', sortDirection: 'asc' };
-    }
-}
-
-const jobColumns: Column<JobRow>[] = [
+const jobPostColumns: Column<JobPostRow>[] = [
     {
         key: 'position',
         header: 'Position',
         width: '22%',
-        cell: (row) => (
+        cell: (post) => (
             <span
                 className="block max-w-[20rem] truncate font-bold text-[var(--navy-deep)]"
-                title={row.job.title}
+                title={`${post.job_title} — ${post.work_location}`}
             >
-                {row.job.title}
+                {post.job_title}
             </span>
         ),
     },
@@ -132,20 +116,17 @@ const jobColumns: Column<JobRow>[] = [
         header: 'Posted',
         width: '11%',
         className: 'whitespace-nowrap text-[var(--slate)]',
-        cell: (row) => row.job.posted,
+        cell: (post) => postedDate.format(new Date(post.created_at)),
     },
     {
         key: 'salary',
         header: 'Salary',
         width: '21%',
-        cell: (row) => {
-            const { amount, period } = formatSalary(row.job.salary);
+        cell: (post) => {
+            const { amount, period } = formatJobPostSalary(post);
 
             return (
-                <span
-                    className="block whitespace-nowrap"
-                    title={row.job.salary}
-                >
+                <span className="block whitespace-nowrap" title={amount}>
                     <span className="font-semibold text-[var(--navy-deep)]">
                         {amount}
                     </span>
@@ -162,10 +143,10 @@ const jobColumns: Column<JobRow>[] = [
         key: 'type',
         header: 'Type',
         width: '11%',
-        cell: (row) => (
+        cell: (post) => (
             <PostingTypeBadge
-                postingType={row.job.postingType}
-                labels={POSTING_TYPE_LABELS}
+                postingType={post.recruitment_type}
+                labels={RECRUITMENT_TYPE_LABELS}
             />
         ),
     },
@@ -173,18 +154,16 @@ const jobColumns: Column<JobRow>[] = [
         key: 'status',
         header: 'Status',
         width: '12%',
-        cell: (row) => (
-            <ListingStatusBadge status={getEffectiveStatus(row.job)} />
-        ),
+        cell: (post) => <JobPostStatusBadge status={post.display_status} />,
     },
     {
         key: 'applicants',
         header: 'Applicants',
         width: '11%',
         align: 'right',
-        cell: (row) => (
+        cell: (post) => (
             <span className="inline-flex items-center gap-1.5 font-bold text-[var(--navy-deep)] tabular-nums">
-                {row.applicants}
+                {post.applicants_count}
                 <Users
                     className="size-4 text-[var(--slate)]"
                     aria-hidden="true"
@@ -194,18 +173,9 @@ const jobColumns: Column<JobRow>[] = [
     },
 ];
 
-function JobRowMenu({
-    job,
-    onToggle,
-    onArchive,
-}: {
-    job: Job;
-    onToggle: (id: string, title: string) => void;
-    onArchive: (id: string, title: string) => void;
-}) {
-    const status = getEffectiveStatus(job);
-    const isClosed = status === 'closed';
-    const isArchived = status === 'archived';
+function JobPostRowMenu({ post }: { post: JobPostRow }) {
+    const isClosed = post.display_status === 'closed';
+    const isArchived = post.display_status === 'archived';
 
     return (
         <DropdownMenu>
@@ -213,32 +183,38 @@ function JobRowMenu({
                 <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`Actions for ${job.title}`}
-                    data-testid={`button-job-actions-${job.id}`}
+                    aria-label={`Actions for ${post.job_title}`}
+                    data-testid={`button-job-actions-${post.id}`}
                 >
                     <MoreHorizontal className="size-4" aria-hidden="true" />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuItem disabled>
-                    Edit listing
+                    Edit job post
                     <span className="ml-auto text-xs text-muted-foreground">
                         Soon
                     </span>
                 </DropdownMenuItem>
                 {!isArchived && (
                     <DropdownMenuItem
-                        onSelect={() => onToggle(job.id, job.title)}
-                        data-testid={`button-toggle-status-${job.id}`}
+                        disabled
+                        data-testid={`button-toggle-status-${post.id}`}
                     >
-                        {isClosed ? 'Reopen listing' : 'Close listing'}
+                        {isClosed ? 'Reopen job post' : 'Close job post'}
+                        <span className="ml-auto text-xs text-muted-foreground">
+                            Soon
+                        </span>
                     </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                    onSelect={() => onArchive(job.id, job.title)}
-                    data-testid={`button-archive-job-${job.id}`}
+                    disabled
+                    data-testid={`button-archive-job-${post.id}`}
                 >
-                    {isArchived ? 'Unarchive listing' : 'Archive listing'}
+                    {isArchived ? 'Restore job post' : 'Archive job post'}
+                    <span className="ml-auto text-xs text-muted-foreground">
+                        Soon
+                    </span>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -246,103 +222,35 @@ function JobRowMenu({
 }
 
 export default function DashboardJobs({
+    jobPosts,
+    filters,
+    kpis,
     canManageJobs,
 }: {
+    jobPosts: Paginated<JobPostRow>;
+    filters: JobPostIndexFilters;
+    kpis?: JobPostKpis;
     canManageJobs: boolean;
 }) {
-    const [keyword, setKeyword] = useState('');
-    const [sortOption, setSortOption] = useState<SortOption>('newest');
-    const [postingType, setPostingType] = useState<PostingTypeFilter>('all');
-    const [status, setStatus] = useState<StatusFilter>('all');
-    const [page, setPage] = useState(1);
-    const [refreshing, setRefreshing] = useState(false);
-    // The listing store is module level, so the page keeps its own copy
-    // and refreshes it after a mutation to re-read the list.
-    const [listings, setListings] = useState(() => getJobList());
-
-    useEffect(() => {
-        setPage(1);
-    }, [keyword, sortOption, postingType, status]);
-
-    const resetFilters = () => {
-        setKeyword('');
-        setSortOption('newest');
-        setPostingType('all');
-        setStatus('all');
-    };
-
-    const handleRefresh = () => {
-        resetFilters();
-        setRefreshing(true);
-        window.setTimeout(() => setRefreshing(false), 600);
-    };
-
-    // The only status the agency sets by hand is closing early, for
-    // example once the role is filled. Everything else follows from the
-    // closing date.
-    const toggleListing = (id: string, title: string) => {
-        if (!canManageJobs) {
-            return;
-        }
-
-        const job = getJobList().find((item) => item.id === id);
-        const isClosed = job ? getEffectiveStatus(job) === 'closed' : false;
-
-        if (isClosed) {
-            reopenJob(id);
-            toast.success(`${title} is open for applications again.`);
-        } else {
-            closeJob(id);
-            toast.success(`${title} closed. Applicants can no longer apply.`);
-        }
-
-        setListings(getJobList());
-    };
-
-    const archiveListing = (id: string, title: string) => {
-        if (!canManageJobs) {
-            return;
-        }
-
-        const job = getJobList().find((item) => item.id === id);
-        const isArchived = job ? getEffectiveStatus(job) === 'archived' : false;
-
-        archiveJob(id, !isArchived);
-        toast.success(
-            isArchived
-                ? `${title} is back on the jobs list.`
-                : `${title} archived. Find it under the Archived status.`,
-        );
-        setListings(getJobList());
-    };
-
-    const isFiltered =
-        keyword.trim() !== '' || postingType !== 'all' || status !== 'all';
-
-    const { sort, sortDirection } = sortQuery(sortOption);
-    const results = getJobPage(
-        {
-            q: keyword,
-            pathway: getAgencyPathway(),
-            postingType,
-            status,
-            sort,
-            sortDirection,
-            page,
-            perPage: JOBS_PER_PAGE,
-        },
-        listings,
+    const { errors } = usePage().props;
+    const table = useServerTable({
+        url: jobs().url,
+        filters,
+        page: jobPosts.meta.current_page,
+        defaults: DEFAULT_FILTERS,
+        only: TABLE_PROPS,
+    });
+    const isFiltered = Boolean(
+        filters.q || filters.status || filters.recruitment_type,
     );
-    const kpis = getJobsDashboardKpis();
 
     return (
         <>
             <Head title="Jobs" />
-
             <DashboardPage className="md:px-8">
                 <PageHeader
                     title="Jobs"
-                    subtitle="Track every listing and the applicants it attracts."
+                    subtitle="Track every job post and the applicants it attracts."
                     action={
                         canManageJobs
                             ? {
@@ -354,55 +262,52 @@ export default function DashboardJobs({
                             : undefined
                     }
                 />
-
                 <KpiGrid>
                     <KpiCard
                         label="Active Jobs"
-                        value={kpis.activeJobs}
-                        caption="Currently published listings"
+                        value={kpis?.active_jobs ?? 0}
+                        loading={!kpis}
+                        caption="Currently active job posts"
                         icon={BriefcaseBusiness}
                         tone="blue"
                     />
                     <KpiCard
                         label="Total Applicants"
-                        value={kpis.totalApplicants}
-                        caption="Across all job listings"
+                        value={kpis?.total_applicants ?? 0}
+                        loading={!kpis}
+                        caption="Across all job posts"
                         icon={Users}
                         tone="violet"
                     />
                     <KpiCard
                         label="With Job Order"
-                        value={kpis.withJobOrder}
-                        caption="Listings with job orders"
+                        value={kpis?.with_job_order ?? 0}
+                        loading={!kpis}
+                        caption="Non-archived job order posts"
                         icon={ClipboardList}
                         tone="orange"
                     />
                     <KpiCard
                         label="Successful Placements"
-                        value={kpis.successfulPlacements}
-                        caption="Applicants placed with employers"
+                        value={kpis?.successful_placements ?? 0}
+                        loading={!kpis}
+                        caption="Applications at the hired stage"
                         icon={BadgeCheck}
                         tone="emerald"
                     />
                 </KpiGrid>
-
-                <DataTable<JobRow>
-                    columns={jobColumns}
-                    data={results.items}
-                    getRowId={(row) => row.job.id}
-                    getRowTestId={(row) => `row-job-${row.job.id}`}
-                    getRowAccent={(row) =>
-                        ACCENT_BY_STATUS[getEffectiveStatus(row.job)]
+                <DataTable<JobPostRow>
+                    columns={jobPostColumns}
+                    data={jobPosts.data}
+                    loading={table.loading}
+                    getRowId={(post) => String(post.id)}
+                    getRowTestId={(post) => `row-job-${post.id}`}
+                    getRowAccent={(post) =>
+                        ACCENT_BY_STATUS[post.display_status]
                     }
                     renderRowActions={
                         canManageJobs
-                            ? (row) => (
-                                  <JobRowMenu
-                                      job={row.job}
-                                      onToggle={toggleListing}
-                                      onArchive={archiveListing}
-                                  />
-                              )
+                            ? (post) => <JobPostRowMenu post={post} />
                             : undefined
                     }
                     toolbar={
@@ -414,67 +319,80 @@ export default function DashboardJobs({
                             >
                                 <DataTableSearch
                                     id="filter-search"
-                                    value={keyword}
-                                    onChange={setKeyword}
-                                    placeholder="Search jobs by title, keyword..."
+                                    value={table.values.q ?? ''}
+                                    onChange={(value) =>
+                                        table.setFilter('q', value)
+                                    }
+                                    placeholder="Search job posts by title, keyword..."
                                     className="w-full"
                                     data-testid="input-search-jobs"
                                 />
+                                <InputError message={errors.q} />
                             </DataTableField>
-
                             <DataTableField
                                 label="Sort by"
                                 htmlFor="filter-sort"
                             >
                                 <DataTableSelect
                                     id="filter-sort"
-                                    value={sortOption}
-                                    onValueChange={setSortOption}
+                                    value={table.values.sort}
+                                    onValueChange={(value) =>
+                                        table.setFilter('sort', value)
+                                    }
                                     options={SORT_OPTIONS}
-                                    ariaLabel="Sort jobs by"
+                                    ariaLabel="Sort job posts by"
                                     data-testid="select-job-sort"
                                 />
                             </DataTableField>
-
                             <DataTableField
                                 label="Recruitment type"
-                                htmlFor="filter-posting-type"
+                                htmlFor="filter-recruitment-type"
                             >
-                                <DataTableSelect
-                                    id="filter-posting-type"
-                                    value={postingType}
-                                    onValueChange={setPostingType}
-                                    options={POSTING_TYPE_OPTIONS}
+                                <DataTableSelect<PostingType | 'all'>
+                                    id="filter-recruitment-type"
+                                    value={
+                                        table.values.recruitment_type ?? 'all'
+                                    }
+                                    onValueChange={(value) =>
+                                        table.setFilter(
+                                            'recruitment_type',
+                                            value === 'all' ? null : value,
+                                        )
+                                    }
+                                    options={RECRUITMENT_TYPE_OPTIONS}
                                     ariaLabel="Filter by recruitment type"
                                     data-testid="select-job-posting-type"
                                 />
                             </DataTableField>
-
                             <DataTableField
                                 label="Status"
                                 htmlFor="filter-status"
                             >
-                                <DataTableSelect
+                                <DataTableSelect<JobPostDisplayStatus | 'all'>
                                     id="filter-status"
-                                    value={status}
-                                    onValueChange={setStatus}
+                                    value={table.values.status ?? 'all'}
+                                    onValueChange={(value) =>
+                                        table.setFilter(
+                                            'status',
+                                            value === 'all' ? null : value,
+                                        )
+                                    }
                                     options={STATUS_OPTIONS}
                                     ariaLabel="Filter by status"
                                     data-testid="select-job-status-filter"
                                 />
                             </DataTableField>
-
                             <DataTableRefreshButton
-                                onClick={handleRefresh}
-                                spinning={refreshing}
+                                onClick={table.reset}
+                                spinning={table.loading}
                                 data-testid="button-refresh-jobs"
                             />
                         </DataTableToolbar>
                     }
                     pagination={{
-                        page: results.page,
-                        totalPages: results.totalPages,
-                        onPageChange: setPage,
+                        page: table.page,
+                        totalPages: jobPosts.meta.last_page,
+                        onPageChange: table.setPage,
                         alwaysShow: true,
                         label: 'Jobs pagination',
                         testIdPrefix: 'jobs-pagination',
@@ -484,15 +402,15 @@ export default function DashboardJobs({
                             icon={isFiltered ? SearchX : BriefcaseBusiness}
                             title={
                                 isFiltered
-                                    ? 'No listings match your filters'
-                                    : 'No listings found'
+                                    ? 'No job posts match your filters'
+                                    : 'No job posts yet'
                             }
                             message={
                                 isFiltered
                                     ? 'Try a different keyword, recruitment type or status.'
-                                    : 'No job listings are available right now.'
+                                    : 'No job posts are available right now.'
                             }
-                            onReset={isFiltered ? resetFilters : undefined}
+                            onReset={isFiltered ? table.reset : undefined}
                         />
                     }
                     data-testid="table-jobs"
@@ -503,10 +421,5 @@ export default function DashboardJobs({
 }
 
 DashboardJobs.layout = {
-    breadcrumbs: [
-        {
-            title: 'Jobs',
-            href: jobs(),
-        },
-    ],
+    breadcrumbs: [{ title: 'Jobs', href: jobs() }],
 };

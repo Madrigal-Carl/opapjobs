@@ -4,12 +4,17 @@ namespace App\Models;
 
 use App\Enums\ApplicationStage;
 use App\Enums\Availability;
+use Database\Factories\ApplicationFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Application extends Model
 {
+    /** @use HasFactory<ApplicationFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'job_post_id', 'applicant_user_id', 'resume_document_id', 'cover_letter',
         'expected_monthly_salary', 'availability', 'stage', 'submitted_at', 'applicant_archived_at',
