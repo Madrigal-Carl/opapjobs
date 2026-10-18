@@ -30,17 +30,17 @@ class RolesAndPermissionsSeeder extends Seeder
                 $role->value => RoleModel::findOrCreate($role->value, 'web'),
             ]);
 
-        // Superadmins pass every ability through the superuser gate, but the
-        // sidebar only sees the directly assigned permissions, so every
-        // dashboard permission is still assigned to them explicitly.
+        // Only the system overview is exposed to superadmins in the UI;
+        // the superuser gate still grants the other overview abilities.
         $matrix = [
             Role::Applicant->value => [
                 Permission::ViewAgencyProfile,
             ],
-            Role::Employer->value => [
+            Role::Agency->value => [
                 Permission::AccessDashboard,
                 Permission::ViewHiringOverview,
                 Permission::ViewJobs,
+                Permission::ManageJob,
                 Permission::ViewApplications,
                 Permission::ViewCandidates,
             ],
@@ -48,16 +48,16 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::AccessDashboard,
                 Permission::ViewPlatformOverview,
                 Permission::ViewJobs,
+                Permission::ManageJob,
                 Permission::ViewApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,
             ],
             Role::Superadmin->value => [
                 Permission::AccessDashboard,
-                Permission::ViewHiringOverview,
-                Permission::ViewPlatformOverview,
                 Permission::ViewSystemOverview,
                 Permission::ViewJobs,
+                Permission::ManageJob,
                 Permission::ViewApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,

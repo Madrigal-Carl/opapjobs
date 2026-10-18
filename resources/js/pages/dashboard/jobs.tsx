@@ -245,7 +245,11 @@ function JobRowMenu({
     );
 }
 
-export default function DashboardJobs() {
+export default function DashboardJobs({
+    canManageJobs,
+}: {
+    canManageJobs: boolean;
+}) {
     const [keyword, setKeyword] = useState('');
     const [sortOption, setSortOption] = useState<SortOption>('newest');
     const [postingType, setPostingType] = useState<PostingTypeFilter>('all');
@@ -277,6 +281,10 @@ export default function DashboardJobs() {
     // example once the role is filled. Everything else follows from the
     // closing date.
     const toggleListing = (id: string, title: string) => {
+        if (!canManageJobs) {
+            return;
+        }
+
         const job = getJobList().find((item) => item.id === id);
         const isClosed = job ? getEffectiveStatus(job) === 'closed' : false;
 
@@ -292,6 +300,10 @@ export default function DashboardJobs() {
     };
 
     const archiveListing = (id: string, title: string) => {
+        if (!canManageJobs) {
+            return;
+        }
+
         const job = getJobList().find((item) => item.id === id);
         const isArchived = job ? getEffectiveStatus(job) === 'archived' : false;
 
@@ -331,12 +343,16 @@ export default function DashboardJobs() {
                 <PageHeader
                     title="Jobs"
                     subtitle="Track every listing and the applicants it attracts."
-                    action={{
-                        label: 'Post a job',
-                        icon: Plus,
-                        href: jobsCreate().url,
-                        testId: 'button-post-job',
-                    }}
+                    action={
+                        canManageJobs
+                            ? {
+                                  label: 'Post a job',
+                                  icon: Plus,
+                                  href: jobsCreate().url,
+                                  testId: 'button-post-job',
+                              }
+                            : undefined
+                    }
                 />
 
                 <KpiGrid>
@@ -378,13 +394,17 @@ export default function DashboardJobs() {
                     getRowAccent={(row) =>
                         ACCENT_BY_STATUS[getEffectiveStatus(row.job)]
                     }
-                    renderRowActions={(row) => (
-                        <JobRowMenu
-                            job={row.job}
-                            onToggle={toggleListing}
-                            onArchive={archiveListing}
-                        />
-                    )}
+                    renderRowActions={
+                        canManageJobs
+                            ? (row) => (
+                                  <JobRowMenu
+                                      job={row.job}
+                                      onToggle={toggleListing}
+                                      onArchive={archiveListing}
+                                  />
+                              )
+                            : undefined
+                    }
                     toolbar={
                         <DataTableToolbar data-testid="jobs-table-toolbar">
                             <DataTableField

@@ -16,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import type { User } from '@/types';
 
 const ROLE_LABELS: Record<string, string> = {
-    employer: 'Employers',
+    agency: 'Agencies',
     admin: 'Admins',
     superadmin: 'Superadmin',
     applicant: 'Applicants',
@@ -44,7 +44,7 @@ export function NavUser() {
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
                             size="lg"
-                            className="h-[52px] gap-3 rounded-xl bg-white/[0.06] px-3 text-white group-data-[collapsible=icon]:h-[52px]! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:p-0! hover:bg-white/[0.1] hover:text-white data-[state=open]:bg-white/[0.1]"
+                            className="h-[52px] gap-3 rounded-xl bg-white/[0.06] px-3 text-white group-data-[collapsible=icon]:h-[52px]! group-data-[collapsible=icon]:w-full! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:bg-transparent! group-data-[collapsible=icon]:p-0! hover:bg-white/[0.1] hover:text-white data-[state=open]:bg-white/[0.1]"
                             data-test="sidebar-menu-button"
                         >
                             <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--amber)] text-sm font-bold text-[var(--navy-deep)]">

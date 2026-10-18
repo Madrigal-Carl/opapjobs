@@ -30,13 +30,13 @@ test('applicants requesting the dashboard overview as json receive 403', functio
 });
 
 test('staff are redirected from the dashboard to the overview', function () {
-    $this->actingAs(User::factory()->employer()->create())
+    $this->actingAs(User::factory()->agency()->create())
         ->get(route('dashboard'))
         ->assertRedirect(route('dashboard.overview', absolute: false));
 });
 
-test('employers see the hiring overview', function () {
-    $this->actingAs(User::factory()->employer()->create())
+test('agencies see the hiring overview', function () {
+    $this->actingAs(User::factory()->agency()->create())
         ->get(route('dashboard.overview'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/overview/hiring'));

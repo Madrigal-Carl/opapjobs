@@ -45,7 +45,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('overview', [ViewController::class, 'dashboardOverview'])->name('dashboard.overview');
 
             Route::get('jobs/new', [ViewController::class, 'dashboardNewJob'])
-                ->middleware('can:'.Permission::ViewJobs->value)
+                ->middleware('can:'.Permission::ManageJob->value)
                 ->name('dashboard.jobs.create');
 
             Route::get('jobs', [ViewController::class, 'dashboardJobs'])

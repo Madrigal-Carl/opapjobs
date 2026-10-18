@@ -13,7 +13,7 @@ test('verified users without dashboard access are sent to the home page', functi
 });
 
 test('staff are sent to the dashboard overview', function () {
-    expect(RoleHome::pathFor(User::factory()->employer()->create()))
+    expect(RoleHome::pathFor(User::factory()->agency()->create()))
         ->toBe(route('dashboard.overview', absolute: false));
 });
 
@@ -23,6 +23,6 @@ test('unverified users are sent to the verification notice', function () {
 });
 
 test('unverified staff are sent to the verification notice', function () {
-    expect(RoleHome::pathFor(User::factory()->employer()->unverified()->create()))
+    expect(RoleHome::pathFor(User::factory()->agency()->unverified()->create()))
         ->toBe(route('verification.notice', absolute: false));
 });

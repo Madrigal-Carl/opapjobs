@@ -36,6 +36,7 @@ export type Job = {
     pathway: Pathway;
     location: string;
     salary: string;
+    status?: 'draft' | 'published';
     posted: string;
     postingType: PostingType;
     employerLocation: string;
@@ -47,6 +48,7 @@ export type Job = {
 
     /** Free-text blurb shown on the listing. */
     description?: string;
+    otherRequirements?: string;
     /** ISO date the listing closes for applications. */
     closingDate?: string;
     /** Set when the agency stops a listing before its closing date. */

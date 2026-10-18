@@ -68,11 +68,11 @@ class UserFactory extends Factory
     }
 
     /**
-     * Indicate that the user is an employer.
+     * Indicate that the user is an agency.
      */
-    public function employer(): static
+    public function agency(): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Employer->value));
+        return $this->afterCreating(fn (User $user) => $user->assignRole(Role::Agency->value));
     }
 
     /**

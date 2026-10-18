@@ -7,6 +7,12 @@ use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Support\Collection;
 use Spatie\Permission\Models\Role as RoleModel;
 
+test('seeding creates exactly the four current roles and rejects the legacy role name', function () {
+    expect(RoleModel::pluck('name')->all())
+        ->toEqualCanonicalizing(['applicant', 'agency', 'admin', 'superadmin']);
+    expect(Role::tryFrom('employer'))->toBeNull();
+});
+
 test('applicant role has the view agency profile permission', function () {
     $role = RoleModel::findByName(Role::Applicant->value);
 
@@ -18,14 +24,22 @@ test('staff roles do not have the view agency profile permission', function (str
 
     expect($model->hasPermissionTo(Permission::ViewAgencyProfile->value))->toBeFalse();
 })->with([
-    'employer' => [Role::Employer->value],
+    'agency' => [Role::Agency->value],
     'admin' => [Role::Admin->value],
     'superadmin' => [Role::Superadmin->value],
 ]);
 
-test('an employer cannot pass the view agency profile ability', function () {
-    expect(User::factory()->employer()->create()
+test('an agency user cannot pass the view agency profile ability', function () {
+    expect(User::factory()->agency()->create()
         ->can(Permission::ViewAgencyProfile->value))->toBeFalse();
+});
+
+test('staff roles can manage jobs with one permission', function (string $role) {
+    expect(User::factory()->{$role}()->create()->can('managejob'))->toBeTrue();
+})->with(['agency', 'admin', 'superadmin']);
+
+test('applicants cannot manage jobs', function () {
+    expect(User::factory()->applicant()->create()->can('managejob'))->toBeFalse();
 });
 
 test('superadmin passes the view agency profile ability through the superuser gate', function () {
@@ -50,8 +64,8 @@ test('the seeder remains idempotent', function () {
     expect($role->hasPermissionTo(Permission::ViewAgencyProfile->value))->toBeTrue();
 });
 
-test('employer dashboard permissions match the matrix', function () {
-    $role = RoleModel::findByName(Role::Employer->value);
+test('agency dashboard permissions match the matrix', function () {
+    $role = RoleModel::findByName(Role::Agency->value);
 
     expect($role->hasPermissionTo(Permission::AccessDashboard->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewHiringOverview->value))->toBeTrue();
@@ -78,15 +92,14 @@ test('admin dashboard permissions match the matrix', function () {
     expect($role->hasPermissionTo(Permission::ViewSystemOverview->value))->toBeFalse();
 });
 
-test('superadmins have every dashboard permission assigned directly', function () {
+test('superadmins have system overview dashboard permissions assigned directly', function () {
     $role = RoleModel::findByName(Role::Superadmin->value);
 
     $dashboardPermissions = [
         Permission::AccessDashboard,
-        Permission::ViewHiringOverview,
-        Permission::ViewPlatformOverview,
         Permission::ViewSystemOverview,
         Permission::ViewJobs,
+        Permission::ManageJob,
         Permission::ViewApplications,
         Permission::ViewCandidates,
         Permission::ViewAccounts,
@@ -108,6 +121,7 @@ test('superadmins pass every dashboard ability through the superuser gate', func
     Permission::ViewPlatformOverview,
     Permission::ViewSystemOverview,
     Permission::ViewJobs,
+    Permission::ManageJob,
     Permission::ViewApplications,
     Permission::ViewCandidates,
     Permission::ViewAccounts,
@@ -119,9 +133,10 @@ test('the shared auth props include the superadmin dashboard permissions', funct
         ->assertInertia(fn ($page) => $page->where(
             'auth.permissions',
             fn (Collection $permissions): bool => $permissions->contains(Permission::ViewSystemOverview->value)
-                && $permissions->contains(Permission::ViewHiringOverview->value)
-                && $permissions->contains(Permission::ViewPlatformOverview->value)
+                && ! $permissions->contains(Permission::ViewHiringOverview->value)
+                && ! $permissions->contains(Permission::ViewPlatformOverview->value)
                 && $permissions->contains(Permission::ViewJobs->value)
+                && $permissions->contains(Permission::ManageJob->value)
                 && $permissions->contains(Permission::ViewApplications->value)
                 && $permissions->contains(Permission::ViewCandidates->value)
                 && $permissions->contains(Permission::ViewAccounts->value)

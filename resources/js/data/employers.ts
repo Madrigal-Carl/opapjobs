@@ -8,7 +8,7 @@ export type Employer = {
  * In-memory employer list, seeded from the sample jobs and extended
  * when an admin adds a new employer from the post-a-job form.
  */
-const employerList: Employer[] = [
+let employerList: Employer[] = [
     {
         name: 'Al Muhaidib Contracting',
         location: 'Riyadh, Saudi Arabia',
@@ -45,6 +45,16 @@ export function getEmployers(): Employer[] {
     return employerList;
 }
 
+const listeners = new Set<() => void>();
+
+export function subscribeEmployers(listener: () => void): () => void {
+    listeners.add(listener);
+
+    return () => {
+        listeners.delete(listener);
+    };
+}
+
 /**
  * Adds an employer and returns the stored record. Duplicate
  * names are ignored so the list never shows the same company twice.
@@ -65,7 +75,8 @@ export function addEmployer(employer: Employer): Employer {
         poeaLicenseNo: employer.poeaLicenseNo.trim(),
     };
 
-    employerList.push(created);
+    employerList = [...employerList, created];
+    listeners.forEach((listener) => listener());
 
     return created;
 }

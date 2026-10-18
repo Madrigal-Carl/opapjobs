@@ -1,7 +1,11 @@
 <?php
 
+use App\Enums\Permission;
+use App\Enums\Role;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\Models\Permission as PermissionModel;
+use Spatie\Permission\Models\Role as RoleModel;
 
 $dashboardPages = [
     'overview' => 'dashboard.overview',
@@ -22,8 +26,8 @@ test('applicants are redirected home from every dashboard page', function (strin
         ->assertRedirect(route('home', absolute: false));
 })->with($dashboardPages);
 
-test('employers can visit the jobs, applications and candidates pages', function (string $route) {
-    $this->actingAs(User::factory()->employer()->create())
+test('agencies can visit the jobs, applications and candidates pages', function (string $route) {
+    $this->actingAs(User::factory()->agency()->create())
         ->get(route($route))
         ->assertOk();
 })->with([
@@ -42,8 +46,8 @@ test('admins can visit the jobs, applications and candidates pages', function (s
     'candidates' => 'dashboard.candidates',
 ]);
 
-test('employers cannot visit the accounts page', function () {
-    $this->actingAs(User::factory()->employer()->create())
+test('agencies cannot visit the accounts page', function () {
+    $this->actingAs(User::factory()->agency()->create())
         ->get(route('dashboard.accounts'))
         ->assertForbidden();
 });
@@ -65,7 +69,69 @@ test('staff can open the new job form', function (string $role) {
         ->get(route('dashboard.jobs.create'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
-})->with(['employer', 'admin', 'superadmin']);
+})->with(['agency', 'admin', 'superadmin']);
+
+test('staff with only view jobs cannot open the new job form', function () {
+    RoleModel::findByName(Role::Agency->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+    $user = User::factory()->agency()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard.jobs.create'))
+        ->assertForbidden();
+});
+
+test('view only staff receive no job management capability', function () {
+    RoleModel::findByName(Role::Agency->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+
+    $this->actingAs(User::factory()->agency()->create())
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('dashboard/jobs')
+            ->where('canManageJobs', false)
+        );
+});
+
+test('managejob authorizes the new job form without a separate add permission', function () {
+    PermissionModel::findOrCreate('managejob', 'web');
+    RoleModel::findByName(Role::Agency->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        'managejob',
+    ]);
+
+    $this->actingAs(User::factory()->agency()->create())
+        ->get(route('dashboard.jobs.create'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
+});
+
+test('job managers receive the management capability on the jobs page', function (string $role) {
+    $this->actingAs(User::factory()->{$role}()->create())
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('canManageJobs', true));
+})->with(['agency', 'admin', 'superadmin']);
+
+test('the superadmin gate still grants job management without an assigned permission', function () {
+    RoleModel::findByName(Role::Superadmin->value)->syncPermissions([
+        Permission::AccessDashboard->value,
+        Permission::ViewJobs->value,
+    ]);
+    $user = User::factory()->superadmin()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard.jobs'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('canManageJobs', true));
+
+    $this->get(route('dashboard.jobs.create'))->assertOk();
+});
 
 test('staff can open an application detail page', function (string $role) {
     $this->actingAs(User::factory()->{$role}()->create())
@@ -75,7 +141,7 @@ test('staff can open an application detail page', function (string $role) {
             ->component('dashboard/applications/show')
             ->where('applicationId', '1')
         );
-})->with(['employer', 'admin', 'superadmin']);
+})->with(['agency', 'admin', 'superadmin']);
 
 test('guests are redirected to login from an application detail page', function () {
     $this->get(route('dashboard.applications.show', 1))

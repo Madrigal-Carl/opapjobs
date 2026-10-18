@@ -153,7 +153,7 @@ test('email is not verified with an expired signed url', function () {
 });
 
 test('staff email verification is redirected to the dashboard overview', function () {
-    $user = User::factory()->employer()->unverified()->create();
+    $user = User::factory()->agency()->unverified()->create();
 
     $verificationUrl = URL::temporarySignedRoute(
         'verification.verify',

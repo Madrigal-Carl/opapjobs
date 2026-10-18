@@ -23,7 +23,7 @@ test('users can authenticate using the login screen', function () {
 });
 
 test('staff are redirected to the dashboard overview after login', function () {
-    $user = User::factory()->employer()->create();
+    $user = User::factory()->agency()->create();
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,

@@ -16,7 +16,7 @@ test('the dashboard index redirects staff to the overview', function (string $st
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('dashboard'))
         ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['employer', 'admin', 'superadmin']);
+})->with(['agency', 'admin', 'superadmin']);
 
 test('the settings index redirects staff to the profile page', function () {
     $this->actingAs(User::factory()->admin()->create())
