@@ -18,7 +18,7 @@ import { EmployerCombobox } from '@/components/dashboard/employer-combobox';
 import { FormSection } from '@/components/dashboard/form-section';
 import { JobListingPreviewDialog } from '@/components/dashboard/job-listing-preview-dialog';
 import { DashboardPage } from '@/components/dashboard/page';
-import { DashboardPageHeader } from '@/components/dashboard/page-header';
+import { PageHeader } from '@/components/dashboard/page-header';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -287,24 +287,16 @@ export default function DashboardNewJob() {
     return (
         <>
             <Head title="Post a new job" />
-            <DashboardPage className="pb-6">
-                <DashboardPageHeader
+            <DashboardPage className="md:px-8">
+                <PageHeader
                     title="Post a new job"
                     subtitle="Create a clear, applicant-focused listing for your next placement."
-                    actions={
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-9"
-                            asChild
-                            data-testid="button-back-to-jobs"
-                        >
-                            <Link href={jobs()}>
-                                <ArrowLeft aria-hidden="true" />
-                                Back to jobs
-                            </Link>
-                        </Button>
-                    }
+                    action={{
+                        label: 'Back to jobs',
+                        icon: ArrowLeft,
+                        href: jobs().url,
+                        testId: 'button-back-to-jobs',
+                    }}
                 />
                 <form
                     ref={formRef}
@@ -314,7 +306,7 @@ export default function DashboardNewJob() {
                         () => setReviewOpen(true),
                         focusFirstError,
                     )}
-                    className="mx-auto flex w-full flex-col gap-5 lg:max-w-[75%]"
+                    className="flex w-full flex-col gap-5"
                     data-testid="form-new-job"
                 >
                     <FormSection
@@ -1142,7 +1134,7 @@ export default function DashboardNewJob() {
                     </FormSection>
                 </form>
                 <div
-                    className="sticky bottom-0 z-10 -mx-4 flex min-h-[60px] flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] bg-white px-4 py-3 md:-mx-6 md:px-6"
+                    className="sticky bottom-0 z-10 -mx-4 flex min-h-[60px] flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] bg-white px-4 py-3 md:-mx-8 md:px-8"
                     data-testid="job-action-bar"
                 >
                     <p className="text-xs text-[var(--slate)]">
