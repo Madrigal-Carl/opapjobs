@@ -17,7 +17,14 @@ class DatabaseSeeder extends Seeder
         $this->call([RolesAndPermissionsSeeder::class, JobCategorySeeder::class]);
 
         if (app()->environment('local')) {
-            $this->call(LocalDemoSeeder::class);
+            $this->call([
+                DemoAgencySeeder::class,
+                DemoJobPostSeeder::class,
+                DemoApplicantSeeder::class,
+                DemoApplicationSeeder::class,
+                DemoReviewSeeder::class,
+                DemoAuditLogSeeder::class,
+            ]);
         }
     }
 }
