@@ -37,7 +37,7 @@ class RolesAndPermissionsSeeder extends Seeder
             Role::Applicant->value => [
                 Permission::ViewAgencyProfile,
             ],
-            Role::Employer->value => [
+            Role::Agency->value => [
                 Permission::AccessDashboard,
                 Permission::ViewHiringOverview,
                 Permission::ViewJobs,

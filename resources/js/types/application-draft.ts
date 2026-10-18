@@ -3,7 +3,7 @@
  *
  * Separate from `types/application.ts`, which models the application records
  * an agency advances through its pipeline. Nothing here is read by the
- * employer side.
+ * agency side.
  */
 
 import type { JobQuestion } from './job';

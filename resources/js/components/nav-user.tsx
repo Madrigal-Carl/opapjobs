@@ -16,7 +16,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import type { User } from '@/types';
 
 const ROLE_LABELS: Record<string, string> = {
-    employer: 'Employers',
+    agency: 'Agencies',
     admin: 'Admins',
     superadmin: 'Superadmin',
     applicant: 'Applicants',

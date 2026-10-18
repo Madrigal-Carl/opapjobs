@@ -34,13 +34,13 @@ test('staff are redirected from the agencies directory to the dashboard overview
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('agencies.index'))
         ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['employer', 'admin', 'superadmin']);
+})->with(['agency', 'admin', 'superadmin']);
 
 test('staff are redirected from an agency profile to the dashboard overview', function (string $state) {
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('agencies.show', 'some-slug'))
         ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['employer', 'admin', 'superadmin']);
+})->with(['agency', 'admin', 'superadmin']);
 
 test('authenticated users without a role can visit the agencies directory but not an agency profile', function () {
     $user = User::factory()->create();
@@ -70,12 +70,12 @@ test('a guest opening an agency profile returns to it after logging in as an app
 
 test('a guest opening an agency profile ends up on the dashboard after logging in as staff', function () {
     $url = route('agencies.show', 'some-slug');
-    $employer = User::factory()->employer()->create();
+    $agency = User::factory()->agency()->create();
 
     $this->get($url)->assertRedirect(route('login'));
 
     $this->post(route('login.store'), [
-        'email' => $employer->email,
+        'email' => $agency->email,
         'password' => 'password',
     ])->assertRedirect($url);
 

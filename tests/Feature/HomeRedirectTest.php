@@ -16,7 +16,7 @@ test('applicants can visit the home page', function () {
 });
 
 test('staff are redirected from the home page to the dashboard overview', function () {
-    $this->actingAs(User::factory()->employer()->create())
+    $this->actingAs(User::factory()->agency()->create())
         ->get(route('home'))
         ->assertRedirect(route('dashboard.overview', absolute: false));
 });

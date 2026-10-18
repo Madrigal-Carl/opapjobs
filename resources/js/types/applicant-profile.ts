@@ -3,7 +3,7 @@
  *
  * Separate from `types/applicant.ts`, which models the candidate records an
  * agency reviews inside the dashboard. Nothing here is written by the
- * employer side.
+ * agency side.
  */
 
 export type SkillLevel = 'Beginner' | 'Intermediate' | 'Advanced' | 'Expert';
