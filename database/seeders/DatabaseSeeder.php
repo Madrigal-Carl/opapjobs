@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,35 +14,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(RolesAndPermissionsSeeder::class);
+        $this->call([RolesAndPermissionsSeeder::class, JobCategorySeeder::class]);
 
-        if (! app()->environment('local')) {
-            return;
+        if (app()->environment('local')) {
+            $this->call(LocalDemoSeeder::class);
         }
-
-        User::factory()->applicant()->create([
-            'name' => 'Applicant',
-            'email' => 'applicant@example.com',
-        ]);
-
-        User::factory()->applicant()->unverified()->create([
-            'name' => 'Unverified Applicant',
-            'email' => 'unverified-applicant@example.com',
-        ]);
-
-        User::factory()->agency()->create([
-            'name' => 'Agency',
-            'email' => 'agency@example.com',
-        ]);
-
-        User::factory()->admin()->create([
-            'name' => 'Admin',
-            'email' => 'admin@example.com',
-        ]);
-
-        User::factory()->superadmin()->create([
-            'name' => 'Superadmin',
-            'email' => 'superadmin@example.com',
-        ]);
     }
 }

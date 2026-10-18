@@ -92,13 +92,11 @@ test('admin dashboard permissions match the matrix', function () {
     expect($role->hasPermissionTo(Permission::ViewSystemOverview->value))->toBeFalse();
 });
 
-test('superadmins have every dashboard permission assigned directly', function () {
+test('superadmins have system overview dashboard permissions assigned directly', function () {
     $role = RoleModel::findByName(Role::Superadmin->value);
 
     $dashboardPermissions = [
         Permission::AccessDashboard,
-        Permission::ViewHiringOverview,
-        Permission::ViewPlatformOverview,
         Permission::ViewSystemOverview,
         Permission::ViewJobs,
         Permission::ManageJob,
@@ -135,8 +133,8 @@ test('the shared auth props include the superadmin dashboard permissions', funct
         ->assertInertia(fn ($page) => $page->where(
             'auth.permissions',
             fn (Collection $permissions): bool => $permissions->contains(Permission::ViewSystemOverview->value)
-                && $permissions->contains(Permission::ViewHiringOverview->value)
-                && $permissions->contains(Permission::ViewPlatformOverview->value)
+                && ! $permissions->contains(Permission::ViewHiringOverview->value)
+                && ! $permissions->contains(Permission::ViewPlatformOverview->value)
                 && $permissions->contains(Permission::ViewJobs->value)
                 && $permissions->contains(Permission::ManageJob->value)
                 && $permissions->contains(Permission::ViewApplications->value)
