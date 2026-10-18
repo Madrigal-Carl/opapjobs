@@ -157,7 +157,13 @@ export function ApplicationsProvider({
     const setArchived = useCallback((jobId: string, archived: boolean) => {
         setActivity((current) => ({
             ...current,
-            saved: archived ? withoutId(current.saved, jobId) : current.saved,
+            // Unarchiving puts the role back on the saved list. Leaving
+            // `saved` untouched here read as "no longer mine", so both the
+            // undo on the archive toast and "Move back to saved" silently
+            // deleted the bookmark instead of restoring it.
+            saved: archived
+                ? withoutId(current.saved, jobId)
+                : withId(current.saved, jobId),
             archived: archived
                 ? withId(current.archived, jobId)
                 : withoutId(current.archived, jobId),

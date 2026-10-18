@@ -40,8 +40,15 @@ const FILTER_ICONS: Record<JobFilterId, LucideIcon> = {
 
 const FILTERS = Object.keys(JOB_FILTER_LABELS) as JobFilterId[];
 
-/** How many listings render before the "load more" sentinel takes over. */
+/** How many listings render before auto-loading takes over. */
 const BATCH_SIZE = 5;
+
+/**
+ * How far past the bottom of the viewport the end of the list may sit
+ * before the next batch is rendered. Roughly one and a half rows of cards,
+ * so the next rows are already there by the time the reader reaches them.
+ */
+const LOAD_AHEAD_PX = 320;
 
 /** The split view only exists above this width; below it cards navigate. */
 const SPLIT_VIEW_QUERY = '(min-width: 768px)';
@@ -258,28 +265,57 @@ function JobsBrowser() {
         setLoadedCount(BATCH_SIZE);
     }, [search, state.active]);
 
+    /**
+     * Loads the next batch as the end of the list approaches the viewport.
+     *
+     * Driven by a scroll listener rather than an IntersectionObserver,
+     * because the observer only reports when the browser's rendering
+     * lifecycle runs — so it stays silent in a background tab, in a
+     * prerender, and in any test harness that never paints. A scroll
+     * listener is checked directly instead. The cost is one
+     * `getBoundingClientRect` per scroll event, and the browser already
+     * coalesces those to one per frame, so no extra throttling is needed.
+     *
+     * A page the reader never scrolls — a tall viewport, a short list —
+     * still fills out, because `check` runs once on every attach.
+     *
+     * `loadedCount` is a dependency so the effect re-attaches after each
+     * batch and immediately asks whether another is due.
+     */
     useEffect(() => {
-        const node = sentinelRef.current;
-
-        if (!node || !hasMore) {
+        if (isResolving || !hasMore) {
             return;
         }
 
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setLoadedCount((current) =>
-                        Math.min(current + BATCH_SIZE, results.length),
-                    );
-                }
-            },
-            { rootMargin: '240px' },
-        );
+        const check = () => {
+            const node = sentinelRef.current;
 
-        observer.observe(node);
+            if (!node) {
+                return;
+            }
 
-        return () => observer.disconnect();
-    }, [hasMore, results.length]);
+            // `top` is measured against the viewport, so a sentinel below
+            // the fold has a large value.
+            if (
+                node.getBoundingClientRect().top <
+                window.innerHeight + LOAD_AHEAD_PX
+            ) {
+                setLoadedCount((current) =>
+                    Math.min(current + BATCH_SIZE, results.length),
+                );
+            }
+        };
+
+        check();
+
+        window.addEventListener('scroll', check, { passive: true });
+        window.addEventListener('resize', check);
+
+        return () => {
+            window.removeEventListener('scroll', check);
+            window.removeEventListener('resize', check);
+        };
+    }, [hasMore, isResolving, loadedCount, results.length]);
 
     /** Enter skips the debounce rather than waiting for it to settle. */
     const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
@@ -343,254 +379,299 @@ function JobsBrowser() {
                 </div>
             </section>
 
-            <section
-                className="jobs-search-section"
-                aria-labelledby="jobs-search-title"
-            >
-                <div className="shell">
-                    <div className="agencies-search-card">
-                        <div className="jobs-search-heading">
-                            <div>
-                                <div className="eyebrow" id="jobs-search-title">
-                                    <span className="eyebrow-rule" /> SEARCH
-                                    OPENINGS
+            {/*
+                One wrapper for the search card and the results. Nothing in
+                the card is sticky: the reader scrolls it away and reaches the
+                list directly, which is what the split preview is for.
+            */}
+            <div className="jobs-browse">
+                <section
+                    className="jobs-search-section"
+                    aria-labelledby="jobs-search-title"
+                >
+                    <div className="shell">
+                        <div className="jobs-search-card">
+                            <div className="agencies-search-card">
+                                <div className="jobs-search-heading">
+                                    <div>
+                                        <div
+                                            className="eyebrow"
+                                            id="jobs-search-title"
+                                        >
+                                            <span className="eyebrow-rule" />{' '}
+                                            SEARCH OPENINGS
+                                        </div>
+                                        <h2>Find your next clear step.</h2>
+                                    </div>
+                                    <p>
+                                        Search by skill, location, or pathway,
+                                        then compare the full details before you
+                                        apply.
+                                    </p>
                                 </div>
-                                <h2>Find your next clear step.</h2>
-                            </div>
-                            <p>
-                                Search by skill, location, or pathway, then
-                                compare the full details before you apply.
-                            </p>
-                        </div>
 
-                        <form
-                            className="agency-search-form"
-                            role="search"
-                            onSubmit={submitSearch}
-                        >
-                            <label className="agency-search-field">
-                                <div>
-                                    <Search size={18} aria-hidden="true" />
-                                    <input
-                                        type="search"
-                                        value={keyword}
-                                        onChange={(event) =>
-                                            setKeyword(event.target.value)
-                                        }
-                                        placeholder="e.g. Nurse, electrician"
-                                        aria-label="Job title or skill"
-                                        data-testid="input-jobs-keyword"
-                                    />
-                                </div>
-                            </label>
+                                <form
+                                    className="agency-search-form"
+                                    role="search"
+                                    onSubmit={submitSearch}
+                                >
+                                    <label className="agency-search-field">
+                                        <div>
+                                            <Search
+                                                size={18}
+                                                aria-hidden="true"
+                                            />
+                                            <input
+                                                type="search"
+                                                value={keyword}
+                                                onChange={(event) =>
+                                                    setKeyword(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                                placeholder="e.g. Nurse, electrician"
+                                                aria-label="Job title or skill"
+                                                data-testid="input-jobs-keyword"
+                                            />
+                                        </div>
+                                    </label>
 
-                            <div
-                                className={cn(
-                                    'agency-search-field agency-country-field',
-                                    countryOpen && 'is-open',
-                                )}
-                            >
-                                <div>
-                                    <MapPin size={18} aria-hidden="true" />
-                                    <input
-                                        type="text"
-                                        role="combobox"
-                                        aria-expanded={countryOpen}
-                                        aria-controls="jobs-country-options"
-                                        aria-autocomplete="list"
-                                        aria-activedescendant={
-                                            countryOpen
-                                                ? 'jobs-country-highlight'
-                                                : undefined
-                                        }
-                                        autoComplete="off"
-                                        value={country}
-                                        onChange={(event) => {
-                                            setCountry(event.target.value);
-                                            setCountryOpen(true);
-                                        }}
-                                        onFocus={() => setCountryOpen(true)}
-                                        onKeyDown={(event) => {
-                                            if (event.key === 'Escape') {
-                                                setCountryOpen(false);
-                                            }
-                                        }}
-                                        onBlur={() =>
-                                            window.setTimeout(
-                                                () => setCountryOpen(false),
-                                                120,
-                                            )
-                                        }
-                                        placeholder="e.g. Gulf, international waters"
-                                        aria-label="Country or region"
-                                        data-testid="input-jobs-country"
-                                    />
-                                </div>
-                                {countryOpen && (
                                     <div
-                                        className="agency-country-options"
-                                        id="jobs-country-options"
-                                        role="listbox"
-                                        aria-label="Country suggestions"
-                                        data-testid="listbox-jobs-country-options"
+                                        className={cn(
+                                            'agency-search-field agency-country-field',
+                                            countryOpen && 'is-open',
+                                        )}
                                     >
-                                        {matchingCountries.length > 0 ? (
-                                            matchingCountries.map(
-                                                (option, index) => (
-                                                    <button
-                                                        key={option}
-                                                        id={
-                                                            index === 0
-                                                                ? 'jobs-country-highlight'
-                                                                : undefined
-                                                        }
-                                                        type="button"
-                                                        role="option"
-                                                        aria-selected={
-                                                            country === option
-                                                        }
-                                                        onMouseDown={(event) =>
-                                                            event.preventDefault()
-                                                        }
-                                                        onClick={() => {
-                                                            setCountry(option);
+                                        <div>
+                                            <MapPin
+                                                size={18}
+                                                aria-hidden="true"
+                                            />
+                                            <input
+                                                type="text"
+                                                role="combobox"
+                                                aria-expanded={countryOpen}
+                                                aria-controls="jobs-country-options"
+                                                aria-autocomplete="list"
+                                                aria-activedescendant={
+                                                    countryOpen
+                                                        ? 'jobs-country-highlight'
+                                                        : undefined
+                                                }
+                                                autoComplete="off"
+                                                value={country}
+                                                onChange={(event) => {
+                                                    setCountry(
+                                                        event.target.value,
+                                                    );
+                                                    setCountryOpen(true);
+                                                }}
+                                                onFocus={() =>
+                                                    setCountryOpen(true)
+                                                }
+                                                onKeyDown={(event) => {
+                                                    if (
+                                                        event.key === 'Escape'
+                                                    ) {
+                                                        setCountryOpen(false);
+                                                    }
+                                                }}
+                                                onBlur={() =>
+                                                    window.setTimeout(
+                                                        () =>
                                                             setCountryOpen(
                                                                 false,
-                                                            );
-                                                        }}
-                                                        data-testid={`option-jobs-country-${option}`}
-                                                    >
-                                                        {option}
-                                                    </button>
-                                                ),
-                                            )
-                                        ) : (
-                                            <span className="agency-country-empty">
-                                                No matching countries
-                                            </span>
+                                                            ),
+                                                        120,
+                                                    )
+                                                }
+                                                placeholder="e.g. Gulf, international waters"
+                                                aria-label="Country or region"
+                                                data-testid="input-jobs-country"
+                                            />
+                                        </div>
+                                        {countryOpen && (
+                                            <div
+                                                className="agency-country-options"
+                                                id="jobs-country-options"
+                                                role="listbox"
+                                                aria-label="Country suggestions"
+                                                data-testid="listbox-jobs-country-options"
+                                            >
+                                                {matchingCountries.length >
+                                                0 ? (
+                                                    matchingCountries.map(
+                                                        (option, index) => (
+                                                            <button
+                                                                key={option}
+                                                                id={
+                                                                    index === 0
+                                                                        ? 'jobs-country-highlight'
+                                                                        : undefined
+                                                                }
+                                                                type="button"
+                                                                role="option"
+                                                                aria-selected={
+                                                                    country ===
+                                                                    option
+                                                                }
+                                                                onMouseDown={(
+                                                                    event,
+                                                                ) =>
+                                                                    event.preventDefault()
+                                                                }
+                                                                onClick={() => {
+                                                                    setCountry(
+                                                                        option,
+                                                                    );
+                                                                    setCountryOpen(
+                                                                        false,
+                                                                    );
+                                                                }}
+                                                                data-testid={`option-jobs-country-${option}`}
+                                                            >
+                                                                {option}
+                                                            </button>
+                                                        ),
+                                                    )
+                                                ) : (
+                                                    <span className="agency-country-empty">
+                                                        No matching countries
+                                                    </span>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
-                                )}
-                            </div>
 
-                            <Button
-                                type="submit"
-                                className="agency-search-button"
-                                data-testid="button-jobs-search"
-                            >
-                                Search jobs
-                                <Search aria-hidden="true" />
-                            </Button>
-                        </form>
-
-                        <div
-                            className="jobs-filter-row"
-                            role="group"
-                            aria-label="Filter jobs"
-                        >
-                            {FILTERS.map((filter) => {
-                                const Icon = FILTER_ICONS[filter];
-                                const isActive = state.active.includes(filter);
-                                const count = filterCounts[filter];
-                                // A toggle that would return nothing is not
-                                // worth pressing, but an active one stays
-                                // live so it can always be switched back off.
-                                const isEmpty = count === 0 && !isActive;
-
-                                return (
-                                    <button
-                                        key={filter}
-                                        type="button"
-                                        className={cn(
-                                            'jobs-filter-pill',
-                                            isActive && 'active',
-                                            isEmpty && 'is-empty',
-                                        )}
-                                        aria-pressed={isActive}
-                                        disabled={isEmpty}
-                                        onClick={() => toggleFilter(filter)}
-                                        data-testid={`filter-${filter}`}
+                                    <Button
+                                        type="submit"
+                                        className="agency-search-button"
+                                        data-testid="button-jobs-search"
                                     >
-                                        <Icon aria-hidden="true" />
-                                        {JOB_FILTER_LABELS[filter]}
-                                        <span className="jobs-filter-count">
-                                            {count}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                                        Search jobs
+                                        <Search aria-hidden="true" />
+                                    </Button>
+                                </form>
 
-                        <p
-                            className="jobs-search-notice"
-                            role="status"
-                            aria-live="polite"
-                            data-testid="status-jobs-results"
-                        >
-                            <span className="results-count">
-                                {results.length} verified{' '}
-                                {results.length === 1 ? 'role' : 'roles'}{' '}
-                                available
-                            </span>
-                        </p>
-                    </div>
-                </div>
-            </section>
-
-            <section className="jobs-results-section" aria-label="Job results">
-                <div className="shell">
-                    <div className="jobs-split-view">
-                        <div className="jobs-list-panel">
-                            {isResolving ? (
-                                <JobListSkeleton />
-                            ) : results.length === 0 ? (
                                 <div
-                                    className="jobs-empty-state"
-                                    data-testid="jobs-empty-state"
+                                    className="jobs-filter-row"
+                                    role="group"
+                                    aria-label="Filter jobs"
                                 >
-                                    <SearchX size={28} aria-hidden="true" />
-                                    <h3>No jobs match those filters</h3>
-                                    <p>
-                                        Try a different keyword, widen the
-                                        pathway, or clear the filters to see
-                                        every verified opening.
-                                    </p>
-                                    {hasAnyFilter && (
-                                        <button
-                                            type="button"
-                                            onClick={clearFilters}
-                                            data-testid="button-jobs-clear-filters"
-                                        >
-                                            Clear filters
-                                        </button>
-                                    )}
+                                    {FILTERS.map((filter) => {
+                                        const Icon = FILTER_ICONS[filter];
+                                        const isActive =
+                                            state.active.includes(filter);
+                                        const count = filterCounts[filter];
+                                        // A toggle that would return nothing is not
+                                        // worth pressing, but an active one stays
+                                        // live so it can always be switched back off.
+                                        const isEmpty =
+                                            count === 0 && !isActive;
+
+                                        return (
+                                            <button
+                                                key={filter}
+                                                type="button"
+                                                className={cn(
+                                                    'jobs-filter-pill',
+                                                    isActive && 'active',
+                                                    isEmpty && 'is-empty',
+                                                )}
+                                                aria-pressed={isActive}
+                                                disabled={isEmpty}
+                                                onClick={() =>
+                                                    toggleFilter(filter)
+                                                }
+                                                data-testid={`filter-${filter}`}
+                                            >
+                                                <Icon aria-hidden="true" />
+                                                {JOB_FILTER_LABELS[filter]}
+                                                <span className="jobs-filter-count">
+                                                    {count}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                            ) : (
-                                <>
-                                    {loadedJobs.map((job) => (
-                                        <JobCard
-                                            key={job.id}
-                                            job={job}
-                                            isSelected={
-                                                selectedJob?.id === job.id
-                                            }
-                                            isSaved={isSaved(job.id)}
-                                            onSelect={() => selectJob(job.id)}
-                                            onToggleSaved={() =>
-                                                toggleSaved(job.id)
-                                            }
-                                            testId={`card-job-${job.id}`}
-                                        />
-                                    ))}
+
+                                <p
+                                    className="jobs-search-notice"
+                                    role="status"
+                                    aria-live="polite"
+                                    data-testid="status-jobs-results"
+                                >
+                                    <span className="results-count">
+                                        {results.length} verified{' '}
+                                        {results.length === 1
+                                            ? 'role'
+                                            : 'roles'}{' '}
+                                        available
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    className="jobs-results-section"
+                    aria-label="Job results"
+                >
+                    <div className="shell">
+                        <div className="jobs-split-view">
+                            <div className="jobs-list-panel">
+                                {isResolving ? (
+                                    <JobListSkeleton />
+                                ) : results.length === 0 ? (
                                     <div
-                                        className="jobs-load-sentinel"
-                                        ref={sentinelRef}
-                                        aria-hidden="true"
-                                    />
-                                    {hasMore && (
-                                        <div className="jobs-load-more">
-                                            <div
-                                                className="applications-loader"
+                                        className="jobs-empty-state"
+                                        data-testid="jobs-empty-state"
+                                    >
+                                        <SearchX size={28} aria-hidden="true" />
+                                        <h3>No jobs match those filters</h3>
+                                        <p>
+                                            Try a different keyword, widen the
+                                            pathway, or clear the filters to see
+                                            every verified opening.
+                                        </p>
+                                        {hasAnyFilter && (
+                                            <button
+                                                type="button"
+                                                onClick={clearFilters}
+                                                data-testid="button-jobs-clear-filters"
+                                            >
+                                                Clear filters
+                                            </button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        {loadedJobs.map((job) => (
+                                            <JobCard
+                                                key={job.id}
+                                                job={job}
+                                                isSelected={
+                                                    selectedJob?.id === job.id
+                                                }
+                                                isSaved={isSaved(job.id)}
+                                                onSelect={() =>
+                                                    selectJob(job.id)
+                                                }
+                                                onToggleSaved={() =>
+                                                    toggleSaved(job.id)
+                                                }
+                                                testId={`card-job-${job.id}`}
+                                            />
+                                        ))}
+                                        <div
+                                            className="jobs-load-sentinel"
+                                            ref={sentinelRef}
+                                            aria-hidden="true"
+                                        />
+                                        {hasMore && (
+                                            <p
+                                                className="jobs-load-more"
                                                 role="status"
                                                 aria-live="polite"
                                                 data-testid="status-jobs-loading-more"
@@ -607,59 +688,57 @@ function JobsBrowser() {
                                                     className="applications-loader-dot"
                                                     aria-hidden="true"
                                                 />
-                                                Loading more roles
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                className="w-full"
-                                                onClick={() =>
-                                                    setLoadedCount((current) =>
-                                                        Math.min(
-                                                            current +
-                                                                BATCH_SIZE,
-                                                            results.length,
-                                                        ),
-                                                    )
-                                                }
-                                                data-testid="button-jobs-load-more"
-                                            >
-                                                Load more roles
-                                            </Button>
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
+                                                Showing {loadedCount} of{' '}
+                                                {results.length} — scroll for
+                                                more
+                                            </p>
+                                        )}
+                                        {!hasMore &&
+                                            loadedCount > BATCH_SIZE && (
+                                                <p
+                                                    className="jobs-load-end"
+                                                    data-testid="status-jobs-all-loaded"
+                                                >
+                                                    That is every verified
+                                                    opening matching your
+                                                    search.
+                                                </p>
+                                            )}
+                                    </>
+                                )}
+                            </div>
 
-                        <div className="jobs-detail-column">
-                            {selectedJob ? (
-                                <JobDetailPanel
-                                    job={selectedJob}
-                                    isSaved={isSaved(selectedJob.id)}
-                                    isApplied={isApplied(selectedJob.id)}
-                                    applyHref={applyHrefFor(selectedJob.id)}
-                                    viewAllHref={jobShow.url(selectedJob.id)}
-                                    onToggleSaved={() =>
-                                        toggleSaved(selectedJob.id)
-                                    }
-                                />
-                            ) : (
-                                <div className="jobs-empty-detail">
-                                    <BriefcaseBusiness
-                                        size={26}
-                                        aria-hidden="true"
+                            <div className="jobs-detail-column">
+                                {selectedJob ? (
+                                    <JobDetailPanel
+                                        job={selectedJob}
+                                        isSaved={isSaved(selectedJob.id)}
+                                        isApplied={isApplied(selectedJob.id)}
+                                        applyHref={applyHrefFor(selectedJob.id)}
+                                        viewAllHref={jobShow.url(
+                                            selectedJob.id,
+                                        )}
+                                        onToggleSaved={() =>
+                                            toggleSaved(selectedJob.id)
+                                        }
                                     />
-                                    <p className="mt-3">
-                                        Select a listing to read the full
-                                        detail.
-                                    </p>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="jobs-empty-detail">
+                                        <BriefcaseBusiness
+                                            size={26}
+                                            aria-hidden="true"
+                                        />
+                                        <p className="mt-3">
+                                            Select a listing to read the full
+                                            detail.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </section>
+            </div>
         </>
     );
 }

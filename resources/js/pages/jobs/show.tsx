@@ -1,29 +1,16 @@
 import { Head, usePage } from '@inertiajs/react';
-import {
-    ArrowLeft,
-    BadgeCheck,
-    Building2,
-    Check,
-    Info,
-    Mail,
-    Phone,
-    ShieldCheck,
-    User,
-} from 'lucide-react';
+import { ArrowLeft, Check, Info, ShieldCheck } from 'lucide-react';
 import { JobDetailPanel } from '@/components/applicant/job-detail-panel';
 import { JobListingCard } from '@/components/site/job-listing-card';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { JobNotFound } from '@/components/applicant/job-not-found';
+import { ListedBy } from '@/components/applicant/listed-by';
 import { useApplications } from '@/contexts/applications-context';
 import { findAgency } from '@/data/agency-lookup';
-import {
-    getEffectiveStatus,
-    getPublicEmployer,
-    isManpooling,
-} from '@/data/job-attributes';
-import { getRelatedJobs } from '@/data/job-browse';
+import { isAcceptingApplications, isManpooling } from '@/data/job-attributes';
+import { getOtherJobsFromAgency } from '@/data/job-browse';
 import { getJobList } from '@/data/job-store';
-import { login, applications } from '@/routes';
+import { applications, login } from '@/routes';
 import { apply as jobApply, index as jobsIndex } from '@/routes/jobs';
 import type { Job } from '@/types/job';
 
@@ -35,9 +22,13 @@ type JobShowProps = {
  * The full listing.
  *
  * The browse page previews a job in a sticky column; this page is the same
- * panel given room to breathe, plus the agency behind it and the roles
- * either side. It is the page a shared link resolves to, so it has to be
- * readable on its own with no list in view.
+ * panel given room to breathe, plus the agency behind it and the rest of
+ * that agency's openings. It is the page a shared link resolves to, so it
+ * has to be readable on its own with no list in view.
+ *
+ * The marketing footer is dropped here — see the layout mapping in
+ * `app.tsx`. Everything below the last row is dead space on a page people
+ * read once and leave.
  */
 export default function JobShow({ jobId }: JobShowProps) {
     return (
@@ -58,8 +49,7 @@ function JobShowBody({ jobId }: JobShowProps) {
         return <JobNotFound />;
     }
 
-    const status = getEffectiveStatus(job);
-    const isClosed = status === 'closed';
+    const isClosed = !isAcceptingApplications(job);
 
     // Guests are sent to sign in and returned to this listing afterwards.
     const applyHref = user ? jobApply.url(jobId) : login.url();
@@ -92,9 +82,10 @@ function JobShowContent({
     onToggleSaved: () => void;
 }) {
     const { isSaved, toggleSaved } = useApplications();
+
     const agency = findAgency(job.agency);
-    const publicEmployer = getPublicEmployer(job);
-    const related = getRelatedJobs(job);
+    // Same agency only, because the heading below says "from this agency".
+    const alsoFromAgency = getOtherJobsFromAgency(job);
 
     return (
         <>
@@ -102,7 +93,7 @@ function JobShowContent({
                 <title>{`${job.title} — ${job.agency} | OPAP Job Abroad`}</title>
                 <meta
                     name="description"
-                    content={`${job.title} in ${job.employerLocation}. ${job.description ?? ''}`.slice(
+                    content={`${job.title} with ${job.agency}. ${job.description ?? ''}`.slice(
                         0,
                         180,
                     )}
@@ -128,6 +119,11 @@ function JobShowContent({
                             applyHref={applyHref}
                             isApplied={isApplied}
                             isClosed={isClosed}
+                            listedBy={
+                                agency ? (
+                                    <ListedBy agency={agency} contact={job} />
+                                ) : null
+                            }
                         />
 
                         {isClosed && (
@@ -174,160 +170,30 @@ function JobShowContent({
                 </div>
             </section>
 
-            {(job.contactName ||
-                job.contactEmail ||
-                job.contactPhone ||
-                agency ||
-                publicEmployer?.poeaLicenseNo) && (
-                <section className="job-contact-section">
+            {alsoFromAgency.length >= 2 && (
+                <section
+                    className="job-related-section"
+                    aria-labelledby="job-related-title"
+                >
                     <div className="shell">
-                        <div className="job-contact-grid">
-                            <div className="job-contact-card">
-                                <div className="eyebrow">
-                                    <span className="eyebrow-rule" /> THE AGENCY
-                                    BEHIND THIS VACANCY
-                                </div>
-                                <h2>
-                                    {agency?.name ?? job.agency}
-                                    {agency && (
-                                        <span className="job-contact-rating">
-                                            <BadgeCheck
-                                                size={14}
-                                                aria-hidden="true"
-                                            />{' '}
-                                            {agency.rating} rating
-                                        </span>
-                                    )}
-                                </h2>
-                                <p className="job-contact-lede">
-                                    {agency?.description ??
-                                        'Your application is handled by the accredited agency that posted this role.'}
-                                </p>
-                                {publicEmployer && (
-                                    <dl className="job-contact-facts">
-                                        <div>
-                                            <dt>
-                                                <Building2
-                                                    size={14}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                Employer
-                                            </dt>
-                                            <dd>{publicEmployer.name}</dd>
-                                        </div>
-                                        <div>
-                                            <dt>
-                                                <ShieldCheck
-                                                    size={14}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                Licence
-                                            </dt>
-                                            <dd>
-                                                {publicEmployer.poeaLicenseNo}
-                                            </dd>
-                                        </div>
-                                    </dl>
-                                )}
-                                {agency && (
-                                    <a
-                                        className="job-detail-agency-cta"
-                                        href={`/agency/${agency.slug}`}
-                                        data-testid={`link-job-agency-${job.id}`}
-                                    >
-                                        View the agency profile
-                                    </a>
-                                )}
-                            </div>
-
-                            {(job.contactName ||
-                                job.contactEmail ||
-                                job.contactPhone) && (
-                                <div className="job-contact-card">
-                                    <div className="eyebrow">
-                                        <span className="eyebrow-rule" /> HOW TO
-                                        REACH THEM
-                                    </div>
-                                    <h3 className="job-contact-person">
-                                        {job.contactName && (
-                                            <>
-                                                <User
-                                                    size={15}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                {job.contactName}
-                                            </>
-                                        )}
-                                    </h3>
-                                    <ul className="job-contact-list">
-                                        {job.contactEmail && (
-                                            <li>
-                                                <Mail
-                                                    size={14}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                <a
-                                                    href={`mailto:${job.contactEmail}`}
-                                                >
-                                                    {job.contactEmail}
-                                                </a>
-                                            </li>
-                                        )}
-                                        {job.contactPhone && (
-                                            <li>
-                                                <Phone
-                                                    size={14}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                <a
-                                                    href={`tel:${job.contactPhone.replaceAll(
-                                                        ' ',
-                                                        '',
-                                                    )}`}
-                                                >
-                                                    {job.contactPhone}
-                                                </a>
-                                            </li>
-                                        )}
-                                    </ul>
-                                    <p className="job-contact-note">
-                                        Send the agency a message if anything in
-                                        the listing is unclear. Applying through
-                                        this page keeps your application on
-                                        record.
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </section>
-            )}
-
-            {related.length > 0 && (
-                <section className="job-related-section">
-                    <div className="shell">
-                        <div className="jobs-results-heading">
+                        <div className="job-related-head">
                             <div>
                                 <div className="eyebrow">
-                                    <span className="eyebrow-rule" /> MORE
-                                    OPENINGS
+                                    <span className="eyebrow-rule" /> KEEP
+                                    EXPLORING
                                 </div>
-                                <h2>
-                                    Roles you might
-                                    <br />
-                                    <em>consider next.</em>
+                                <h2 id="job-related-title">
+                                    More jobs from this agency.
                                 </h2>
                             </div>
-                            <a
-                                className="job-detail-agency-cta"
-                                href={jobsIndex.url()}
-                            >
-                                Browse all jobs
-                            </a>
+                            <span className="job-related-count">
+                                {alsoFromAgency.length} more verified role
+                                {alsoFromAgency.length === 1 ? '' : 's'}
+                            </span>
                         </div>
 
                         <div className="job-related-grid">
-                            {related.map((item) => (
+                            {alsoFromAgency.map((item) => (
                                 <JobListingCard
                                     key={item.id}
                                     job={item}

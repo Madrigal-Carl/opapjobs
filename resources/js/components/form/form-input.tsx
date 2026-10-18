@@ -90,9 +90,7 @@ export function FormInput({
                     {...props}
                 />
             </div>
-            {hint && !error && (
-                <p className="text-xs text-slate-500">{hint}</p>
-            )}
+            {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
             <InputError message={error} />
         </div>
     );
