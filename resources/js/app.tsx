@@ -37,9 +37,22 @@ void createInertiaApp({
                     { className: 'agency-profile-page', footer: false },
                 ];
             case name === 'jobs/index':
-                return [PublicLayout, { className: 'jobs-page' }];
+                // The list grows under the reader as they scroll, so the
+                // footer would only ever appear at the very end of a
+                // scroll that has no natural end. Same reasoning as the
+                // job listing page.
+                return [
+                    PublicLayout,
+                    { className: 'jobs-page', footer: false },
+                ];
             case name === 'jobs/show':
-                return [PublicLayout, { className: 'job-detail-page' }];
+                // A listing is read to the end and then replaced by the next
+                // one, so the marketing footer is dropped here rather than
+                // sitting below four rows nobody scrolls to.
+                return [
+                    PublicLayout,
+                    { className: 'job-detail-page', footer: false },
+                ];
             case name === 'jobs/apply':
                 return [PublicLayout, { className: 'applicant-page' }];
             case name === 'applicant/applications':

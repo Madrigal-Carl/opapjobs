@@ -12,7 +12,10 @@ import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { useApplications } from '@/contexts/applications-context';
-import { closingUrgencyLabel, getEffectiveStatus } from '@/data/job-attributes';
+import {
+    closingUrgencyLabel,
+    isAcceptingApplications,
+} from '@/data/job-attributes';
 import { getJobList } from '@/data/job-store';
 import {
     index as jobsIndex,
@@ -242,7 +245,7 @@ function ApplicationRow({
     onRestore: () => void;
     onRemove: () => void;
 }) {
-    const isClosed = getEffectiveStatus(job) === 'closed';
+    const isClosed = !isAcceptingApplications(job);
     const urgency = closingUrgencyLabel(job.closingDate);
 
     return (

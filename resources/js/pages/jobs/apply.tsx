@@ -44,7 +44,10 @@ import {
     type ApplicationDraftRecord,
 } from '@/data/application-draft-store';
 import { countLabel, formatFileSize } from '@/data/applicant-profile';
-import { getEffectiveStatus, getPublicLocation } from '@/data/job-attributes';
+import {
+    isAcceptingApplications,
+    getPublicLocation,
+} from '@/data/job-attributes';
 import { getJobList } from '@/data/job-store';
 import { generateMatchAnalysis, overallMatchMeta } from '@/data/match-analysis';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
@@ -136,7 +139,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
     const isFirstWrite = useRef(true);
 
     useEffect(() => {
-        if (!job) {
+        if (!job || submitted) {
             return;
         }
 
@@ -153,7 +156,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
         }
 
         writeApplicationDraft(job.id, debouncedDraft);
-    }, [debouncedDraft, job]);
+    }, [debouncedDraft, job, submitted]);
 
     const patch = useCallback((next: Partial<ApplicationDraftRecord>) => {
         setDraft((current) => ({
@@ -190,7 +193,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
         return <JobNotFound title="This job is no longer available" />;
     }
 
-    const isClosed = getEffectiveStatus(job) === 'closed';
+    const isClosed = !isAcceptingApplications(job);
 
     const startApplication = () => goToStep(2);
 
@@ -221,6 +224,10 @@ function JobApplyBody({ jobId }: JobApplyProps) {
 
     const submit = () => {
         markApplied(job.id);
+        // Cleared before the flag flips: the debounced write above checks
+        // `submitted`, so setting it first would leave this draft on disk and
+        // the applicant would be told their answers were kept for an
+        // application they had already sent.
         clearApplicationDraft(job.id);
         setSubmitted(true);
     };

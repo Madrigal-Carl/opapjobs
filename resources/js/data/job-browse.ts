@@ -7,9 +7,9 @@
  * first thing an applicant clicks.
  */
 import {
-    getEffectiveStatus,
     getPublicEmployer,
     getPublicLocation,
+    isAcceptingApplications,
 } from '@/data/job-attributes';
 import { getJobList } from '@/data/job-store';
 import { normalizeKeyword } from '@/data/selectors';
@@ -92,10 +92,16 @@ function postedDays(posted: string): number {
     return amount;
 }
 
-/** Every published listing, newest first. */
+/**
+ * Every listing an applicant can currently act on, newest first.
+ *
+ * `isAcceptingApplications` rather than a `=== 'published'` comparison, so a
+ * listing that expired, was closed early, or was archived by the agency all
+ * drop out of the browse without anyone remembering to update this list.
+ */
 export function getOpenJobs(): Job[] {
     return getJobList()
-        .filter((job) => getEffectiveStatus(job) === 'published')
+        .filter(isAcceptingApplications)
         .sort(
             (left, right) => postedDays(left.posted) - postedDays(right.posted),
         );
@@ -186,6 +192,20 @@ export function getRelatedJobs(job: Job, limit = 3): Job[] {
     );
 
     return [...sameAgency, ...sameDiscipline].slice(0, limit);
+}
+
+/**
+ * Other open listings from the same agency.
+ *
+ * Deliberately narrower than `getRelatedJobs`: that one widens to the same
+ * discipline so there is always something to show, which is fine under a
+ * "you might also consider" heading but would be a lie under "more jobs
+ * from this agency".
+ */
+export function getOtherJobsFromAgency(job: Job, limit = 4): Job[] {
+    return getOpenJobs()
+        .filter((item) => item.id !== job.id && item.agency === job.agency)
+        .slice(0, limit);
 }
 
 export type PathwayCounts = Record<Pathway, number>;
