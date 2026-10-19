@@ -140,11 +140,7 @@ function MyJobsBody() {
                         <div className="eyebrow">
                             <span className="eyebrow-rule" /> MY JOBS
                         </div>
-                        <h1>
-                            Everything you have
-                            <br />
-                            <em>set in motion.</em>
-                        </h1>
+                        <h1>Everything you have set in motion.</h1>
                     </div>
                     <p>
                         Applications you have sent, roles you bookmarked, and

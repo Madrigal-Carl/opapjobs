@@ -107,6 +107,8 @@ function JobApplyBody({ jobId }: JobApplyProps) {
     const [blocked, setBlocked] = useState<string[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const hasLoadedDraft = useRef(false);
+    const columnRef = useRef<HTMLDivElement>(null);
+    const hasMovedFocus = useRef(false);
 
     const questions = useMemo(() => (job ? getJobQuestions(job) : []), [job]);
     const required = useMemo(
@@ -119,21 +121,60 @@ function JobApplyBody({ jobId }: JobApplyProps) {
         [job, profile],
     );
 
+    /*
+     * What the form still needs, derived from the draft rather than read back
+     * from `blocked`. `blocked` only existed after the applicant pressed
+     * review and was told no; this is the same computation run live, so the
+     * form can say the same sentence either way.
+     */
+    const outstanding = useMemo(() => {
+        const items: string[] = [];
+
+        if (!draft.resumeId && !draft.uploadedResume) {
+            items.push('Choose which resume to send');
+        }
+
+        const missing = missingRequiredAnswers(required, draft.answers);
+
+        if (missing.length > 0) {
+            items.push(`Answer ${countLabel(missing.length, 'question')}`);
+        }
+
+        return items;
+    }, [draft.resumeId, draft.uploadedResume, draft.answers, required]);
+
     useEffect(() => {
         const stored = readApplicationDraft(jobId);
+        const hasContent = Boolean(
+            stored.coverLetter.trim() ||
+            stored.salary.trim() ||
+            stored.availability.trim() ||
+            stored.resumeId ||
+            stored.uploadedResume ||
+            Object.keys(stored.answers).length > 0,
+        );
 
         setDraft(stored);
-        setRestored(
-            Boolean(
-                stored.coverLetter.trim() ||
-                stored.salary.trim() ||
-                stored.availability.trim() ||
-                stored.resumeId ||
-                Object.keys(stored.answers).length > 0,
-            ),
-        );
+        setRestored(hasContent);
+
+        /*
+         * `furthestStep` was written on every step change and read back
+         * nowhere, so a saved draft always reopened on step 1 and the answers
+         * it did restore sat one click away behind a notice nobody could see.
+         * Land where they left off — unless the step they reached is no longer
+         * valid, which happens when a required question disappears from the
+         * listing between visits and the draft can no longer be reviewed.
+         */
+        if (!hasLoadedDraft.current && hasContent && stored.furthestStep > 1) {
+            const stillReviewable =
+                Boolean(stored.resumeId || stored.uploadedResume) &&
+                missingRequiredAnswers(required, stored.answers).length === 0;
+
+            setStep(stillReviewable ? stored.furthestStep : 2);
+        }
+
         hasLoadedDraft.current = true;
-    }, [jobId]);
+    }, [jobId, required]);
 
     const debouncedDraft = useDebouncedValue(draft, DRAFT_DEBOUNCE_MS);
     const isFirstWrite = useRef(true);
@@ -157,6 +198,25 @@ function JobApplyBody({ jobId }: JobApplyProps) {
 
         writeApplicationDraft(job.id, debouncedDraft);
     }, [debouncedDraft, job, submitted]);
+
+    /*
+     * Swapping steps unmounts whichever button was pressed, which drops focus
+     * onto <body> and sends a keyboard user back to the top of the document to
+     * reach what just replaced it. The incoming heading takes focus instead.
+     * Skipped on the first run so restoring a draft cannot steal focus on
+     * load, and after `submitted` as well so the confirmation is announced.
+     */
+    useEffect(() => {
+        if (!hasMovedFocus.current) {
+            hasMovedFocus.current = true;
+
+            return;
+        }
+
+        columnRef.current
+            ?.querySelector<HTMLElement>('.apply-card h2')
+            ?.focus();
+    }, [step, submitted]);
 
     const patch = useCallback((next: Partial<ApplicationDraftRecord>) => {
         setDraft((current) => ({
@@ -202,19 +262,8 @@ function JobApplyBody({ jobId }: JobApplyProps) {
      * move on: a disabled button gives an applicant no way to find out why.
      */
     const reviewApplication = () => {
-        const missing = missingRequiredAnswers(required, draft.answers);
-        const problems: string[] = [];
-
-        if (!draft.resumeId && !draft.uploadedResume) {
-            problems.push('Choose which resume to send');
-        }
-
-        if (missing.length > 0) {
-            problems.push(`Answer ${countLabel(missing.length, 'question')}`);
-        }
-
-        if (problems.length > 0) {
-            setBlocked(problems);
+        if (outstanding.length > 0) {
+            setBlocked(outstanding);
 
             return;
         }
@@ -308,7 +357,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
             <section className="apply-body">
                 <div className="shell">
                     <div className="apply-columns">
-                        <div>
+                        <div ref={columnRef}>
                             {isClosed && (
                                 <p
                                     className="job-closed-notice"
@@ -367,6 +416,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
                                             documents={profile.documents}
                                             profileName={profile.name}
                                             blocked={blocked}
+                                            outstanding={outstanding}
                                             onPatch={patch}
                                             onAnswer={answer}
                                         />
@@ -383,7 +433,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
                                         />
                                     )}
 
-                                    <div className="apply-actions">
+                                    <div className="apply-actions apply-actions-bar">
                                         {step > 1 ? (
                                             <Button
                                                 type="button"
@@ -480,7 +530,7 @@ function SubmittedCard({ job, contact }: { job: Job; contact: string }) {
                 className="text-[var(--teal)]"
                 aria-hidden="true"
             />
-            <h2>Your application is with the agency</h2>
+            <h2 tabIndex={-1}>Your application is with the agency</h2>
             <p className="apply-card-lede">
                 <strong>{job.agency}</strong> has your application for{' '}
                 {job.title}. They will contact you on {contact} when there is an
@@ -510,7 +560,7 @@ function MatchStep({
 
     return (
         <div className="apply-card">
-            <h2>Before you apply</h2>
+            <h2 tabIndex={-1}>Before you apply</h2>
             <p className="apply-card-lede">
                 This compares your resume against what {agency} asked for on
                 this listing. It is guidance, not a decision — the agency reads
@@ -601,6 +651,7 @@ function ApplicationStepForm({
     documents,
     profileName,
     blocked,
+    outstanding,
     onPatch,
     onAnswer,
 }: {
@@ -610,15 +661,36 @@ function ApplicationStepForm({
     documents: ResumeDocument[];
     profileName: string;
     blocked: string[];
+    outstanding: string[];
     onPatch: (next: Partial<ApplicationDraftRecord>) => void;
     onAnswer: (questionId: string, value: ApplicationAnswer) => void;
 }) {
     return (
         <div className="apply-card">
-            <h2>Your application</h2>
+            <h2 tabIndex={-1}>Your application</h2>
             <p className="apply-card-lede">
                 Everything here is saved as you type. Nothing reaches the agency
                 until you press submit on the last step.
+            </p>
+
+            {/* Live read-out. Calm when the form is simply unfinished, so an
+                untouched form never looks like an error; the orange blocked
+                list below still fires if review is pressed too early. */}
+            <p
+                className={`apply-requirement-status ${
+                    outstanding.length === 0 ? 'is-ready' : ''
+                }`}
+                role="status"
+                data-testid="status-apply-outstanding"
+            >
+                {outstanding.length === 0 && (
+                    <CircleCheck size={15} aria-hidden="true" />
+                )}
+                <span>
+                    {outstanding.length === 0
+                        ? 'Everything required is filled in. The next step reads it back exactly as it will be sent.'
+                        : `Still needed: ${outstanding.join(' and ').toLowerCase()}.`}
+                </span>
             </p>
 
             {blocked.length > 0 && (
@@ -948,7 +1020,7 @@ function ReviewStep({
 
     return (
         <div className="apply-card">
-            <h2>Review and submit</h2>
+            <h2 tabIndex={-1}>Review and submit</h2>
             <p className="apply-card-lede">
                 This is what {agency} will see for {jobTitle}. Check it once
                 more — after submitting, you can only withdraw.

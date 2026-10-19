@@ -42,7 +42,12 @@ void createInertiaApp({
             case name === 'home':
                 return PublicLayout;
             case name === 'agencies/index':
-                return [PublicLayout, { className: 'agencies-page' }];
+                // Matches the jobs pages: the directory is a starting point
+                // applicants leave from, not somewhere they stay.
+                return [
+                    PublicLayout,
+                    { className: 'agencies-page', footer: false },
+                ];
             case name === 'agencies/show':
                 return [
                     PublicLayout,
@@ -66,7 +71,14 @@ void createInertiaApp({
                     { className: 'job-detail-page', footer: false },
                 ];
             case name === 'jobs/apply':
-                return [PublicLayout, { className: 'applicant-page' }];
+                // The wizard ends in a submitted state that links onwards, so
+                // there is nothing under it to reach. The footer would only
+                // ever sit below an action bar the applicant has already
+                // used.
+                return [
+                    PublicLayout,
+                    { className: 'applicant-page', footer: false },
+                ];
             case name === 'applicant/applications':
                 return [PublicLayout, { className: 'applicant-page' }];
             case name === 'applicant/resume':

@@ -17,8 +17,14 @@
     overflow: visible;
 }
 
+/*
+   The site container. 1180px left the listing cards and their related rows
+   reading as bands rather than columns on a wide monitor, so the measure is
+   held tighter. 1040px is the floor that keeps the two-across related grid
+   above the 390px a listing card needs to lay out at all.
+*/
 .shell {
-    width: min(1180px, calc(100% - 48px));
+    width: min(1040px, calc(100% - 48px));
     margin: 0 auto;
 }
 
@@ -3629,7 +3635,12 @@
 }
 
 .job-detail-page-content {
-    max-width: 820px;
+    /*
+       Was capped at 820px and centred, which left the listing card floating
+       in cream with a wide empty margin either side while every section
+       around it used the full shell. The width is the shell's job now.
+    */
+    max-width: none;
     margin: 24px auto 0;
 }
 
@@ -3674,6 +3685,13 @@
     color: var(--slate);
     font-size: 12px;
     line-height: 1.65;
+    /*
+       The panel now runs the full shell, so an uncapped paragraph would set
+       at roughly 170 characters. Held near the 70ch that stays readable; the
+       lists inside are shorter than this already, so this only affects the
+       job description itself.
+    */
+    max-width: 72ch;
 }
 
 .job-detail-section p {
@@ -3835,18 +3853,24 @@
     color: var(--navy);
 }
 
+/*
+   Requirements read as a plain grid, not a set of boxes. The facts were
+   bordered cards, but their background was the same cream as the panel they
+   sit in, so the border was the only thing separating them — which made a
+   column of stacked rectangles around text that needs no frame. The teal
+   label over the value already carries the structure.
+*/
 .job-facts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 10px;
-    margin: 14px 0 0;
+    gap: 20px 24px;
+    margin: 16px 0 0;
 }
 
 .job-fact {
-    padding: 13px 15px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: #fcfbf7;
+    padding: 0;
+    border: 0;
+    background: none;
 }
 
 .job-fact-label {
@@ -3983,6 +4007,32 @@
 .job-related-grid {
     display: grid;
     gap: 12px;
+    /*
+       No columns were declared, so this stacked one card per line. At full
+       shell width each card came out 1180px wide and 112px tall — a thin bar
+       rather than a card, and the reason the section read as long and thin
+       under a much taller detail panel.
+
+       Two columns, not the three the agency directory uses: the listing card
+       will not lay out below 390px, because the "View Job" row carries a
+       min-width and pushes past the card edge rather than wrapping. Three
+       across needs 3 x 390 + 2 x 12 = 1194px and the shell is 1040px, so the
+       row does not fit at any width.
+    */
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/*
+   Two across needs 2 x 390 + 12 = 792px of shell, which is 840px of viewport
+   once the 48px gutter is counted. Below that the cards overflow their own
+   box, so they go back to a single full-width column. This has to sit after
+   the base rule above rather than beside the agency grid's ladder, which is
+   declared earlier in the file and would lose to it at equal specificity.
+*/
+@media (max-width: 859.98px) {
+    .job-related-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Five stars, the nearest whole number filled. */
@@ -4455,6 +4505,22 @@ button.apply-step:disabled {
     letter-spacing: -0.04em;
 }
 
+/*
+   Step changes move focus onto the heading that just replaced the step, so a
+   keyboard user is not dropped back at the top of the document. The outline
+   is suppressed because focus arrives without keyboard intent and the flash
+   reads as an error; `:focus-visible` still shows it if the heading is ever
+   reached deliberately.
+*/
+.apply-card h2:focus {
+    outline: none;
+}
+
+.apply-card h2:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 4px;
+}
+
 .apply-card h3 {
     margin: 0;
     color: var(--navy);
@@ -4496,6 +4562,21 @@ button.apply-step:disabled {
 
 .apply-actions-spacer {
     flex: 1;
+}
+
+/*
+   The wizard's action row lives outside the card it belongs to, so the plain
+   border-top left a rule floating on the cream with buttons under it. It gets
+   its own panel instead, which gives the step's controls a visible home and
+   lines its edges up with the card above.
+*/
+.apply-actions-bar {
+    margin-top: 16px;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: #fcfbf7;
+    box-shadow: 0 10px 24px rgba(26, 61, 79, 0.04);
 }
 
 .apply-draft-notice {
@@ -4540,6 +4621,37 @@ button.apply-step:disabled {
     list-style: none;
 }
 
+/*
+   Live version of the blocked list above, shown before anything is pressed.
+   Deliberately neutral: a form nobody has started yet is not an error, and
+   reusing the orange here would greet every first visit with a warning.
+*/
+.apply-requirement-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-top: 14px;
+    padding: 12px 15px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--surface-soft);
+    color: var(--slate);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+}
+
+.apply-requirement-status.is-ready {
+    border-color: #bfe3df;
+    background: var(--teal-light);
+    color: #136b66;
+}
+
+.apply-requirement-status svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+}
+
 .apply-blocked-list li {
     display: flex;
     align-items: center;
@@ -4572,8 +4684,8 @@ button.apply-step:disabled {
     margin: 0 0 13px;
     color: var(--teal);
     font-family: var(--app-font-mono);
-    font-size: 8px;
-    letter-spacing: 0.07em;
+    font-size: 10px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -4747,8 +4859,20 @@ button.apply-step:disabled {
 
 .match-list {
     display: grid;
-    gap: 12px;
+    gap: 12px 22px;
     margin: 18px 0 0;
+}
+
+/*
+   Seven bars stacked one per line left 549px of card holding a 31px row and
+   reading as a scroll list. Two columns fill the card and take the block from
+   289px to 145px. Row-wise fill keeps the DOM order left-to-right, so the
+   categories still read in the sequence the analysis produced them.
+*/
+@media (min-width: 768px) {
+    .match-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .match-row {
@@ -4797,8 +4921,8 @@ button.apply-step:disabled {
     margin: 0 0 10px;
     color: var(--navy);
     font-family: var(--app-font-mono);
-    font-size: 9px;
-    letter-spacing: 0.07em;
+    font-size: 10px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -4859,8 +4983,8 @@ button.apply-step:disabled {
     gap: 6px;
     color: var(--teal);
     font-family: var(--app-font-mono);
-    font-size: 8px;
-    letter-spacing: 0.07em;
+    font-size: 10px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -5394,6 +5518,17 @@ button.apply-step:disabled {
     font-size: clamp(30px, 4.4vw, 52px);
     letter-spacing: -0.05em;
     line-height: 1.05;
+}
+
+/*
+   The accent line is coloured, not slanted. A serif italic on this navy
+   hero reads as a different voice rather than an emphasised one, and the
+   reference sets it upright in teal. Large text, so the teal clears the
+   3:1 contrast bar easily against the navy.
+*/
+.contact-hero-accent {
+    color: var(--teal);
+    font-style: normal;
 }
 
 .contact-hero p {
