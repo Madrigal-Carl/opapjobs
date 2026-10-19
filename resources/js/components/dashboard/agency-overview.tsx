@@ -60,7 +60,12 @@ const overviewCopy: Record<DashboardOverviewVariant, OverviewCopy> = {
     },
 };
 
-const STAGE_LABELS = ['Applied', 'Reviewed', 'Interview', 'Hired'] as const;
+const STAGE_LABELS = [
+    'Pending',
+    'Under review',
+    'Interviewed',
+    'Hired',
+] as const;
 
 function formatShortDate(date: string): string {
     return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', {
@@ -482,7 +487,7 @@ export function AgencyOverview({
                 <MetricCard
                     label="Pending"
                     value={summary.stageCounts.Pending}
-                    note={`${summary.stageCounts.Interview} interviews scheduled`}
+                    note={`${summary.stageCounts.Interviewed} interviews scheduled`}
                     icon={Clock3}
                 />
             </section>
@@ -600,7 +605,7 @@ export function AgencyOverview({
                             index={0}
                             label="Application review"
                             value={
-                                summary.stageCounts.Reviewed +
+                                summary.stageCounts['Under review'] +
                                 summary.stageCounts.Pending
                             }
                             suffix="applicants"
@@ -608,7 +613,7 @@ export function AgencyOverview({
                         <PanelRow
                             index={1}
                             label="Interview scheduled"
-                            value={summary.stageCounts.Interview}
+                            value={summary.stageCounts.Interviewed}
                             suffix="applicants"
                         />
                         <PanelRow

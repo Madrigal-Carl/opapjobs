@@ -450,6 +450,7 @@ export type ApplicationRow = {
 
 export type ApplicationPageQuery = ListPageQuery & {
     stage?: ApplicationStage | 'All stages' | null;
+    sort?: 'newest' | 'oldest';
 };
 
 /**
@@ -497,11 +498,11 @@ export function getApplicationRow(id: number): ApplicationRow | undefined {
 
 export function getApplicationStageCounts(): Record<ApplicationStage, number> {
     const counts: Record<ApplicationStage, number> = {
-        Applied: 0,
-        Reviewed: 0,
-        Interview: 0,
-        Hired: 0,
         Pending: 0,
+        'Under review': 0,
+        Shortlisted: 0,
+        Interviewed: 0,
+        Hired: 0,
     };
 
     for (const application of applications) {
@@ -511,9 +512,24 @@ export function getApplicationStageCounts(): Record<ApplicationStage, number> {
     return counts;
 }
 
+export function getApplicationDashboardKpis(today = new Date()) {
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const stageCounts = getApplicationStageCounts();
+
+    // KPIs cover all applications, independent of table filters, sort and page.
+    return {
+        totalApplicants: applications.length,
+        newApplicationsToday: applications.filter(
+            (application) => application.appliedAt === localDate,
+        ).length,
+        underReview: stageCounts['Under review'],
+        shortlistedApplicants: stageCounts.Shortlisted,
+    };
+}
+
 /**
- * Filters and paginates the applications list. Search matches the
- * applicant, their location, the job title and the employer.
+ * Filters, sorts and paginates applications. Search matches only the
+ * applicant name and job title.
  */
 export function getApplicationPage(
     query: ApplicationPageQuery = {},
@@ -531,14 +547,23 @@ export function getApplicationPage(
                 return true;
             }
 
-            return [
-                applicant.name,
-                applicant.location,
-                job.title,
-                job.employer,
-            ].some((value) => value.toLowerCase().includes(keyword));
+            return [applicant.name, job.title].some((value) =>
+                value.toLowerCase().includes(keyword),
+            );
         },
     );
+
+    const direction = query.sort === 'oldest' ? 1 : -1;
+    rows.sort((left, right) => {
+        const dateOrder = left.application.appliedAt.localeCompare(
+            right.application.appliedAt,
+        );
+
+        return (
+            (dateOrder || left.application.id - right.application.id) *
+            direction
+        );
+    });
 
     return paginate(rows, query.page, query.perPage ?? APPLICATIONS_PER_PAGE);
 }

@@ -37,11 +37,11 @@ import { applications } from '@/routes/dashboard';
 import type { ApplicationStage } from '@/types/application';
 
 const STAGE_OPTIONS: ApplicationStage[] = [
-    'Applied',
-    'Reviewed',
-    'Interview',
-    'Hired',
     'Pending',
+    'Under review',
+    'Shortlisted',
+    'Interviewed',
+    'Hired',
 ];
 
 function InformationField({

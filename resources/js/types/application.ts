@@ -1,9 +1,9 @@
 export type ApplicationStage =
-    | 'Applied'
-    | 'Reviewed'
-    | 'Interview'
-    | 'Hired'
-    | 'Pending';
+    | 'Pending'
+    | 'Under review'
+    | 'Shortlisted'
+    | 'Interviewed'
+    | 'Hired';
 
 export type Application = {
     id: number;

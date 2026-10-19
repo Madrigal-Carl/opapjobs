@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('cover_letter')->nullable();
             $table->decimal('expected_monthly_salary', 12, 2)->nullable();
             $table->string('availability')->nullable();
-            $table->string('stage')->default('applied');
+            $table->string('stage')->default('pending');
             $table->timestamp('submitted_at')->index();
             $table->timestamp('applicant_archived_at')->nullable();
             $table->timestamps();
@@ -31,7 +31,7 @@ return new class extends Migration
 
         if (DB::getDriverName() === 'pgsql') {
             DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_availability_check CHECK (availability IN ('immediately', 'within_2_weeks', 'within_1_month', 'more_than_1_month'))");
-            DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_stage_check CHECK (stage IN ('applied', 'reviewed', 'interview', 'hired', 'pending'))");
+            DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_stage_check CHECK (stage IN ('pending', 'under_review', 'shortlisted', 'interviewed', 'hired'))");
         }
     }
 

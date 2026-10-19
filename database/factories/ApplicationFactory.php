@@ -23,7 +23,7 @@ class ApplicationFactory extends Factory
         return [
             'job_post_id' => JobPost::factory(),
             'applicant_user_id' => User::factory()->applicant(),
-            'stage' => ApplicationStage::Applied,
+            'stage' => ApplicationStage::Pending,
             'submitted_at' => now(),
         ];
     }

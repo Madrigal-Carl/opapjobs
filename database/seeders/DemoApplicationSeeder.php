@@ -65,21 +65,21 @@ class DemoApplicationSeeder extends Seeder
                     $submitted = CarbonImmutable::parse($post->created_at)->addDays(2 + $index % 3)->addHour();
                     $slot = ($ordinal * 37) % 100;
                     $stage = match (true) {
-                        $slot < 35 => 'applied', $slot < 60 => 'reviewed', $slot < 80 => 'interview',
-                        $slot < 88 => 'hired', default => 'pending',
+                        $slot < 30 => 'pending', $slot < 55 => 'under_review', $slot < 70 => 'shortlisted',
+                        $slot < 85 => 'interviewed', default => 'hired',
                     };
                     if ($stage === 'hired') {
                         if (($hired[$post->id] ?? 0) >= $post->vacant_positions) {
-                            $stage = 'interview';
+                            $stage = 'interviewed';
                         } else {
                             $hired[$post->id] = ($hired[$post->id] ?? 0) + 1;
                         }
                     }
                     $path = match ($stage) {
-                        'applied' => ['applied'], 'reviewed' => ['applied', 'reviewed'],
-                        'interview' => ['applied', 'reviewed', 'interview'],
-                        'hired' => ['applied', 'reviewed', 'interview', 'hired'],
-                        'pending' => ['applied', 'reviewed', 'pending'],
+                        'pending' => ['pending'], 'under_review' => ['pending', 'under_review'],
+                        'shortlisted' => ['pending', 'under_review', 'shortlisted'],
+                        'interviewed' => ['pending', 'under_review', 'shortlisted', 'interviewed'],
+                        'hired' => ['pending', 'under_review', 'shortlisted', 'interviewed', 'hired'],
                     };
                     $resume = $applicant->documents->firstOrFail(fn ($document): bool => $document->getRawOriginal('document_type') === 'resume' && $document->is_primary);
                     $salary = ((int) $post->getRawOriginal('monthly_salary_min') + (int) $post->getRawOriginal('monthly_salary_max')) / 2;
@@ -99,11 +99,11 @@ class DemoApplicationSeeder extends Seeder
                             'from_stage' => $path[$step - 1] ?? null,
                             'changed_by_user_id' => $step === 0 ? null : ($ordinal % 2 === 0 ? $post->posted_by_user_id : $post->agency->admin_user_id),
                             'note' => match ($toStage) {
-                                'applied' => null,
-                                'reviewed' => 'Resume and screening responses checked against the job requirements.',
-                                'interview' => 'Candidate confirmed the interview schedule with the recruitment coordinator.',
+                                'pending' => 'Application submitted and awaiting initial review.',
+                                'under_review' => 'Resume and screening responses checked against the job requirements.',
+                                'shortlisted' => 'Candidate shortlisted for an interview with the recruitment team.',
+                                'interviewed' => 'Candidate completed the interview with the recruitment coordinator.',
                                 'hired' => 'Written offer accepted following the final selection interview.',
-                                'pending' => 'Awaiting an updated credential before the next selection activity.',
                             },
                             'created_at' => $submitted->addDays($step),
                         ])->save();

@@ -122,9 +122,9 @@ export function StatusPill({
  * only signal.
  */
 const stageClasses: Record<ApplicationStage, string> = {
-    Applied: 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]',
-    Reviewed: 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]',
-    Interview: 'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
+    'Under review': 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]',
+    Shortlisted: 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]',
+    Interviewed: 'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
     Hired: 'border-transparent bg-[var(--teal)] text-white',
     Pending: 'border-transparent bg-[var(--amber)]/20 text-[var(--navy)]',
 };

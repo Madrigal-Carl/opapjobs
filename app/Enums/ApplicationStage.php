@@ -4,9 +4,9 @@ namespace App\Enums;
 
 enum ApplicationStage: string
 {
-    case Applied = 'applied';
-    case Reviewed = 'reviewed';
-    case Interview = 'interview';
-    case Hired = 'hired';
     case Pending = 'pending';
+    case UnderReview = 'under_review';
+    case Shortlisted = 'shortlisted';
+    case Interviewed = 'interviewed';
+    case Hired = 'hired';
 }
