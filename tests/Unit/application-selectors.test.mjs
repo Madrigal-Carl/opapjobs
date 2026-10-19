@@ -132,3 +132,163 @@ await test('application pagination follows clamped results after a debounced sea
         [1],
     );
 });
+
+await test('application detail keeps the stage hook before the missing-application return', () => {
+    let hookCalls = 0;
+    let layoutProps;
+    const { default: ShowApplication } = loadModule(
+        'resources/js/pages/dashboard/applications/show.tsx',
+        {
+            'react/jsx-runtime': jsxRuntime,
+            '@inertiajs/react': {
+                setLayoutProps: (props) => {
+                    layoutProps = props;
+                },
+            },
+            react: {
+                useState(initial) {
+                    hookCalls += 1;
+                    return [initial, () => {}];
+                },
+            },
+            '@/data/selectors': selectors,
+            '@/data/application-details': {
+                getApplicationDetail: (...args) =>
+                    loadModule(
+                        'resources/js/data/application-details.ts',
+                    ).getApplicationDetail(...args),
+            },
+            '@/data/job-questions': loadModule(
+                'resources/js/data/job-questions.ts',
+            ),
+            '@/lib/application-utils': loadModule(
+                'resources/js/lib/application-utils.ts',
+            ),
+            '@/types/applicant-profile': loadModule(
+                'resources/js/types/applicant-profile.ts',
+            ),
+            '@/data/job-attributes': loadModule(
+                'resources/js/data/job-attributes.ts',
+            ),
+            '@/routes/dashboard': {
+                applications: () => ({ url: '/dashboard/applications' }),
+            },
+            '@/routes/dashboard/applications': {
+                show: (id) => ({ url: `/dashboard/applications/${id}` }),
+            },
+        },
+    );
+
+    ShowApplication({ applicationId: '99999' });
+    assert.equal(hookCalls, 1);
+    assert.equal(layoutProps.breadcrumbs[1].title, 'Application not found');
+    hookCalls = 0;
+    ShowApplication({ applicationId: '1' });
+    assert.equal(hookCalls, 1);
+    assert.deepEqual(layoutProps.breadcrumbs, [
+        { title: 'Applications', href: { url: '/dashboard/applications' } },
+        { title: 'Maria Lourdes Santos', href: '#' },
+    ]);
+});
+
+await test('application details are deterministic, candidate-specific and do not mutate source records', () => {
+    const { getApplicationDetail } = loadModule(
+        'resources/js/data/application-details.ts',
+    );
+    const { application, applicant, job } = selectors.getApplicationRow(1);
+    const before = structuredClone({ application, applicant, job });
+
+    const detail = getApplicationDetail(application, applicant, job);
+
+    assert.deepEqual(detail, getApplicationDetail(application, applicant, job));
+    assert.deepEqual({ application, applicant, job }, before);
+    assert.equal(detail.email, 'maria.lourdes.santos@example.com');
+    assert.equal(detail.headline, applicant.role);
+    assert.equal(detail.availability, applicant.availability);
+    assert.equal(detail.experiences[0].role, applicant.role);
+    assert.equal(detail.experiences[0].location, applicant.location);
+    assert.deepEqual(
+        detail.skills.map((skill) => skill.name),
+        applicant.skills,
+    );
+    assert.equal(detail.documents[0].id, detail.resumeId);
+    assert.equal(detail.documents[0].primary, true);
+    assert.equal(detail.documents.length, 3);
+    assert.ok(detail.documents.every((document) => document.url === ''));
+    assert.notEqual(
+        detail.phone,
+        getApplicationDetail(application, { ...applicant, id: 2 }, job).phone,
+    );
+});
+
+await test('application answers use the candidate rather than job examples and omit only one optional answer', () => {
+    const { getApplicationDetail } = loadModule(
+        'resources/js/data/application-details.ts',
+    );
+    const { application, applicant, job } = selectors.getApplicationRow(2);
+    const questions = [
+        {
+            id: 'yes',
+            type: 'yesno',
+            label: 'Available?',
+            answer: 'EXAMPLE',
+            required: true,
+        },
+        {
+            id: 'short',
+            type: 'short',
+            label: 'Experience?',
+            answer: 'EXAMPLE',
+            required: true,
+        },
+        {
+            id: 'paragraph',
+            type: 'paragraph',
+            label: 'Describe your work',
+            answer: 'EXAMPLE',
+            required: true,
+        },
+        {
+            id: 'optional-1',
+            type: 'short',
+            label: 'Anything else?',
+            answer: 'EXAMPLE',
+        },
+        {
+            id: 'optional-2',
+            type: 'short',
+            label: 'Further notes?',
+            answer: 'EXAMPLE',
+        },
+    ];
+
+    const detail = getApplicationDetail(application, applicant, {
+        ...job,
+        questions,
+    });
+
+    assert.equal(detail.answers.yes, 'Yes');
+    assert.ok(detail.answers.short.includes(applicant.experience));
+    assert.ok(detail.answers.paragraph.includes(applicant.role));
+    assert.ok(
+        Object.values(detail.answers).every(
+            (answer) => !answer.includes('EXAMPLE'),
+        ),
+    );
+    assert.equal(detail.answers['optional-1'], undefined);
+    assert.ok(detail.answers['optional-2']);
+    assert.equal(
+        Object.keys(
+            getApplicationDetail({ ...application, id: 1 }, applicant, {
+                ...job,
+                questions,
+            }).answers,
+        ).length,
+        5,
+    );
+    assert.deepEqual(
+        getApplicationDetail(application, applicant, { ...job, questions: [] })
+            .answers,
+        {},
+    );
+});
