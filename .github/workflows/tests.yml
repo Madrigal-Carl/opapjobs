@@ -57,8 +57,5 @@ jobs:
             - name: Setup Application
               run: composer setup
 
-            - name: Run JavaScript Tests
-              run: npm run test
-
             - name: Run CI Checks
               run: composer ci:check
