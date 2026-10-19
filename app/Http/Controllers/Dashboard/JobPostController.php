@@ -2,18 +2,44 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Actions\JobPost\FindDuplicateJobPostsAction;
+use App\Actions\JobPost\ListJobPostsAction;
+use App\Actions\JobPost\ShowCreateJobPostAction;
+use App\Actions\JobPost\StoreJobPostAction;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Dashboard\CreateJobPostRequest;
+use App\Http\Requests\Dashboard\JobPostDuplicateRequest;
 use App\Http\Requests\Dashboard\JobPostIndexRequest;
+use App\Http\Requests\Dashboard\StoreJobPostRequest;
 use App\Http\Resources\JobPostRowResource;
-use App\Queries\JobPostIndexQuery;
-use App\Queries\JobPostKpis;
+use App\Support\Toast;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class JobPostController extends Controller
 {
-    public function __construct(private JobPostIndexQuery $query, private JobPostKpis $kpis) {}
+    public function __construct(private ListJobPostsAction $list) {}
+
+    public function create(CreateJobPostRequest $request, ShowCreateJobPostAction $action): Response
+    {
+        return Inertia::render('dashboard/jobs/new', $action->execute($request->user()));
+    }
+
+    public function store(StoreJobPostRequest $request, StoreJobPostAction $action): RedirectResponse
+    {
+        $action->execute($request->user(), $request->toDto());
+        Toast::success(__('Job post published.'));
+
+        return to_route($request->user()->can(Permission::ViewJobs->value) ? 'dashboard.jobs' : 'dashboard.jobs.create');
+    }
+
+    public function duplicates(JobPostDuplicateRequest $request, FindDuplicateJobPostsAction $action): JsonResponse
+    {
+        return response()->json(['duplicates' => $action->execute($request->user(), $request->toDto())]);
+    }
 
     public function index(JobPostIndexRequest $request): Response
     {
@@ -22,7 +48,8 @@ class JobPostController extends Controller
 
         return Inertia::render('dashboard/jobs', [
             'jobPosts' => function () use ($user, $filters, $request): array {
-                $results = $this->query->paginate($user, $filters);
+                $results = $this->list->execute($user, $filters)['posts'];
+                assert($results !== null);
 
                 return [
                     'data' => JobPostRowResource::collection($results->getCollection())->resolve($request),
@@ -34,7 +61,7 @@ class JobPostController extends Controller
                 ];
             },
             'filters' => $filters->toArray(),
-            'kpis' => Inertia::defer(fn (): array => $this->kpis->for($user)),
+            'kpis' => Inertia::defer(fn (): ?array => $this->list->execute($user, $filters, includePosts: false, includeKpis: true)['kpis']),
             'canManageJobs' => $user->can(Permission::ManageJob->value),
         ]);
     }

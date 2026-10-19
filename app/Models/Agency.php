@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/** @property Pathway $pathway */
 class Agency extends Model
 {
     /** @use HasFactory<AgencyFactory> */

@@ -1,18 +1,25 @@
 <?php
 
+use App\Exceptions\JobPost\JobPostException;
 use App\Http\Middleware\EnsureCanAccessDashboard;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RedirectStaffToDashboard;
 use App\Support\RoleHome;
+use App\Support\Toast;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -42,6 +49,63 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $isJobForm = fn (Request $request): bool => $request->routeIs(
+            'dashboard.jobs.create', 'dashboard.jobs.store', 'dashboard.jobs.duplicates', 'dashboard.employers.store',
+        );
+
+        $exceptions->render(function (JobPostException $exception, Request $request) use ($isJobForm) {
+            if (! $isJobForm($request)) {
+                return null;
+            }
+            Toast::error($exception->getMessage());
+            if ($exception->status === 403) {
+                if ($request->isMethod('GET') && ! $request->expectsJson()) {
+                    return Inertia::render('dashboard/jobs/unavailable', ['message' => $exception->getMessage()])
+                        ->toResponse($request)->setStatusCode(403);
+                }
+
+                return response()->json(['message' => $exception->getMessage(), 'toast' => [
+                    'type' => 'error', 'message' => $exception->getMessage(),
+                ]], 403);
+            }
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $exception->getMessage(), 'toast' => [
+                    'type' => 'error', 'message' => $exception->getMessage(),
+                ]], $exception->status);
+            }
+
+            return back()->withErrors([$exception->field ?? 'job_post' => $exception->getMessage()])->withInput();
+        });
+
+        $exceptions->render(function (Throwable $exception, Request $request) use ($isJobForm) {
+            if (! $isJobForm($request) || $exception instanceof ValidationException
+                || $exception instanceof AuthenticationException || $exception instanceof JobPostException) {
+                return null;
+            }
+            if ($exception instanceof HttpExceptionInterface || $exception instanceof AuthorizationException) {
+                $status = $exception instanceof AuthorizationException ? 403 : $exception->getStatusCode();
+                if ($status !== 403) {
+                    return null;
+                }
+                $message = __('You do not have permission to manage job posts.');
+            } else {
+                $status = 500;
+                $message = $request->routeIs('dashboard.employers.store')
+                    ? __('Something went wrong. The employer was not added. Please try again.')
+                    : __('Something went wrong. Your job post was not published. Please try again.');
+            }
+            Toast::error($message);
+            if ($status === 403 && $request->isMethod('GET') && ! $request->expectsJson()) {
+                return Inertia::render('dashboard/jobs/unavailable', ['message' => $message])
+                    ->toResponse($request)->setStatusCode(403);
+            }
+            if ($status === 403 || $request->expectsJson()) {
+                return response()->json(['message' => $message, 'toast' => ['type' => 'error', 'message' => $message]], $status);
+            }
+
+            return back()->withErrors(['job_post' => $message])->withInput();
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );

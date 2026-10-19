@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\ViewController;
@@ -45,9 +46,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->group(function () {
             Route::get('overview', [ViewController::class, 'dashboardOverview'])->name('dashboard.overview');
 
-            Route::get('jobs/new', [ViewController::class, 'dashboardNewJob'])
+            Route::get('jobs/new', [JobPostController::class, 'create'])
                 ->middleware('can:'.Permission::ManageJob->value)
                 ->name('dashboard.jobs.create');
+
+            Route::post('jobs', [JobPostController::class, 'store'])
+                ->middleware('can:'.Permission::ManageJob->value)
+                ->name('dashboard.jobs.store');
+
+            Route::get('jobs/duplicates', [JobPostController::class, 'duplicates'])
+                ->middleware('can:'.Permission::ManageJob->value)
+                ->name('dashboard.jobs.duplicates');
+
+            Route::post('employers', [EmployerController::class, 'store'])
+                ->middleware('can:'.Permission::ManageJob->value)
+                ->name('dashboard.employers.store');
 
             Route::get('jobs', [JobPostController::class, 'index'])
                 ->middleware('can:'.Permission::ViewJobs->value)

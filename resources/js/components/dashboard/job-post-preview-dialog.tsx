@@ -23,7 +23,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { PATHWAY_LABELS } from '@/data/agency-context';
-import { findAgency } from '@/data/agency-lookup';
 import {
     CONTRACT_LABELS,
     EDUCATION_LABELS,
@@ -34,23 +33,25 @@ import {
 } from '@/data/job-attributes';
 import type { Agency } from '@/types/agency';
 import type { Job } from '@/types/job';
+import type { DuplicateJobPost } from '@/data/job-form';
 
-type JobListingPreviewDialogProps = {
+type JobPostPreviewDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     job: Job;
     agency?: Agency;
-    duplicates: Job[];
+    duplicates: DuplicateJobPost[];
     onConfirm: () => void;
     confirming?: boolean;
+    onValidationClose?: () => boolean;
 };
 
 const microLabel =
     'text-[10px] font-semibold uppercase tracking-[0.08em] text-[#8a99a6]';
 const divider = 'my-5 border-t border-[var(--line)]';
 
-/** Scrollable applicant listing review with a separate final publication action. */
-export function JobListingPreviewDialog({
+/** Scrollable job post review with a separate final publication action. */
+export function JobPostPreviewDialog({
     open,
     onOpenChange,
     job,
@@ -58,11 +59,10 @@ export function JobListingPreviewDialog({
     duplicates,
     onConfirm,
     confirming = false,
-}: JobListingPreviewDialogProps) {
+    onValidationClose,
+}: JobPostPreviewDialogProps) {
     const returnFocus = useRef<HTMLElement | null>(null);
-    const listingAgency = agency ?? findAgency(job.agency);
-    const questions =
-        job.questions?.filter((question) => question.label.trim()) ?? [];
+    const questions = job.questions ?? [];
     const { amount, period } = formatSalary(job.salary);
     const salary =
         job.salary === 'Competitive salary'
@@ -111,6 +111,7 @@ export function JobListingPreviewDialog({
                 }}
                 onCloseAutoFocus={(event) => {
                     event.preventDefault();
+                    if (onValidationClose?.()) return;
                     returnFocus.current?.focus();
                 }}
             >
@@ -120,7 +121,7 @@ export function JobListingPreviewDialog({
                             className="size-2 shrink-0 rounded-full bg-[#12b76a]"
                             aria-hidden="true"
                         />
-                        Review your listing
+                        Review your job post
                     </DialogTitle>
                     <DialogDescription className="mt-1 text-xs text-[var(--slate)]">
                         How applicants will see this job on OPAP Job Abroad
@@ -141,18 +142,19 @@ export function JobListingPreviewDialog({
                                     className="size-4"
                                     aria-hidden="true"
                                 />
-                                A similar listing already exists
+                                A similar job post already exists
                             </span>
                             <ul className="ml-5 list-disc text-xs text-[var(--slate)]">
                                 {duplicates.map((duplicate) => (
                                     <li key={duplicate.id}>
-                                        {duplicate.title} — {duplicate.category}{' '}
-                                        ({duplicate.posted})
+                                        {duplicate.job_title} —{' '}
+                                        {duplicate.display_status} (
+                                        {duplicate.created_at?.slice(0, 10)})
                                     </li>
                                 ))}
                             </ul>
                             <p className="text-xs text-[var(--slate)]">
-                                Publishing anyway will create a second listing
+                                Publishing anyway will create a second job post
                                 for the same role.
                             </p>
                         </div>
@@ -228,8 +230,8 @@ export function JobListingPreviewDialog({
                         ]}
                     />
                     <hr className={divider} />
-                    {listingAgency ? (
-                        <AgencyListedByCard agency={listingAgency} />
+                    {agency ? (
+                        <AgencyListedByCard agency={agency} />
                     ) : (
                         job.agency && (
                             <Card className="gap-0 rounded-xl border-[var(--line)] bg-white p-5 shadow-none">
@@ -323,6 +325,20 @@ export function JobListingPreviewDialog({
                                     >
                                         <p className="text-[13px] font-semibold text-[var(--navy)]">
                                             {index + 1}. {question.label}
+                                            <span className="ml-2 text-xs font-normal text-[var(--slate)]">
+                                                {
+                                                    {
+                                                        yesno: 'Yes / No',
+                                                        short: 'Short answer',
+                                                        paragraph: 'Paragraph',
+                                                    }[question.type]
+                                                }
+                                            </span>
+                                            {question.required && (
+                                                <span className="ml-2 rounded bg-[var(--teal-light)] px-2 py-0.5 text-xs">
+                                                    Required
+                                                </span>
+                                            )}
                                         </p>
                                         {question.answer.trim() && (
                                             <p className="mt-1 text-xs whitespace-pre-line text-[var(--slate)]">
@@ -376,7 +392,7 @@ export function JobListingPreviewDialog({
                         onClick={onConfirm}
                         data-testid="button-confirm-publish"
                     >
-                        Confirm and publish listing
+                        Confirm and publish job post
                     </Button>
                 </footer>
             </DialogContent>

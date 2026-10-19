@@ -2,6 +2,7 @@
 
 use App\Enums\Permission;
 use App\Enums\Role;
+use App\Models\Agency;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission as PermissionModel;
@@ -61,15 +62,15 @@ test('admins can visit the accounts page', function () {
 test('superadmins can reach every dashboard page', function (string $route) {
     $this->actingAs(User::factory()->superadmin()->create())
         ->get(route($route))
-        ->assertOk();
+        ->assertStatus($route === 'dashboard.jobs.create' ? 403 : 200);
 })->with($dashboardPages);
 
 test('staff can open the new job form', function (string $role) {
-    $this->actingAs(User::factory()->{$role}()->create())
+    $this->actingAs(User::factory()->{$role}()->forAgency(Agency::factory()->create())->create())
         ->get(route('dashboard.jobs.create'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
-})->with(['agency', 'admin', 'superadmin']);
+})->with(['agency', 'admin']);
 
 test('staff with only view jobs cannot open the new job form', function () {
     RoleModel::findByName(Role::Agency->value)->syncPermissions([
@@ -105,7 +106,7 @@ test('managejob authorizes the new job form without a separate add permission', 
         'managejob',
     ]);
 
-    $this->actingAs(User::factory()->agency()->create())
+    $this->actingAs(User::factory()->agency()->forAgency(Agency::factory()->create())->create())
         ->get(route('dashboard.jobs.create'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('dashboard/jobs/new'));
@@ -130,7 +131,7 @@ test('the superadmin gate still grants job management without an assigned permis
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('canManageJobs', true));
 
-    $this->get(route('dashboard.jobs.create'))->assertOk();
+    $this->get(route('dashboard.jobs.create'))->assertForbidden();
 });
 
 test('staff can open an application detail page', function (string $role) {

@@ -87,6 +87,7 @@ class DemoJobPostSeeder extends Seeder
                         'education_level' => $role['education'], 'min_experience_years' => $role['experience'],
                         'max_experience_years' => $role['experience'] + 8, 'gender_requirement' => 'any',
                         'job_description' => $description,
+                        'other_requirements' => $index % 3 === 0 ? 'Bring your **'.$role['certificate'].'** credential for verification.' : null,
                         'application_instructions' => $index % 3 === 0 ? null : 'Submit your current resume and relevant credentials through your account. A coordinator will contact shortlisted applicants using the verified agency email. Bring original documents only to a scheduled verification appointment.',
                         'contact_person_name' => $poster->name, 'contact_email' => $poster->email,
                         'contact_phone' => $agency->public_phone, 'status' => $status,
@@ -104,7 +105,7 @@ class DemoJobPostSeeder extends Seeder
 
                     $legacy = $agencyIndex === 0 && $index === 0;
                     $questions = [
-                        [$legacy ? 'Have you completed your '.$role['certificate'].' assessment?' : 'Can you provide a current '.$role['certificate'].' credential?', 'yesno', 'Yes', true],
+                        [$legacy ? 'Have you completed your '.$role['certificate'].' assessment?' : 'Can you provide a current '.$role['certificate'].' credential?', 'yesno', 'yes', true],
                         ['How many years have you worked in this occupation?', 'short', 'Describe your relevant work experience in years.', false],
                         ['Describe how you carry out '.strtolower($role['skills'][0]).' safely.', 'paragraph', 'Explain the preparation, safety checks and handover.', $index % 2 === 0],
                         ['Are you available for a scheduled video interview?', 'yesno', null, false],

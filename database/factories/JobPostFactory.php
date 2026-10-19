@@ -40,6 +40,7 @@ class JobPostFactory extends Factory
             'contract_type' => ContractType::Fixed,
             'education_level' => EducationLevel::Secondary,
             'job_description' => fake()->paragraph(),
+            'other_requirements' => null,
             'status' => JobPostStatus::Pending,
             'closing_date' => null,
             'is_urgent' => false,

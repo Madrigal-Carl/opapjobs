@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/** @property Pathway $pathway */
 class JobCategory extends Model
 {
     /** @use HasFactory<JobCategoryFactory> */

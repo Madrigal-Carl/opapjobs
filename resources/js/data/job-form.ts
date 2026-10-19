@@ -1,133 +1,252 @@
-import { getAgencyContext, getAgencyPathway } from '@/data/agency-context';
-import { getEmployer } from '@/data/employers';
-import { formatSalaryRange } from '@/data/job-attributes';
-import type { Job } from '@/types/job';
 import { z } from 'zod';
+import type { FieldPath } from 'react-hook-form';
+import type {
+    ContractDuration,
+    EducationLevel,
+    GenderRequirement,
+    LanguageProficiency,
+    PostingType,
+    QuestionAnswerType,
+} from '@/types/job';
 
+export type JobFormOptions = {
+    currencies: string[];
+    contract_types: ContractDuration[];
+    education_levels: Exclude<EducationLevel, 'any'>[];
+    languages: string[];
+    proficiencies: LanguageProficiency[];
+    genders: GenderRequirement[];
+    recruitment_types: PostingType[];
+    answer_types: QuestionAnswerType[];
+};
+export type JobPostCategory = {
+    id: number;
+    name: string;
+    subcategories: { id: number; name: string }[];
+};
+export type JobPostEmployer = {
+    id: number;
+    name: string;
+    location: string;
+    license_number: string;
+};
+export type JobPostFormProps = {
+    agency: { id: number; name: string; pathway: 'landbased' | 'seabased' };
+    categories: JobPostCategory[];
+    employers: JobPostEmployer[];
+    options: JobFormOptions;
+    today: string;
+};
+export type DuplicateJobPost = {
+    id: number;
+    job_title: string;
+    created_at: string | null;
+    display_status: string;
+};
+
+const text = z.string().trim().max(255);
+const richText = z
+    .string()
+    .trim()
+    .max(20000)
+    .refine(
+        (value) => !/<\s*\/?\s*[a-z!]/i.test(value),
+        'Use plain text with lightweight markup, not HTML.',
+    );
 const experience = z
     .string()
+    .trim()
     .refine(
         (value) =>
-            Boolean(value.trim()) &&
-            Number.isInteger(Number(value)) &&
-            Number(value) >= 0,
-        'Enter experience of 0 years or more.',
+            value === '' || (/^\d+$/.test(value) && Number(value) <= 255),
+        'Enter a whole number from 0 to 255.',
     );
 const salary = z
     .string()
+    .trim()
     .refine(
         (value) =>
             value === '' ||
-            (/^\d+(?:,\d{3})*$/.test(value) &&
-                Number.isFinite(Number(value.replaceAll(',', '')))),
-        'Enter a valid salary amount of 0 or more.',
+            (/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?$/.test(value) &&
+                Number(value.replaceAll(',', '')) <= 9999999999.99),
+        'Enter a salary from 0 to 9,999,999,999.99 with at most two decimal places.',
     );
 
-const experienceRange = z.object({
-    minExperienceYears: experience,
-    maxExperienceYears: z.union([z.literal(''), experience]),
-});
-const salaryRange = z.object({ salaryMin: salary, salaryMax: salary });
-
-/** Frontend listing schema, shared by draft saving and the review/publish flow. */
-export const jobFormSchema = z
-    .object({
-        postingType: z.enum(['joborder', 'manpooling']),
-        employer: z.string(),
-        title: z.string().trim().min(1, 'Enter the job title.'),
-        category: z.string().min(1, 'Choose a category.'),
-        subCategory: z.string().min(1, 'Choose a sub-category.'),
-        location: z.string().trim().min(1, 'Enter the job location.'),
-        quantity: z
-            .number({ error: 'Quantity must be at least 1.' })
-            .int('Enter a whole number of positions.')
-            .min(1, 'Quantity must be at least 1.'),
-        gender: z.enum(['any', 'male', 'female']),
-        salaryCurrency: z.enum([
-            'SAR',
-            'AED',
-            'QAR',
-            'KWD',
-            'SGD',
-            'USD',
-            'PHP',
-        ]),
-        ...salaryRange.shape,
-        description: z
-            .string()
-            .trim()
-            .min(1, 'Describe the role so applicants know what to expect.'),
-        closingDate: z.union([
-            z.literal(''),
-            z.iso.date({ error: 'Enter a valid closing date.' }),
-        ]),
-        ...experienceRange.shape,
-        education: z
-            .enum(['', 'any', 'secondary', 'vocational', 'bachelor', 'master'])
-            .refine(
-                (value): boolean => value !== '' && value !== 'any',
-                'Choose an education level.',
+export function createJobFormSchema(
+    options: JobFormOptions,
+    today: string,
+    categories: JobPostCategory[],
+) {
+    return z
+        .object({
+            postingType: z.enum(options.recruitment_types),
+            employerId: z.number().int().positive().nullable(),
+            title: text.min(1, 'Enter the job title.'),
+            categoryId: z
+                .number()
+                .int()
+                .positive()
+                .nullable()
+                .refine(
+                    (value): boolean => value !== null,
+                    'Choose a category.',
+                ),
+            subcategoryId: z
+                .number()
+                .int()
+                .positive()
+                .nullable()
+                .refine(
+                    (value): boolean => value !== null,
+                    'Choose a sub-category.',
+                ),
+            location: text.min(1, 'Enter the job location.'),
+            quantity: z.number().int().min(1).max(65535),
+            gender: z.enum(options.genders),
+            salaryCurrency: z
+                .string()
+                .refine(
+                    (value) =>
+                        value === '' || options.currencies.includes(value),
+                    'Choose a valid currency.',
+                ),
+            salaryMin: salary,
+            salaryMax: salary,
+            description: richText.refine(
+                (value) => value.length > 0,
+                'Describe the role so applicants know what to expect.',
             ),
-        contractDuration: z.enum(['permanent', 'fixed', 'seasonal']),
-        languages: z.array(
-            z.object({
-                language: z.string().min(1),
-                proficiency: z.enum(['basic', 'conversational', 'fluent']),
-            }),
-        ),
-        otherRequirements: z.string(),
-        contactName: z.string(),
-        contactEmail: z
-            .string()
-            .trim()
-            .refine(
+            closingDate: z
+                .union([z.literal(''), z.iso.date()])
+                .refine(
+                    (value) => value === '' || value >= today,
+                    'Choose today or a future date.',
+                ),
+            minExperienceYears: experience,
+            maxExperienceYears: experience,
+            education: z
+                .union([z.literal(''), z.enum(options.education_levels)])
+                .refine(
+                    (value): boolean => value !== '',
+                    'Choose an education level.',
+                ),
+            contractDuration: z.enum(options.contract_types),
+            languages: z
+                .array(
+                    z.object({
+                        language: z.enum(options.languages),
+                        proficiency: z.enum(options.proficiencies),
+                    }),
+                )
+                .max(options.languages.length),
+            otherRequirements: richText,
+            contactName: text,
+            contactEmail: text.refine(
                 (value) => value === '' || z.email().safeParse(value).success,
                 'Enter a valid email address.',
             ),
-        contactPhone: z.string(),
-        applyInstructions: z.string(),
-        urgent: z.boolean(),
-        questions: z.array(
-            z.object({
-                id: z.string(),
-                label: z.string(),
-                type: z.enum(['yesno', 'short', 'paragraph']),
-                answer: z.string(),
-                required: z.boolean().optional(),
-            }),
-        ),
-    })
-    .refine(
-        (form) =>
-            !form.maxExperienceYears ||
-            Number(form.maxExperienceYears) >= Number(form.minExperienceYears),
-        {
-            path: ['maxExperienceYears'],
-            message: 'Maximum experience must be at least the minimum.',
-            when: ({ value }) => experienceRange.safeParse(value).success,
-        },
-    )
-    .refine(
-        (form) =>
-            !form.salaryMin ||
-            !form.salaryMax ||
-            Number(form.salaryMax.replaceAll(',', '')) >=
-                Number(form.salaryMin.replaceAll(',', '')),
-        {
-            path: ['salaryMax'],
-            message: 'Maximum salary must be at least the minimum.',
-            when: ({ value }) => salaryRange.safeParse(value).success,
-        },
-    );
+            contactPhone: text,
+            applyInstructions: richText,
+            urgent: z.boolean(),
+            questions: z
+                .array(
+                    z
+                        .object({
+                            label: text.min(
+                                1,
+                                'Enter the question or remove it',
+                            ),
+                            type: z.enum(options.answer_types),
+                            answer: z.string().trim().max(2000),
+                            required: z.boolean(),
+                        })
+                        .refine(
+                            (question) =>
+                                question.type !== 'yesno' ||
+                                question.answer === '' ||
+                                ['yes', 'no'].includes(
+                                    question.answer.toLowerCase(),
+                                ),
+                            {
+                                path: ['answer'],
+                                message: 'Choose Yes, No, or no preference.',
+                            },
+                        ),
+                )
+                .max(20, 'A job post can have at most 20 screening questions.'),
+        })
+        .superRefine((form, context) => {
+            const issue = (path: (string | number)[], message: string) =>
+                context.addIssue({ code: 'custom', path, message });
+            if (
+                !categories
+                    .find((category) => category.id === form.categoryId)
+                    ?.subcategories.some(
+                        (subcategory) => subcategory.id === form.subcategoryId,
+                    )
+            ) {
+                issue(
+                    ['subcategoryId'],
+                    'Choose a sub-category from the selected category.',
+                );
+            }
+            if (
+                (form.salaryMin !== '' || form.salaryMax !== '') &&
+                !form.salaryCurrency
+            )
+                issue(
+                    ['salaryCurrency'],
+                    'Choose a currency when entering a salary.',
+                );
+            if (
+                form.salaryMin !== '' &&
+                form.salaryMax !== '' &&
+                Number(form.salaryMax.replaceAll(',', '')) <
+                    Number(form.salaryMin.replaceAll(',', ''))
+            )
+                issue(
+                    ['salaryMax'],
+                    'Maximum salary must be at least the minimum.',
+                );
+            if (
+                form.minExperienceYears !== '' &&
+                form.maxExperienceYears !== '' &&
+                Number(form.maxExperienceYears) <
+                    Number(form.minExperienceYears)
+            )
+                issue(
+                    ['maxExperienceYears'],
+                    'Maximum experience must be at least the minimum.',
+                );
+            const languages = new Set<string>();
+            form.languages.forEach((entry, index) => {
+                if (languages.has(entry.language))
+                    issue(
+                        ['languages', index, 'language'],
+                        'This language is already included.',
+                    );
+                languages.add(entry.language);
+            });
+            const questions = new Set<string>();
+            form.questions.forEach((question, index) => {
+                const normalized = question.label.trim().toLowerCase();
+                if (questions.has(normalized))
+                    issue(
+                        ['questions', index, 'label'],
+                        'This question is already included.',
+                    );
+                questions.add(normalized);
+            });
+        });
+}
 
-export type JobForm = z.infer<typeof jobFormSchema>;
-
+export type JobForm = z.infer<ReturnType<typeof createJobFormSchema>>;
 export const emptyJobForm: JobForm = {
     postingType: 'joborder',
-    employer: '',
+    employerId: null,
     title: '',
-    category: '',
-    subCategory: '',
+    categoryId: null,
+    subcategoryId: null,
     location: '',
     quantity: 1,
     gender: 'any',
@@ -147,63 +266,116 @@ export const emptyJobForm: JobForm = {
     contactPhone: '',
     applyInstructions: '',
     urgent: false,
-    questions: [{ id: 'question-1', label: '', type: 'yesno', answer: '' }],
+    questions: [],
 };
 
-/** One mapping shared by review, draft saving, and final publication. */
-export function buildJobListing(
-    form: JobForm,
-    status: 'draft' | 'published',
-): Job {
-    const employer = getEmployer(form.employer);
-    const phone = form.contactPhone.trim();
+const nullableText = (value: string) => value.trim() || null;
+const nullableNumber = (value: string) =>
+    value.trim() === '' ? null : Number(value.replaceAll(',', ''));
 
+export function toJobPostPayload(form: JobForm) {
     return {
-        id: 'job-preview',
-        status,
-        title: form.title.trim(),
-        employer: form.employer.trim(),
-        agency: getAgencyContext().name,
-        pathway: getAgencyPathway(),
-        location: form.location.trim(),
-        salary: formatSalaryRange(
-            form.salaryCurrency,
-            form.salaryMin,
-            form.salaryMax,
-        ),
-        posted: 'Just now',
-        postingType: form.postingType,
-        employerLocation: employer?.location ?? '',
-        poeaLicenseNo: employer?.poeaLicenseNo ?? '',
-        quantity: form.quantity,
-        gender: form.gender,
-        category: form.category,
-        subCategory: form.subCategory,
-        description: form.description.trim(),
-        closingDate: form.closingDate || undefined,
-        minExperienceYears: form.minExperienceYears.trim()
-            ? Number(form.minExperienceYears)
-            : undefined,
-        maxExperienceYears: form.maxExperienceYears.trim()
-            ? Number(form.maxExperienceYears)
-            : undefined,
-        education: form.education || undefined,
-        contractDuration: form.contractDuration,
-        languages: form.languages,
-        otherRequirements: form.otherRequirements.trim() || undefined,
-        contactName: form.contactName.trim() || undefined,
-        contactEmail: form.contactEmail.trim() || undefined,
-        contactPhone: phone && !/^\+\d+$/.test(phone) ? phone : undefined,
-        applyInstructions: form.applyInstructions.trim() || undefined,
-        featured: false,
-        urgent: form.urgent,
-        recent: true,
-        questions: form.questions
-            .map((question) => ({
-                ...question,
-                label: question.label.trim(),
-                answer: question.answer.trim(),
-            }))
-            .filter((question) => question.label),
+        recruitment_type: form.postingType,
+        employer_id: form.employerId,
+        job_title: form.title.trim(),
+        job_subcategory_id: form.subcategoryId,
+        work_location: form.location.trim(),
+        vacant_positions: form.quantity,
+        contract_type: form.contractDuration,
+        salary_currency: nullableText(form.salaryCurrency),
+        monthly_salary_min: nullableNumber(form.salaryMin),
+        monthly_salary_max: nullableNumber(form.salaryMax),
+        education_level: form.education,
+        min_experience_years: nullableNumber(form.minExperienceYears),
+        max_experience_years: nullableNumber(form.maxExperienceYears),
+        gender_requirement: form.gender,
+        job_description: form.description.trim(),
+        other_requirements: nullableText(form.otherRequirements),
+        application_instructions: nullableText(form.applyInstructions),
+        contact_person_name: nullableText(form.contactName),
+        contact_email: nullableText(form.contactEmail),
+        contact_phone: nullableText(form.contactPhone),
+        closing_date: nullableText(form.closingDate),
+        is_urgent: form.urgent,
+        languages: form.languages.map(({ language, proficiency }) => ({
+            language,
+            proficiency,
+        })),
+        questions: form.questions.map(({ label, type, answer, required }) => ({
+            question_text: label.trim(),
+            answer_type: type,
+            expected_answer: nullableText(
+                type === 'yesno' ? answer.toLowerCase() : answer,
+            ),
+            is_required: required,
+        })),
     };
+}
+
+export function copyQuestion(
+    question: JobForm['questions'][number],
+): JobForm['questions'][number] {
+    return {
+        label: question.label,
+        type: question.type,
+        answer: question.answer,
+        required: question.required,
+    };
+}
+
+export function questionMoveTarget(
+    index: number,
+    direction: -1 | 1,
+    count: number,
+): number | null {
+    const target = index + direction;
+    return target >= 0 && target < count ? target : null;
+}
+
+const serverFields: Record<string, keyof JobForm> = {
+    recruitment_type: 'postingType',
+    employer_id: 'employerId',
+    job_title: 'title',
+    job_subcategory_id: 'subcategoryId',
+    work_location: 'location',
+    vacant_positions: 'quantity',
+    contract_type: 'contractDuration',
+    salary_currency: 'salaryCurrency',
+    monthly_salary_min: 'salaryMin',
+    monthly_salary_max: 'salaryMax',
+    education_level: 'education',
+    min_experience_years: 'minExperienceYears',
+    max_experience_years: 'maxExperienceYears',
+    gender_requirement: 'gender',
+    job_description: 'description',
+    other_requirements: 'otherRequirements',
+    application_instructions: 'applyInstructions',
+    contact_person_name: 'contactName',
+    contact_email: 'contactEmail',
+    contact_phone: 'contactPhone',
+    closing_date: 'closingDate',
+    is_urgent: 'urgent',
+    questions: 'questions',
+    languages: 'languages',
+};
+
+export function serverErrorField(key: string): FieldPath<JobForm> | null {
+    if (serverFields[key]) return serverFields[key];
+    const question =
+        /^questions\.(\d+)\.(question_text|answer_type|expected_answer|is_required)$/.exec(
+            key,
+        );
+    if (question) {
+        const fields = {
+            question_text: 'label',
+            answer_type: 'type',
+            expected_answer: 'answer',
+            is_required: 'required',
+        } as const;
+        return `questions.${Number(question[1])}.${fields[question[2] as keyof typeof fields]}`;
+    }
+    const language = /^languages\.(\d+)\.(language|proficiency)$/.exec(key);
+    return language
+        ? `languages.${Number(language[1])}.${language[2] as 'language' | 'proficiency'}`
+        : null;
 }

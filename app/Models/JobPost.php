@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property RecruitmentType $recruitment_type
  * @property Currency|null $salary_currency
  * @property Carbon|null $closing_date
+ * @property string|null $other_requirements
  * @property-read JobPostDisplayStatus $display_status
  */
 class JobPost extends Model
@@ -43,7 +44,7 @@ class JobPost extends Model
         'job_title', 'job_subcategory_id', 'work_location', 'vacant_positions',
         'contract_type', 'salary_currency', 'monthly_salary_min', 'monthly_salary_max',
         'education_level', 'min_experience_years', 'max_experience_years',
-        'gender_requirement', 'job_description', 'application_instructions',
+        'gender_requirement', 'job_description', 'other_requirements', 'application_instructions',
         'contact_person_name', 'contact_email', 'contact_phone', 'status',
         'closing_date', 'is_urgent',
     ];

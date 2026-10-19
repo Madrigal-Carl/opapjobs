@@ -31,6 +31,7 @@ return new class extends Migration
             $table->unsignedTinyInteger('max_experience_years')->nullable();
             $table->string('gender_requirement')->default('any');
             $table->text('job_description');
+            $table->text('other_requirements')->nullable();
             $table->text('application_instructions')->nullable();
             $table->string('contact_person_name')->nullable();
             $table->string('contact_email')->nullable();

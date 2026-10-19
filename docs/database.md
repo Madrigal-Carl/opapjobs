@@ -5,7 +5,7 @@
 
 - **Engine:** PostgreSQL (`DB_CONNECTION=pgsql`, database `opapjobs`).
 - **Framework:** Laravel + `spatie/laravel-permission` + Inertia/React.
-- **Status:** design target. Today only `users`, the Spatie tables and Laravel infrastructure tables exist; everything else is still mocked in `resources/js/data/*` and `resources/js/types/*`.
+- **Status:** the schema, Jobs index/KPIs, job post creation and inline employer creation are implemented. Other screens still use reference mock data in `resources/js/data/*` and `resources/js/types/*`.
 - **Normalisation target:** third normal form (3NF). The only deliberate exceptions are listed in [§4](#4-normalisation-and-deliberate-exceptions).
 
 ---
@@ -113,6 +113,11 @@ erDiagram
     job_subcategories ||--o{ job_posts : classifies
     job_posts ||--o{ job_post_languages : requires
     job_posts ||--o{ job_post_questions : asks
+    job_posts {
+        text job_description
+        text other_requirements "nullable"
+        text application_instructions "nullable"
+    }
 
     users ||--o| applicant_profiles : "applicant has 1"
     users ||--o{ applicant_experiences : ""
@@ -145,7 +150,7 @@ The schema is in **3NF**: no column depends on anything other than its table's k
 
 **Deliberate exceptions** (documented so nobody "fixes" them):
 
-1. **Rich text column** — `job_posts.job_description` holds text with lightweight markup (bold, italic, underline, bullets, numbered lists, headings, links) from the rich-text editor. It is one atomic formatted string; only the formatting is kept, never HTML. Requirements, qualifications, benefits and any other free text the agency wants to publish go in this single column (no separate benefits or "other requirements / additional qualifications" columns). This is the 2NF-level exception chosen on purpose.
+1. **Rich text columns** — `job_posts.job_description`, `other_requirements` and `application_instructions` hold plain text with lightweight markup (bold, italic, underline, bullets, numbered lists, headings, links), never HTML. Each is one atomic formatted string, capped at 20,000 characters. HTML/tag-like input is rejected on both client and server. Duties and benefits go in `job_description`; additional qualifications stay in the separate nullable `other_requirements` column. This product decision overrides the earlier single-box design.
 2. **`applications.stage`** holds the _current_ stage although it equals the latest row of `application_stage_history`. Kept for fast filtering/board views; the history table is the audit trail. The Action that changes a stage updates both in one transaction.
 3. **`job_posts.agency_id`** is stored even though the poster also belongs to an Agency (`users.agency_id`): the job post belongs to the **Agency organisation** as a first-class relationship (it must survive the poster being archived). The posting Action must verify `posted_by_user_id`'s `agency_id` equals the job post's `agency_id`, and a test must cover it.
 
@@ -287,6 +292,8 @@ Foreign hiring companies, **scoped per Agency**, readable and creatable by every
 
 `UNIQUE (agency_id, lower(employer_name)) WHERE deleted_at IS NULL`.
 
+Employers can be created inline through the dashboard job-post form. The Employer Service enforces case-insensitive uniqueness among non-archived employers of the user's agency; the PostgreSQL partial unique index enforces the same rule. Creation locks the agency row in its Action transaction to serialize concurrent additions; a unique-index race is converted to the same friendly domain error. Agency ownership comes from the session, never the payload.
+
 ### 8.2 `job_posts`
 
 A job post exists only once posted (no draft status; no featured flag; the home page "latest jobs" orders by `created_at DESC`).
@@ -301,14 +308,15 @@ A job post exists only once posted (no draft status; no featured flag; the home 
 | `job_title`                                             | string                                |                                                                                                                                                                                                    |
 | `job_subcategory_id`                                    | FK → `job_subcategories.id`, restrict | the job post's category **and** subcategory, in one column: the category is the subcategory's parent (see "Category and subcategory" below). The category's pathway must equal `agencies.pathway`. |
 | `work_location`                                         | string                                | e.g. "Riyadh, Saudi Arabia"                                                                                                                                                                        |
-| `vacant_positions`                                      | unsigned smallint                     | `CHECK (vacant_positions >= 1)`                                                                                                                                                                    |
+| `vacant_positions`                                      | unsigned integer                      | `CHECK (vacant_positions BETWEEN 1 AND 65535)`; the integer storage matches the portable migration, with a smallint-sized application limit.                                                       |
 | `contract_type`                                         | string                                | `ContractType`                                                                                                                                                                                     |
 | `salary_currency`                                       | string null                           | `Currency`                                                                                                                                                                                         |
 | `monthly_salary_min`, `monthly_salary_max`              | numeric(12,2) null                    | `CHECK (max IS NULL OR min IS NULL OR max >= min)`                                                                                                                                                 |
 | `education_level`                                       | string                                | `EducationLevel`                                                                                                                                                                                   |
 | `min_experience_years`, `max_experience_years`          | unsigned tinyint null                 | `max >= min` when both set                                                                                                                                                                         |
 | `gender_requirement`                                    | string                                | `GenderRequirement`, default `any`                                                                                                                                                                 |
-| `job_description`                                       | text                                  | **the one free-text box**: duties, requirements, qualifications, benefits and anything else, as rich text with lightweight markup (§4 exception 1)                                                 |
+| `job_description`                                       | text                                  | Duties, requirements, qualifications and benefits, as lightweight markup, never HTML (§4 exception 1).                                                                                             |
+| `other_requirements`                                    | text null                             | Kept separately: "Other requirements / Additional qualifications" in both form and preview; same markup and length rules as `job_description`.                                                     |
 | `application_instructions`                              | text null                             | "How to apply / Submission instructions". Its own column, shown as its own section in the form and preview.                                                                                        |
 | `contact_person_name`, `contact_email`, `contact_phone` | string null                           | job post-level contact                                                                                                                                                                             |
 | `status`                                                | string                                | `JobPostStatus`: `pending` \| `closed` \| `archived`, default `pending`. `CHECK (status IN ('pending','closed','archived'))`. See the logic below.                                                 |
@@ -375,6 +383,16 @@ Indexes: `(agency_id, posted_by_user_id)`, `(agency_id, status, closing_date)`, 
 **Visibility scopes:** agency user ⇒ `agency_id = own AND posted_by_user_id = auth user`; admin ⇒ `agency_id = own`; superadmin ⇒ all; applicants/public ⇒ display status `active` only (and the Agency must not be suspended).
 Duplicate warning (UX only, not a constraint): same `agency_id`, same `employer_id`, normalised `job_title` and `job_subcategory_id`.
 
+#### Creation contract
+
+- The poster and agency are derived from the authenticated session. Input `agency_id`, `posted_by_user_id`, `status` and `category_id` is ignored; the persisted poster must belong to the persisted agency.
+- Creating a job post, opening its form and adding an employer require `managejob` and an existing, non-suspended, non-archived agency. Unlinked staff and superadmins without an agency receive a clear 403; the superadmin permission bypass does not supply agency context.
+- The subcategory and its parent category must be non-archived and match the agency pathway. An optional employer must be non-archived and belong to that agency, including when recruitment is `manpooling`.
+- Creation always stores `pending`. Display status remains the calculation above. A past `closing_date` is rejected with a field error using the application timezone; today is accepted.
+- Salary bounds are nonnegative with up to two decimal places and a maximum of 9,999,999,999.99; currency is required if either bound is present. Experience is optional, whole years from 0 to 255. For both ranges the maximum cannot be below the minimum. Contact fields are optional, with email validation when provided.
+- Job post, unique languages, all questions in order, and the creation audit row are saved in the same Action transaction. Failure rolls back everything. Rich text follows §4 exception 1; `other_requirements` is preserved rather than merged.
+- `GET /dashboard/jobs/duplicates` accepts `employer_id` (nullable), `job_title` and `job_subcategory_id`. It returns at most five `{ id, job_title, created_at, display_status }` results in the user's visible scope and the same agency, matching the employer, subcategory and trimmed, whitespace-collapsed, case-insensitive title. It is a debounced warning only, never a creation constraint.
+
 ### 8.3 `job_post_languages`
 
 | Column        | Notes                             |
@@ -398,6 +416,8 @@ Duplicate warning (UX only, not a constraint): same `agency_id`, same `employer_
 | `deleted_at`, timestamps |                     |                                              |
 
 A question that already has answers is **never edited**: archive it and add a new one, so past answers always read against the question text they were given for. (This is why `application_answers` stores no text snapshot.)
+
+A job post may have **0 to 20** questions. Text is trimmed, required per row and at most 255 characters; duplicate question text within the post is rejected case-insensitively on the later row. Expected answers are nullable and at most 2,000 characters; for `yesno` they must be lowercase `yes` or `no` (null means no preference). `is_required` defaults to false. The server ignores client `sort_order` and assigns 0-based order from the submitted array, inserting the complete set in one query inside the job-post transaction. The editor supports adding, removing, duplicating, reordering and marking each question required; every question remains visible in order in the review dialog.
 
 ---
 
@@ -506,7 +526,7 @@ The overview series (applications / reviewed / interview / hired per day) is agg
 - **Spatie stays as-is** (§0). Only seeded **data** and application code change, as listed in §12.1.
 - Scoping is implemented once (policies + query scopes) from the visibility rules in §8.2 and §10.1. Superadmin bypasses via the existing `Gate::before`.
 - Planned additions are **new** permission names only (no renames): `manage agencies`, `manage agency accounts`, `manage agency profile`, `manage lookups`, `review agencies`, `apply jobs`. The existing names are kept. Close / reopen / archive / restore of a job post reuse the existing job-post permissions plus the poster/Agency scoping.
-- Account creation, Agency creation, limit check, job post status changes, stage changes and review creation each live in one Action class running in a DB transaction.
+- Account creation, Agency creation, limit check, job post creation/status changes, stage changes and review creation each live in one Action class running in a DB transaction. New job/employer code follows §12.2: Actions orchestrate, Services enforce rules and Repositories query.
 - Optional but recommended `audit_logs` (`id`, `actor_user_id`, `action`, `subject_type`, `subject_id`, `changes` jsonb, `ip_address`, `created_at`) for Agency/account creation, suspensions, limit changes, lookup edits and job post status changes (close, reopen, archive, restore).
 
 ### 12.1 Differences to resolve when implementing
@@ -525,16 +545,36 @@ Seed-data and test differences (no Spatie configuration is involved):
 
 UI and mock-data differences (frontend, re-align to this document):
 
-| Where                     | Today                                                                              | Target                                                                                                                                                                            |
-| ------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Post-job form and preview | has an "Other requirements / Additional qualifications" editor and preview section | **remove** both; that text goes in `job_description` (§4 exception 1)                                                                                                             |
-| Post-job form and preview | separate "How to apply / Submission instructions" field                            | **keep**, maps to `application_instructions`                                                                                                                                      |
-| Post-job form             | "Save as draft" / draft state in mock data                                         | drafts stay in browser local storage only; no draft status (§0.3)                                                                                                                 |
-| Mock job post types       | `quantity`, `isFeatured`, free-form status                                         | `vacant_positions`; no featured flag; stored `status` is `pending` / `closed` / `archived`, UI shows the display status                                                           |
-| Dashboard "Jobs" page     | status shown/filtered from mock values                                             | Status column = display status (§8.2); filter Active / Expired / Closed / Archived; archived hidden by default; row actions Close, Reopen, Archive, Restore, set new closing date |
-| Wording                   | "listing"                                                                          | **job post** everywhere (§0.4)                                                                                                                                                    |
+| Where                     | Today                                                                              | Target                                                                                                                                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Post-job form and preview | has an "Other requirements / Additional qualifications" editor and preview section | **keep**, stored in `job_posts.other_requirements` (§4 exception 1); implemented.                                                                                                                               |
+| Post-job form and preview | separate "How to apply / Submission instructions" field                            | **keep**, maps to `application_instructions`                                                                                                                                                                    |
+| Post-job form             | "Save as draft" / draft state in mock data                                         | drafts stay in browser local storage only; no draft status (§0.3)                                                                                                                                               |
+| Mock job post types       | `quantity`, `isFeatured`, free-form status                                         | **Done for real dashboard job posts:** mapped to `vacant_positions`; no featured flag; stored `status` is `pending` / `closed` / `archived`, UI shows display status. Other mock screens remain reference-only. |
+| Jobs index backend        | Controller called `app/Queries/*` directly                                         | **Done:** Request → Controller → `ListJobPostsAction` → `JobPostService` → `JobPostRepository` → Model. Query classes removed; visibility and deferred KPI behavior retained.                                   |
+| Dashboard "Jobs" page     | status shown/filtered from mock values                                             | Status column = display status (§8.2); filter Active / Expired / Closed / Archived; archived hidden by default; row actions Close, Reopen, Archive, Restore, set new closing date                               |
+| Wording                   | "listing"                                                                          | **job post** everywhere (§0.4)                                                                                                                                                                                  |
 
 ---
+
+### 12.2 Backend layering
+
+All job/employer use cases follow **Request (validation) → Controller → Action → Service → Repository → Model**. Dependencies flow down these arrows; concrete repositories are injected without unnecessary interfaces.
+
+| Layer       | Responsibility                                                                                                                                 | Prohibitions                                                                       |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| FormRequest | Authorize input shape, normalize/trim, validate formats/enums and expose a typed readonly DTO.                                                 | No database-backed business decisions beyond existence/format checks.              |
+| Controller  | Receive Request, call one Action, map its result to a response/flash.                                                                          | No queries, transactions, business rules or direct Service/Repository/Model calls. |
+| Action      | One use case in one `DB::transaction`; orchestrate Services and return data/models.                                                            | No HTTP responses or direct repository/query access.                               |
+| Service     | Agency/pathway/employer ownership rules, defaults, duplicate checks and orchestration via Repositories.                                        | No HTTP, Inertia, flashes, SQL, DB facade or query builders.                       |
+| Repository  | All Eloquent/Query Builder access for its aggregate: find, create, bulk children, pagination and aggregates. Job reads use `visibleTo($user)`. | No business decisions, HTTP, Actions or Services.                                  |
+| Model       | Columns, casts, relations, accessors and scopes.                                                                                               | No use-case orchestration.                                                         |
+
+Services throw typed domain exceptions with translated, safe messages: `AgencyUnavailableException` (403), `PathwayMismatchException`, `EmployerNotInAgencyException` and `DuplicateEmployerException` (field/domain errors). Exception rendering maps these to preserved-input errors and a single toast; unexpected exceptions are reported and mapped to a generic retry message without exposing their text. Form validation flashes "Please fix the highlighted fields." while retaining per-field errors.
+
+All new controllers use `App\Support\Toast` (`success`, `error`, `warning`, `info`), which calls `Inertia::flash('toast', ['type' => ..., 'message' => ...])`; the existing global Sonner hook is the only display pipeline. Inline employer creation is an Inertia preserve-state/scroll visit; `createdEmployer` flash selects the result without clearing the job form. Non-Inertia JSON error envelopes carry the same safe toast and re-enter the flash pipeline on the client; transport failures use a client connection-error toast. Job-post success redirects to the Jobs page with "Job post published."; the supported `managejob`-without-`view jobs` permission combination instead lands on a fresh, accessible create form so a successful write never looks like a forbidden/failed submission. Validation/domain failures preserve form state; focus moves to the invalid field after the preview's close animation instead of being restored to the Review button. Permission-denied GET visits render the unavailable page with the same safe flash rather than raw JSON.
+
+Pest architecture tests guard Dashboard controllers against Model/Service/Repository access, job/employer Actions against HTTP/repositories, Services against HTTP/Inertia/query dependencies, and Repositories against HTTP/Services/Actions. **Fortify actions and Settings controllers are exempt and unchanged.** No role-name checks or Spatie configuration changes are introduced.
 
 ## 13. Decisions log
 
@@ -548,7 +588,7 @@ UI and mock-data differences (frontend, re-align to this document):
 - Closing an already-expired post is allowed; reopening a closed post with a past `closing_date` requires a new date; an expired post becomes active again by setting a new `closing_date` (§8.2).
 - Restoring an archived post keeps its existing `closing_date`: it returns to `pending` and, if that date has passed, shows as `expired` until staff set a new date. Restore never forces a new date (unlike reopening a closed post).
 - `application_instructions` stays as its own column.
-- The mock data in `resources/js` is a reference only; this document is the source. The "Other requirements / Additional qualifications" editor and preview section are removed from the post-job UI.
+- The mock data in `resources/js` is a reference only; this document is the source. The "Other requirements / Additional qualifications" editor and preview section are **kept**, persisted in `job_posts.other_requirements`.
 - Naming: **job post** (`job_posts`, `JobPost`, `job_post_id`) replaces "listing" everywhere.
 - Benefits and other text are written in the single job-description text box.
 - Agency user sees only their own job posts and the applications on them; admin sees everything in their Agency.
@@ -564,7 +604,7 @@ UI and mock-data differences (frontend, re-align to this document):
 
 1. **`job_posts` has no `deleted_at`.** Archiving is `status = 'archived'` only, so there is no second flag that could disagree with it. Every other archivable table uses `deleted_at`.
 2. **`agency_staff` table removed.** Staff membership is `users.agency_id` (nullable, `NULL` for applicants and superadmins).
-3. **`additional_requirements` and benefits are dropped**; that text lives in `job_description`.
+3. **`other_requirements` is kept** as its own nullable text column; benefits still live in `job_description` (updated product decision).
 4. **ContractType values** are `permanent`, `fixed`, `seasonal`; the UI label "Contractual (2 Years)" is a label for `fixed` unless you want a separate value.
 5. **Hard deletes** remain only for resume-section rows, `job_post_languages` and `saved_job_posts` (§5).
 6. **When an agency user is archived or suspended,** their job posts stay as they are, remain visible to the admin, and the admin handles their applications.
@@ -588,6 +628,7 @@ UI and mock-data differences (frontend, re-align to this document):
 
 | Date       | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-19 | v7: functional dashboard job-post and inline employer creation; §12.2 strict layered backend and typed exceptions/toast conventions; index/KPIs moved into the same flow; session-derived ownership, agency/pathway/employer checks, future-or-today closing dates and atomic child/audit writes; kept `other_requirements` in form, preview, ERD and original job-post migration (local rebuild explicitly approved); 0–20 ordered screening questions, server-assigned order, duplicate-text rejection and lowercase yes/no answers; corrected stale implementation status and vacant-position storage description.                                             |
 | 2026-10-18 | v1: initial roles, tables and open decisions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | 2026-10-18 | v2: lookups reduced to categories, subcategories, agency sizes (rest are enums); job post status derived; draft/featured removed; `quantity` → `vacant_positions`; overview permissions split per role; columns renamed; strict 3NF; Spatie declared untouchable.                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 2026-10-18 | v3: pathway moved back to the **Agency** (one per org); `agency_staff` removed in favour of `users.agency_id`; `job_posts` stores `agency_id`, poster and optional employer; status is `active` / `expired` / `archived` only (no `closed`); archive column is `deleted_at`; benefits and additional requirements folded into `job_description`.                                                                                                                                                                                                                                                                                                                  |

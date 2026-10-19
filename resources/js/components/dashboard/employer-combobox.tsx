@@ -1,12 +1,6 @@
-import {
-    useEffect,
-    useId,
-    useRef,
-    useState,
-    useSyncExternalStore,
-} from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { getEmployers, subscribeEmployers } from '@/data/employers';
+import type { JobPostEmployer } from '@/data/job-form';
 import { cn } from '@/lib/utils';
 
 /** Searchable employer name with keyboard suggestions and an add-new action. */
@@ -14,25 +8,35 @@ export function EmployerCombobox({
     value,
     onChange,
     onAddNew,
+    employers,
+    ...inputProps
 }: {
-    value: string;
-    onChange: (name: string) => void;
+    value: number | null;
+    onChange: (id: number | null) => void;
     onAddNew: (name: string) => void;
+    employers: JobPostEmployer[];
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
+    'data-field'?: string;
 }) {
+    const [search, setSearch] = useState(
+        employers.find((employer) => employer.id === value)?.name ?? '',
+    );
     const [focused, setFocused] = useState(false);
     const [highlight, setHighlight] = useState(0);
     const boxRef = useRef<HTMLDivElement>(null);
     const listId = useId();
-    const employers = useSyncExternalStore(
-        subscribeEmployers,
-        getEmployers,
-        getEmployers,
-    );
-    const query = value.trim().toLowerCase();
+    useEffect(() => {
+        if (value !== null)
+            setSearch(
+                employers.find((employer) => employer.id === value)?.name ?? '',
+            );
+    }, [value, employers]);
+    const query = search.trim().toLowerCase();
     const options = employers.filter((employer) =>
         `${employer.name} ${employer.location}`.toLowerCase().includes(query),
     );
-    const open = focused && query !== '';
+    const open = focused;
     const count = options.length || 1;
     const active = Math.min(highlight, count - 1);
 
@@ -49,9 +53,10 @@ export function EmployerCombobox({
     const choose = (index: number) => {
         setFocused(false);
         if (options[index]) {
-            onChange(options[index].name);
+            onChange(options[index].id);
+            setSearch(options[index].name);
         } else {
-            onAddNew(value.trim());
+            onAddNew(search.trim());
         }
     };
 
@@ -66,10 +71,12 @@ export function EmployerCombobox({
             }}
         >
             <Input
+                {...inputProps}
                 id="job-employer"
-                value={value}
+                value={search}
                 onChange={(event) => {
-                    onChange(event.target.value);
+                    setSearch(event.target.value);
+                    onChange(null);
                     setHighlight(0);
                     setFocused(true);
                 }}
@@ -137,7 +144,7 @@ export function EmployerCombobox({
                                 </span>
                                 <span className="text-xs text-[var(--slate)]">
                                     {employer.location} ·{' '}
-                                    {employer.poeaLicenseNo}
+                                    {employer.license_number}
                                 </span>
                             </button>
                         ))
@@ -153,7 +160,7 @@ export function EmployerCombobox({
                             className="w-full bg-[var(--teal-light)] px-3 py-3 text-left text-sm text-[var(--navy)] focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40"
                             data-testid="button-add-employer"
                         >
-                            + Add “{value.trim()}” as a new employer
+                            + Add “{search.trim()}” as a new employer
                         </button>
                     )}
                 </div>

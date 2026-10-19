@@ -16,10 +16,12 @@ export function LanguageChipsField({
     value,
     onChange,
     options,
+    proficiencies,
 }: {
     value: JobLanguage[];
     onChange: (value: JobLanguage[]) => void;
     options: string[];
+    proficiencies?: LanguageProficiency[];
 }) {
     const [adding, setAdding] = useState(false);
     const [language, setLanguage] = useState('');
@@ -115,7 +117,7 @@ export function LanguageChipsField({
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {Object.entries(PROFICIENCY_FORM_LABELS).map(
+                            {Object.entries(PROFICIENCY_FORM_LABELS).filter(([key]) => !proficiencies || proficiencies.includes(key as LanguageProficiency)).map(
                                 ([key, label]) => (
                                     <SelectItem
                                         key={key}

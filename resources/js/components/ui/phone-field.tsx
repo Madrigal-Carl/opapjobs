@@ -13,10 +13,14 @@ export function PhoneField({
     value,
     onChange,
     id = 'job-contact-phone',
+    ...inputProps
 }: {
     value: string;
     onChange: (value: string) => void;
     id?: string;
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
+    'data-field'?: string;
 }) {
     const country =
         DIAL_CODES.find(
@@ -57,6 +61,7 @@ export function PhoneField({
                 </SelectContent>
             </Select>
             <Input
+                {...inputProps}
                 id={id}
                 type="tel"
                 autoComplete="tel-national"

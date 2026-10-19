@@ -8,8 +8,7 @@ use App\Models\Employer;
 use App\Models\JobPost;
 use App\Models\JobSubcategory;
 use App\Models\User;
-use App\Queries\JobPostIndexQuery;
-use App\Queries\JobPostKpis;
+use App\Repositories\JobPost\JobPostRepository;
 use App\Support\DataScopeResolver;
 use App\Support\JobPostIndexFilters;
 use Carbon\CarbonImmutable;
@@ -171,7 +170,7 @@ test('pagination defaults clamps and retains query strings', function () {
         ->has('jobPosts.data', 13)->where('jobPosts.meta.per_page', 50));
 
     request()->query->replace(['q' => 'Welder', 'status' => 'active']);
-    $results = (new JobPostIndexQuery)->paginate($user, new JobPostIndexFilters(q: 'Welder'));
+    $results = (new JobPostRepository)->paginateForUser($user, new JobPostIndexFilters(q: 'Welder'));
     parse_str(parse_url($results->nextPageUrl(), PHP_URL_QUERY), $query);
     expect($query)->toMatchArray(['q' => 'Welder', 'status' => 'active', 'page' => '2']);
     expect($results->pluck('id')->all())->toBe($posts->pluck('id')->reverse()->take(10)->values()->all());
@@ -285,7 +284,7 @@ test('kpis execute exactly two aggregate queries and table reloads skip them', f
     DB::enableQueryLog();
     DB::flushQueryLog();
 
-    $kpis = (new JobPostKpis)->for($user);
+    $kpis = (new JobPostRepository)->kpisForUser($user);
 
     expect(DB::getQueryLog())->toHaveCount(2);
     expect($kpis['active_jobs'])->toBe(1);
