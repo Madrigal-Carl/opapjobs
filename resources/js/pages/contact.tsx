@@ -46,7 +46,9 @@ export default function Contact() {
                         <h1>
                             Ask before you apply,
                             <br />
-                            <em>not after.</em>
+                            <span className="contact-hero-accent">
+                                not after.
+                            </span>
                         </h1>
                     </div>
                     <p>

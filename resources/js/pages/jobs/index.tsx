@@ -367,9 +367,7 @@ function JobsBrowser() {
             <section className="jobs-hero" aria-labelledby="jobs-title">
                 <div className="shell jobs-hero-inner">
                     <h1 id="jobs-title">
-                        Jobs you can verify
-                        <br />
-                        <em>before you apply.</em>
+                        Jobs you can verify before you apply.
                     </h1>
                     <p>
                         Browse landbased and seabased openings from
