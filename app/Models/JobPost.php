@@ -28,6 +28,8 @@ use Illuminate\Support\Carbon;
  * @property Currency|null $salary_currency
  * @property Carbon|null $closing_date
  * @property string|null $other_requirements
+ * @property string|null $job_order_number
+ * @property list<string>|null $required_documents
  * @property-read JobPostDisplayStatus $display_status
  */
 class JobPost extends Model
@@ -46,7 +48,7 @@ class JobPost extends Model
         'education_level', 'min_experience_years', 'max_experience_years',
         'gender_requirement', 'job_description', 'other_requirements', 'application_instructions',
         'contact_person_name', 'contact_email', 'contact_phone', 'status',
-        'closing_date', 'is_urgent',
+        'closing_date', 'is_urgent', 'job_order_number', 'required_documents',
     ];
 
     protected function casts(): array
@@ -65,6 +67,7 @@ class JobPost extends Model
             'max_experience_years' => 'integer',
             'closing_date' => 'date',
             'is_urgent' => 'boolean',
+            'required_documents' => 'array',
         ];
     }
 

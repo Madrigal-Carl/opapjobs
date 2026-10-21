@@ -40,6 +40,17 @@ class StoreJobPostRequest extends JobPostFormRequest
     {
         return [
             'recruitment_type' => ['required', Rule::enum(RecruitmentType::class)],
+            // Only a "with job order" posting carries one; the form hides the
+            // field for manpooling, so requiring it conditionally keeps the
+            // two recruitment types honest.
+            'job_order_number' => [
+                'nullable', 'string', 'max:255',
+                Rule::requiredIf(
+                    fn (): bool => $this->input('recruitment_type') === RecruitmentType::Joborder->value
+                ),
+            ],
+            'required_documents' => ['sometimes', 'array', 'list', 'max:20'],
+            'required_documents.*' => ['required', 'string', 'max:255'],
             'employer_id' => ['nullable', 'integer', 'min:1'],
             'job_title' => ['required', 'string', 'max:255'],
             'job_subcategory_id' => ['required', 'integer', 'min:1'],
@@ -115,7 +126,7 @@ class StoreJobPostRequest extends JobPostFormRequest
         /** @var Attributes $attributes */
         $attributes = $this->safe()->except(['languages', 'questions']);
         foreach (['employer_id', 'salary_currency', 'monthly_salary_min', 'monthly_salary_max', 'min_experience_years', 'max_experience_years',
-            'other_requirements', 'application_instructions', 'contact_person_name', 'contact_email', 'contact_phone', 'closing_date'] as $field) {
+            'other_requirements', 'application_instructions', 'contact_person_name', 'contact_email', 'contact_phone', 'closing_date', 'job_order_number'] as $field) {
             $attributes[$field] ??= null;
         }
         foreach (['employer_id', 'job_subcategory_id', 'vacant_positions', 'min_experience_years', 'max_experience_years'] as $field) {
@@ -124,6 +135,20 @@ class StoreJobPostRequest extends JobPostFormRequest
             }
         }
         $attributes['is_urgent'] = $this->boolean('is_urgent');
+
+        // A job order number belongs to a "with job order" posting only. The
+        // form clears it when the toggle moves to manpooling, but a stale
+        // value must never survive a round trip that flipped the toggle.
+        if ($attributes['recruitment_type'] !== RecruitmentType::Joborder->value) {
+            $attributes['job_order_number'] = null;
+        }
+
+        $documents = $this->validated('required_documents', []);
+        $attributes['required_documents'] = array_values(array_unique(array_filter(array_map(
+            fn (mixed $document): string => is_string($document) ? trim($document) : '',
+            is_array($documents) ? $documents : [],
+        ))));
+
         /** @var list<LanguageData> $languages */
         $languages = $this->validated('languages', []);
         /** @var list<array{question_text: string, answer_type: string, expected_answer?: ?string, is_required?: bool}> $questions */

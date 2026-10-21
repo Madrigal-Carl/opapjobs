@@ -4,16 +4,16 @@ import {
     ArrowLeft,
     ArrowRight,
     BriefcaseBusiness,
-    Building2,
     CircleHelp,
     ClipboardCheck,
     MapPin,
+    Phone,
 } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useForm, type FieldErrors, type PathValue } from 'react-hook-form';
 import { toast } from 'sonner';
-import { EmployerCombobox } from '@/components/dashboard/employer-combobox';
 import { FormSection } from '@/components/dashboard/form-section';
+import { JobPostDocumentsField } from '@/components/dashboard/job-post-documents-field';
 import { JobPostPreviewDialog } from '@/components/dashboard/job-post-preview-dialog';
 import { JobPostQuestionsField } from '@/components/dashboard/job-post-questions-field';
 import { DashboardPage } from '@/components/dashboard/page';
@@ -21,14 +21,6 @@ import { PageHeader } from '@/components/dashboard/page-header';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LanguageChipsField } from '@/components/ui/language-chips-field';
@@ -54,7 +46,6 @@ import {
     serverErrorField,
     toJobPostPayload,
     type JobPostFormProps,
-    type JobPostEmployer,
     type JobForm,
 } from '@/data/job-form';
 import { buildJobPostPreview } from '@/data/job-post-preview';
@@ -63,7 +54,6 @@ import { flashServerToast } from '@/hooks/use-flash-toast';
 import { cn } from '@/lib/utils';
 import { jobs } from '@/routes/dashboard';
 import { store as storeJobPost } from '@/routes/dashboard/jobs';
-import { store as storeEmployer } from '@/routes/dashboard/employers';
 import type { ContractDuration, GenderRequirement } from '@/types/job';
 
 const inputClass =
@@ -104,11 +94,9 @@ function JobField({
 }
 
 export default function DashboardNewJob(props: JobPostFormProps) {
-    const { agency, categories, employers, options, today } = props;
+    const { agency, categories, options, today } = props;
     const [publishing, setPublishing] = useState(false);
     const publishingRef = useRef(false);
-    const [employerSaving, setEmployerSaving] = useState(false);
-    const employerSavingRef = useRef(false);
     const schema = useMemo(
         () => createJobFormSchema(options, today, categories),
         [options, today, categories],
@@ -136,29 +124,6 @@ export default function DashboardNewJob(props: JobPostFormProps) {
     );
     const [reviewOpen, setReviewOpen] = useState(false);
     const focusAfterReviewClose = useRef(false);
-    const [employerOpen, setEmployerOpen] = useState(false);
-    const [employerDraft, setEmployerDraft] = useState({
-        name: '',
-        location: '',
-        poeaLicenseNo: '',
-    });
-    const [employerError, setEmployerError] = useState('');
-    const [employerFieldErrors, setEmployerFieldErrors] = useState<
-        Record<string, string>
-    >({});
-    const [createdEmployers, setCreatedEmployers] = useState<JobPostEmployer[]>(
-        [],
-    );
-    const employerOptions = useMemo(
-        () => [
-            ...employers,
-            ...createdEmployers.filter(
-                (entry) =>
-                    !employers.some((existing) => existing.id === entry.id),
-            ),
-        ],
-        [employers, createdEmployers],
-    );
     const formRef = useRef<HTMLFormElement>(null);
     const categoryOptions = categories;
     const subCategoryOptions =
@@ -172,7 +137,9 @@ export default function DashboardNewJob(props: JobPostFormProps) {
     const previewJob = buildJobPostPreview(form, {
         agency,
         categories,
-        employers: employerOptions,
+        // The employer picker is gone, so the form never carries one. An empty
+        // list keeps the preview honest: no employer name to resolve.
+        employers: [],
     });
 
     const setField = <K extends keyof JobForm>(field: K, value: JobForm[K]) => {
@@ -249,72 +216,6 @@ export default function DashboardNewJob(props: JobPostFormProps) {
             },
         )();
 
-    const saveEmployer = () => {
-        const name = employerDraft.name.trim();
-        const location = employerDraft.location.trim();
-        const poeaLicenseNo = employerDraft.poeaLicenseNo.trim();
-
-        if (!name || !location || !poeaLicenseNo) {
-            setEmployerError(
-                'Please complete the employer name, location and licence number.',
-            );
-            return;
-        }
-
-        if (employerSavingRef.current) return;
-        employerSavingRef.current = true;
-        router.post(
-            storeEmployer().url,
-            {
-                employer_name: name,
-                employer_location: location,
-                employer_license_number: poeaLicenseNo,
-            },
-            {
-                preserveState: true,
-                preserveScroll: true,
-                onStart: () => {
-                    setEmployerSaving(true);
-                    setEmployerFieldErrors({});
-                },
-                onFlash: (flash) => {
-                    const created = flash.createdEmployer as
-                        | JobPostEmployer
-                        | undefined;
-                    if (created) {
-                        setCreatedEmployers((current) => [...current, created]);
-                        setField('employerId', created.id);
-                        setEmployerOpen(false);
-                        setEmployerError('');
-                        setEmployerDraft({
-                            name: '',
-                            location: '',
-                            poeaLicenseNo: '',
-                        });
-                    }
-                },
-                onError: (serverErrors) => setEmployerFieldErrors(serverErrors),
-                onHttpException: (response) => {
-                    if (!flashServerToast(response.data))
-                        toast.error(
-                            'Could not reach the server. Check your connection and try again.',
-                        );
-                    return false;
-                },
-                onNetworkError: () => {
-                    toast.error(
-                        'Could not reach the server. Check your connection and try again.',
-                    );
-                    return false;
-                },
-                onFinish: () => {
-                    employerSavingRef.current = false;
-                    setEmployerSaving(false);
-                },
-            },
-        );
-    };
-
     const invalid = (field: keyof JobForm, id: string) => ({
         'data-field': field,
         'aria-invalid': Boolean(errors[field]),
@@ -355,10 +256,7 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                     className="flex w-full flex-col gap-5"
                     data-testid="form-new-job"
                 >
-                    <fieldset
-                        disabled={publishing || employerSaving}
-                        className="contents"
-                    >
+                    <fieldset disabled={publishing} className="contents">
                         <FormSection
                             step={1}
                             title="Job details"
@@ -594,6 +492,33 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                     </Select>
                                 </JobField>
                             </div>
+                            {form.postingType === 'joborder' && (
+                                <JobField
+                                    id="job-order-number"
+                                    label="Job order number"
+                                    required
+                                    error={errors.jobOrderNumber}
+                                >
+                                    <Input
+                                        id="job-order-number"
+                                        required
+                                        value={form.jobOrderNumber}
+                                        onChange={(event) =>
+                                            setField(
+                                                'jobOrderNumber',
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g. JO-2026-0184"
+                                        {...invalid(
+                                            'jobOrderNumber',
+                                            'job-order-number',
+                                        )}
+                                        className={inputClass}
+                                        data-testid="input-job-order-number"
+                                    />
+                                </JobField>
+                            )}
                             <div className="grid gap-4 sm:grid-cols-[1.6fr_1fr]">
                                 <div className="flex min-w-0 flex-col gap-1.5">
                                     <Label
@@ -1022,6 +947,28 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                     message={errors.otherRequirements}
                                 />
                             </div>
+                            <div className="flex flex-col gap-1.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <Label className={labelClass}>
+                                        Required documents
+                                    </Label>
+                                    <span className="text-[11px] text-[var(--slate)]">
+                                        What the applicant must submit
+                                    </span>
+                                </div>
+                                <p className="text-[11px] text-[var(--slate)]">
+                                    List the certificates, clearances and
+                                    medical results this vacancy needs. They
+                                    appear on the job page as what to prepare.
+                                </p>
+                                <JobPostDocumentsField
+                                    value={form.requiredDocuments}
+                                    onChange={(documents) =>
+                                        setField('requiredDocuments', documents)
+                                    }
+                                    error={errors.requiredDocuments}
+                                />
+                            </div>
                         </FormSection>
                         <FormSection
                             step={3}
@@ -1040,35 +987,11 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                         </FormSection>
                         <FormSection
                             step={4}
-                            title="Employer"
-                            description="The company behind the vacancy."
-                            icon={Building2}
+                            title="Contact"
+                            description="Who applicants should reach about this vacancy."
+                            icon={Phone}
                             optional
                         >
-                            <JobField
-                                id="job-employer"
-                                label="Employer name / Search"
-                                error={errors.employerId}
-                            >
-                                <EmployerCombobox
-                                    value={form.employerId}
-                                    employers={employerOptions}
-                                    {...invalid('employerId', 'job-employer')}
-                                    onChange={(value) =>
-                                        setField('employerId', value)
-                                    }
-                                    onAddNew={(name) => {
-                                        setEmployerDraft({
-                                            name,
-                                            location: '',
-                                            poeaLicenseNo: '',
-                                        });
-                                        setEmployerError('');
-                                        setEmployerFieldErrors({});
-                                        setEmployerOpen(true);
-                                    }}
-                                />
-                            </JobField>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <JobField
                                     id="job-contact-name"
@@ -1162,7 +1085,7 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                             size="sm"
                             className="h-9"
                             data-testid="button-publish-job"
-                            disabled={publishing || employerSaving}
+                            disabled={publishing}
                         >
                             Review job post
                             <ArrowRight className="size-4" aria-hidden="true" />
@@ -1186,119 +1109,6 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                     return true;
                 }}
             />
-            <Dialog
-                open={employerOpen}
-                onOpenChange={(open) => {
-                    if (!employerSaving) setEmployerOpen(open);
-                }}
-            >
-                <DialogContent data-testid="new-employer-dialog">
-                    <DialogHeader>
-                        <DialogTitle>Add a new employer</DialogTitle>
-                        <DialogDescription>
-                            Register the company behind the vacancy. It will be
-                            available to every future job post.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            saveEmployer();
-                        }}
-                        className="flex flex-col gap-4"
-                        data-testid="form-new-employer"
-                    >
-                        <fieldset
-                            disabled={employerSaving}
-                            className="contents"
-                        >
-                            {(
-                                [
-                                    {
-                                        field: 'name',
-                                        serverField: 'employer_name',
-                                        id: 'employer-name',
-                                        label: 'Employer name',
-                                    },
-                                    {
-                                        field: 'location',
-                                        serverField: 'employer_location',
-                                        id: 'employer-location',
-                                        label: 'Location',
-                                    },
-                                    {
-                                        field: 'poeaLicenseNo',
-                                        serverField: 'employer_license_number',
-                                        id: 'employer-license',
-                                        label: 'POEA / DMW licence no.',
-                                    },
-                                ] as const
-                            ).map(({ field, serverField, id, label }) => (
-                                <JobField
-                                    key={field}
-                                    id={id}
-                                    label={label}
-                                    required
-                                    error={employerFieldErrors[serverField]}
-                                >
-                                    <Input
-                                        id={id}
-                                        required
-                                        value={employerDraft[field]}
-                                        onChange={(event) => {
-                                            setEmployerDraft((current) => ({
-                                                ...current,
-                                                [field]: event.target.value,
-                                            }));
-                                            setEmployerError('');
-                                        }}
-                                        aria-invalid={Boolean(
-                                            employerFieldErrors[serverField] ||
-                                            (employerError &&
-                                                !employerDraft[field].trim()),
-                                        )}
-                                        aria-describedby={
-                                            employerFieldErrors[serverField]
-                                                ? `${id}-error`
-                                                : employerError
-                                                  ? 'error-employer'
-                                                  : undefined
-                                        }
-                                        data-field={`employer-${field}`}
-                                        className={inputClass}
-                                        data-testid={`input-${id}`}
-                                    />
-                                </JobField>
-                            ))}
-                            <InputError
-                                id="error-employer"
-                                message={employerError}
-                                role="alert"
-                                data-testid="error-employer"
-                            />
-                            <DialogFooter>
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setEmployerOpen(false)}
-                                    data-testid="button-cancel-employer"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    size="sm"
-                                    loading={employerSaving}
-                                    data-testid="button-save-employer"
-                                >
-                                    Save employer
-                                </Button>
-                            </DialogFooter>
-                        </fieldset>
-                    </form>
-                </DialogContent>
-            </Dialog>
         </>
     );
 }
