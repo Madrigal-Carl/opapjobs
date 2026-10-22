@@ -131,6 +131,19 @@ export function createJobFormSchema(
                     'Choose an education level.',
                 ),
             contractDuration: z.enum(options.contract_types),
+            // Sent only for a "with job order" posting; `superRefine` below
+            // is what makes it required for that type.
+            jobOrderNumber: text,
+            // Free-text names rather than a fixed list: agencies ask for
+            // whatever their employer asks for ("COC", "PSNC", "NBI").
+            requiredDocuments: z
+                .array(
+                    z
+                        .string()
+                        .trim()
+                        .min(1, 'Enter the document name or remove it.'),
+                )
+                .max(20, 'A job post can list at most 20 required documents.'),
             languages: z
                 .array(
                     z.object({
@@ -190,6 +203,11 @@ export function createJobFormSchema(
                     'Choose a sub-category from the selected category.',
                 );
             }
+            if (
+                form.postingType === 'joborder' &&
+                form.jobOrderNumber.trim() === ''
+            )
+                issue(['jobOrderNumber'], 'Enter the job order number.');
             if (
                 (form.salaryMin !== '' || form.salaryMax !== '') &&
                 !form.salaryCurrency
@@ -260,6 +278,8 @@ export const emptyJobForm: JobForm = {
     education: '',
     contractDuration: 'fixed',
     languages: [],
+    jobOrderNumber: '',
+    requiredDocuments: [],
     otherRequirements: '',
     contactName: '',
     contactEmail: '',
@@ -282,6 +302,13 @@ export function toJobPostPayload(form: JobForm) {
         work_location: form.location.trim(),
         vacant_positions: form.quantity,
         contract_type: form.contractDuration,
+        job_order_number:
+            form.postingType === 'joborder'
+                ? nullableText(form.jobOrderNumber)
+                : null,
+        required_documents: form.requiredDocuments
+            .map((document) => document.trim())
+            .filter(Boolean),
         salary_currency: nullableText(form.salaryCurrency),
         monthly_salary_min: nullableNumber(form.salaryMin),
         monthly_salary_max: nullableNumber(form.salaryMax),
@@ -340,6 +367,8 @@ const serverFields: Record<string, keyof JobForm> = {
     work_location: 'location',
     vacant_positions: 'quantity',
     contract_type: 'contractDuration',
+    job_order_number: 'jobOrderNumber',
+    required_documents: 'requiredDocuments',
     salary_currency: 'salaryCurrency',
     monthly_salary_min: 'salaryMin',
     monthly_salary_max: 'salaryMax',

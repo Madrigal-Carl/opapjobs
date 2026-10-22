@@ -221,3 +221,36 @@ test('publish-only accounts land on an accessible success page instead of a forb
         ->component('dashboard/jobs/new')->hasFlash('toast.message', 'Job post published.'));
     $this->assertDatabaseCount('job_posts', 1);
 });
+
+test('a job order posting requires its number, which manpooling never carries, and documents are stored as a list', function () {
+    $user = User::factory()->admin()->forAgency(Agency::factory()->create())->create();
+
+    // A job order posting without its number is incomplete.
+    $input = JobPostInput::for($user);
+    $input['job_order_number'] = '';
+    $this->actingAs($user)->post('/dashboard/jobs', $input)
+        ->assertSessionHasErrors('job_order_number');
+
+    // An unnamed entry is a real mistake, not something to silently drop.
+    $input = JobPostInput::for($user);
+    $input['required_documents'] = ['COC', ''];
+    $this->actingAs($user)->post('/dashboard/jobs', $input)
+        ->assertSessionHasErrors('required_documents.1');
+
+    // Documents are trimmed and deduplicated but keep their order.
+    $input = JobPostInput::for($user);
+    $input['required_documents'] = ['  COC  ', 'PSNC', 'COC'];
+    $this->actingAs($user)->post('/dashboard/jobs', $input)
+        ->assertRedirect(route('dashboard.jobs'));
+
+    $post = JobPost::sole();
+    expect($post->job_order_number)->toBe('JO-2026-0001');
+    expect($post->required_documents)->toBe(['COC', 'PSNC']);
+
+    // A number typed before the toggle moved must not survive the switch.
+    $input = JobPostInput::for($user);
+    $input['recruitment_type'] = 'manpooling';
+    $this->actingAs($user)->post('/dashboard/jobs', $input)
+        ->assertRedirect(route('dashboard.jobs'));
+    expect(JobPost::latest('id')->first()->job_order_number)->toBeNull();
+});

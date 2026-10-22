@@ -37,6 +37,8 @@ const valid = () => ({
     location: 'Riyadh',
     description: '**Install** safely.',
     education: 'vocational',
+    // The base fixture is a job order posting, so it needs its number.
+    jobOrderNumber: 'JO-2026-0001',
     questions: [],
     languages: [],
 });
@@ -212,6 +214,10 @@ await test('the payload maps every field to the server contract and strips clien
     assert.equal(payload.application_instructions, null);
     assert.equal(payload.min_experience_years, null);
     assert.equal(payload.contact_phone, null);
+    // The base fixture is a job order posting, so its number passes through.
+    // An empty document list is still sent so the server can clear a stale one.
+    assert.equal(payload.job_order_number, 'JO-2026-0001');
+    assert.deepEqual(payload.required_documents, []);
     assert.deepEqual(payload.questions, [
         {
             question_text: 'First',
@@ -236,6 +242,8 @@ await test('the payload maps every field to the server contract and strips clien
             'work_location',
             'vacant_positions',
             'contract_type',
+            'job_order_number',
+            'required_documents',
             'salary_currency',
             'monthly_salary_min',
             'monthly_salary_max',
@@ -255,6 +263,55 @@ await test('the payload maps every field to the server contract and strips clien
             'questions',
         ].sort(),
     );
+});
+
+await test('only a job order posting requires and sends its order number', () => {
+    const schema = exports.createJobFormSchema(
+        options,
+        '2026-10-19',
+        categories,
+    );
+    assert.equal(
+        schema.safeParse({
+            ...valid(),
+            jobOrderNumber: '',
+        }).success,
+        false,
+        'a job order posting without a number must not validate',
+    );
+    assert.equal(
+        schema.safeParse({
+            ...valid(),
+            postingType: 'joborder',
+            jobOrderNumber: 'JO-2026-0184',
+        }).success,
+        true,
+    );
+    assert.equal(
+        schema.safeParse({
+            ...valid(),
+            postingType: 'manpooling',
+        }).success,
+        true,
+        'manpooling must not demand a job order number',
+    );
+
+    const jobOrder = exports.toJobPostPayload({
+        ...valid(),
+        postingType: 'joborder',
+        jobOrderNumber: '  JO-2026-0184  ',
+        requiredDocuments: ['  COC  ', 'PSNC'],
+    });
+    assert.equal(jobOrder.job_order_number, 'JO-2026-0184');
+    assert.deepEqual(jobOrder.required_documents, ['COC', 'PSNC']);
+
+    // A number typed before the toggle moved must not survive the switch.
+    const manpooling = exports.toJobPostPayload({
+        ...valid(),
+        postingType: 'manpooling',
+        jobOrderNumber: 'JO-2026-0184',
+    });
+    assert.equal(manpooling.job_order_number, null);
 });
 
 await test('question helpers preserve values but never duplicate field-array ids or move beyond bounds', () => {

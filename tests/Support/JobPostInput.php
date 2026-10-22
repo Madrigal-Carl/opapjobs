@@ -16,8 +16,8 @@ class JobPostInput
         ]), 'category')->create();
 
         return [
-            'recruitment_type' => 'joborder', 'employer_id' => null,
-            'job_title' => 'Electrician', 'job_subcategory_id' => $subcategory->id,
+            'recruitment_type' => 'joborder', 'job_order_number' => 'JO-2026-0001',
+            'employer_id' => null, 'job_title' => 'Electrician', 'job_subcategory_id' => $subcategory->id,
             'work_location' => 'Riyadh, Saudi Arabia', 'vacant_positions' => 3,
             'contract_type' => 'fixed', 'salary_currency' => 'SAR',
             'monthly_salary_min' => 2500, 'monthly_salary_max' => 3200,
