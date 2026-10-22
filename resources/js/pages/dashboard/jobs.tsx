@@ -1,4 +1,5 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useRef, useState } from 'react';
 import {
     BadgeCheck,
     BriefcaseBusiness,
@@ -28,6 +29,14 @@ import { PageHeader } from '@/components/dashboard/page-header';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -36,7 +45,12 @@ import {
 import { useServerTable } from '@/hooks/use-server-table';
 import { formatJobPostSalary } from '@/lib/job-post-salary';
 import { jobs } from '@/routes/dashboard';
-import { create as jobsCreate } from '@/routes/dashboard/jobs';
+import {
+    create as jobsCreate,
+    edit,
+    status,
+    archive,
+} from '@/routes/dashboard/jobs';
 import type { PostingType } from '@/types/job';
 import type {
     JobPostDisplayStatus,
@@ -174,50 +188,99 @@ const jobPostColumns: Column<JobPostRow>[] = [
 ];
 
 function JobPostRowMenu({ post }: { post: JobPostRow }) {
+    const [archiveOpen, setArchiveOpen] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const trigger = useRef<HTMLButtonElement>(null);
     const isClosed = post.display_status === 'closed';
     const isArchived = post.display_status === 'archived';
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Actions for ${post.job_title}`}
-                    data-testid={`button-job-actions-${post.id}`}
-                >
-                    <MoreHorizontal className="size-4" aria-hidden="true" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem disabled>
-                    Edit job post
-                    <span className="ml-auto text-xs text-muted-foreground">
-                        Soon
-                    </span>
-                </DropdownMenuItem>
-                {!isArchived && (
-                    <DropdownMenuItem
-                        disabled
-                        data-testid={`button-toggle-status-${post.id}`}
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        ref={trigger}
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Actions for ${post.job_title}`}
+                        data-testid={`button-job-actions-${post.id}`}
                     >
-                        {isClosed ? 'Reopen job post' : 'Close job post'}
-                        <span className="ml-auto text-xs text-muted-foreground">
-                            Soon
-                        </span>
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        <Link href={edit(post.id)}>Update</Link>
                     </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                    disabled
-                    data-testid={`button-archive-job-${post.id}`}
+                    {!isArchived && (
+                        <DropdownMenuItem
+                            onSelect={() =>
+                                router.patch(
+                                    status(post.id).url,
+                                    {},
+                                    { preserveScroll: true },
+                                )
+                            }
+                            data-testid={`button-toggle-status-${post.id}`}
+                        >
+                            {isClosed ? 'Open' : 'Close'}
+                        </DropdownMenuItem>
+                    )}
+                    {!isArchived && (
+                        <DropdownMenuItem
+                            onSelect={() => setArchiveOpen(true)}
+                            data-testid={`button-archive-job-${post.id}`}
+                        >
+                            Archive
+                        </DropdownMenuItem>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+                <DialogContent
+                    onCloseAutoFocus={(event) => {
+                        event.preventDefault();
+                        trigger.current?.focus();
+                    }}
                 >
-                    {isArchived ? 'Restore job post' : 'Archive job post'}
-                    <span className="ml-auto text-xs text-muted-foreground">
-                        Soon
-                    </span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                    <DialogHeader>
+                        <DialogTitle>Archive job post?</DialogTitle>
+                        <DialogDescription>
+                            Archive “{post.job_title}”? It will no longer accept
+                            applications or allow changes. Existing applications
+                            will be kept.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setArchiveOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            loading={archiving}
+                            onClick={() => {
+                                if (archiving) return;
+                                router.patch(
+                                    archive(post.id).url,
+                                    {},
+                                    {
+                                        preserveScroll: true,
+                                        onStart: () => setArchiving(true),
+                                        onSuccess: () => setArchiveOpen(false),
+                                        onFinish: () => setArchiving(false),
+                                    },
+                                );
+                            }}
+                        >
+                            Archive
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }
 

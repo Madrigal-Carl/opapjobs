@@ -36,6 +36,7 @@ export type JobPostFormProps = {
     employers: JobPostEmployer[];
     options: JobFormOptions;
     today: string;
+    jobPost?: EditableJobPost;
 };
 export type DuplicateJobPost = {
     id: number;
@@ -165,6 +166,7 @@ export function createJobFormSchema(
                 .array(
                     z
                         .object({
+                            questionId: z.number().int().positive().optional(),
                             label: text.min(
                                 1,
                                 'Enter the question or remove it',
@@ -328,13 +330,78 @@ export function toJobPostPayload(form: JobForm) {
             language,
             proficiency,
         })),
-        questions: form.questions.map(({ label, type, answer, required }) => ({
-            question_text: label.trim(),
-            answer_type: type,
-            expected_answer: nullableText(
-                type === 'yesno' ? answer.toLowerCase() : answer,
-            ),
-            is_required: required,
+        questions: form.questions.map(
+            ({ questionId, label, type, answer, required }) => ({
+                ...(questionId === undefined ? {} : { id: questionId }),
+                question_text: label.trim(),
+                answer_type: type,
+                expected_answer: nullableText(
+                    type === 'yesno' ? answer.toLowerCase() : answer,
+                ),
+                is_required: required,
+            }),
+        ),
+    };
+}
+
+export type EditableJobPost = Omit<
+    ReturnType<typeof toJobPostPayload>,
+    | 'monthly_salary_min'
+    | 'monthly_salary_max'
+    | 'required_documents'
+    | 'questions'
+> & {
+    id: number;
+    monthly_salary_min: string | number | null;
+    monthly_salary_max: string | number | null;
+    required_documents: string[] | null;
+    questions: (ReturnType<typeof toJobPostPayload>['questions'][number] & {
+        id: number;
+    })[];
+};
+
+export function fromJobPostPayload(
+    post: EditableJobPost,
+    categories: JobPostCategory[],
+): JobForm {
+    return {
+        postingType: post.recruitment_type,
+        employerId: post.employer_id,
+        title: post.job_title,
+        categoryId:
+            categories.find((category) =>
+                category.subcategories.some(
+                    (subcategory) => subcategory.id === post.job_subcategory_id,
+                ),
+            )?.id ?? null,
+        subcategoryId: post.job_subcategory_id,
+        location: post.work_location,
+        quantity: post.vacant_positions,
+        contractDuration: post.contract_type,
+        jobOrderNumber: post.job_order_number ?? '',
+        requiredDocuments: post.required_documents ?? [],
+        salaryCurrency: post.salary_currency ?? '',
+        salaryMin: post.monthly_salary_min?.toString() ?? '',
+        salaryMax: post.monthly_salary_max?.toString() ?? '',
+        education: post.education_level,
+        minExperienceYears: post.min_experience_years?.toString() ?? '',
+        maxExperienceYears: post.max_experience_years?.toString() ?? '',
+        gender: post.gender_requirement,
+        description: post.job_description,
+        otherRequirements: post.other_requirements ?? '',
+        applyInstructions: post.application_instructions ?? '',
+        contactName: post.contact_person_name ?? '',
+        contactEmail: post.contact_email ?? '',
+        contactPhone: post.contact_phone ?? '',
+        closingDate: post.closing_date ?? '',
+        urgent: post.is_urgent,
+        languages: post.languages,
+        questions: post.questions.map((question) => ({
+            questionId: question.id,
+            label: question.question_text,
+            type: question.answer_type,
+            answer: question.expected_answer ?? '',
+            required: question.is_required,
         })),
     };
 }
@@ -391,11 +458,12 @@ const serverFields: Record<string, keyof JobForm> = {
 export function serverErrorField(key: string): FieldPath<JobForm> | null {
     if (serverFields[key]) return serverFields[key];
     const question =
-        /^questions\.(\d+)\.(question_text|answer_type|expected_answer|is_required)$/.exec(
+        /^questions\.(\d+)\.(id|question_text|answer_type|expected_answer|is_required)$/.exec(
             key,
         );
     if (question) {
         const fields = {
+            id: 'questionId',
             question_text: 'label',
             answer_type: 'type',
             expected_answer: 'answer',

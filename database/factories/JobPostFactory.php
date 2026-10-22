@@ -34,6 +34,8 @@ class JobPostFactory extends Factory
                     'pathway' => Agency::query()->whereKey($attributes['agency_id'])->firstOrFail()->pathway,
                 ]), 'category')->create()->id,
             'recruitment_type' => RecruitmentType::Joborder,
+            'job_order_number' => fn (array $attributes): ?string => in_array($attributes['recruitment_type'], [RecruitmentType::Joborder, RecruitmentType::Joborder->value], true)
+                ? 'JO-'.now()->year.'-'.fake()->unique()->numerify('######') : null,
             'job_title' => fake()->jobTitle(),
             'work_location' => fake()->city().', '.fake()->country(),
             'vacant_positions' => 1,
