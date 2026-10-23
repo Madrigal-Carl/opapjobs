@@ -9,12 +9,18 @@ export function useJobPostDuplicates(
     employerId: number | null,
     title: string,
     subcategoryId: number | null,
+    excludeJobPostId?: number,
 ): DuplicateJobPost[] {
     const [result, setResult] = useState<{
         key: string;
         duplicates: DuplicateJobPost[];
     } | null>(null);
-    const key = JSON.stringify([employerId, title.trim(), subcategoryId]);
+    const key = JSON.stringify([
+        employerId,
+        title.trim(),
+        subcategoryId,
+        excludeJobPostId,
+    ]);
     useEffect(() => {
         if (!title.trim() || subcategoryId === null) return;
         const controller = new AbortController();
@@ -26,6 +32,7 @@ export function useJobPostDuplicates(
                             employer_id: employerId,
                             job_title: title.trim(),
                             job_subcategory_id: subcategoryId,
+                            exclude_job_post_id: excludeJobPostId,
                         },
                     }).url,
                     {
@@ -56,6 +63,6 @@ export function useJobPostDuplicates(
             window.clearTimeout(timer);
             controller.abort();
         };
-    }, [employerId, title, subcategoryId, key]);
+    }, [employerId, title, subcategoryId, excludeJobPostId, key]);
     return result?.key === key ? result.duplicates : [];
 }

@@ -34,6 +34,50 @@ class JobPostRepository
         return JobPost::query()->create($attributes);
     }
 
+    public function findVisibleForUpdate(User $user, int $id): JobPost
+    {
+        return JobPost::query()->visibleTo($user)->lockForUpdate()->findOrFail($id);
+    }
+
+    /** @param array<string, mixed> $attributes */
+    public function update(JobPost $post, array $attributes): void
+    {
+        $post->update($attributes);
+    }
+
+    /** @return array<string, mixed> */
+    public function formValues(JobPost $post): array
+    {
+        $post->load(['languages', 'questions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id')]);
+
+        return [
+            ...$post->only(['id', ...(new JobPost)->getFillable()]),
+            'closing_date' => $post->closing_date?->toDateString(),
+            'languages' => $post->languages->map(fn (JobPostLanguage $language): array => $language->only(['language', 'proficiency']))->all(),
+            'questions' => $post->questions->map(fn (JobPostQuestion $question): array => $question->only(['id', 'question_text', 'answer_type', 'expected_answer', 'is_required']))->all(),
+        ];
+    }
+
+    /** @param list<QuestionData> $questions */
+    public function syncQuestions(JobPost $post, array $questions): void
+    {
+        $ids = [];
+        foreach ($questions as $index => $question) {
+            $attributes = $question;
+            unset($attributes['id']);
+            $attributes['sort_order'] = $index;
+            if (isset($question['id'])) {
+                $existing = $post->questions()->findOrFail($question['id']);
+                $existing->update($attributes);
+                $ids[] = $existing->id;
+            } else {
+                $ids[] = $post->questions()->create($attributes)->id;
+            }
+        }
+
+        $post->questions()->whereNotIn('id', $ids)->whereDoesntHave('answers')->delete();
+    }
+
     /** @param list<LanguageData> $languages */
     public function syncLanguages(JobPost $post, array $languages): void
     {
@@ -92,7 +136,7 @@ class JobPostRepository
     }
 
     /** @return list<array{id: int, job_title: string, created_at: ?string, display_status: string}> */
-    public function findDuplicates(User $user, int $agencyId, ?int $employerId, string $normalizedTitle, int $subcategoryId): array
+    public function findDuplicates(User $user, int $agencyId, ?int $employerId, string $normalizedTitle, int $subcategoryId, ?int $excludeId = null): array
     {
         if (DB::getDriverName() === 'pgsql') {
             $title = "LOWER(TRIM(REGEXP_REPLACE(job_title, '[[:space:]]+', ' ', 'g')))";
@@ -105,6 +149,7 @@ class JobPostRepository
         }
 
         return array_values(JobPost::query()->visibleTo($user)->forAgency($agencyId)
+            ->when($excludeId !== null, fn (Builder $query) => $query->whereKeyNot($excludeId))
             ->where('employer_id', $employerId)->where('job_subcategory_id', $subcategoryId)
             ->whereRaw("{$title} = ?", [$normalizedTitle])->orderByDesc('id')->limit(5)
             ->get(['id', 'job_title', 'created_at', 'status', 'closing_date'])

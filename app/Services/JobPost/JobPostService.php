@@ -4,6 +4,7 @@ namespace App\Services\JobPost;
 
 use App\Data\JobPost\JobPostDuplicateData;
 use App\Data\JobPost\StoreJobPostData;
+use App\Data\JobPost\UpdateJobPostData;
 use App\Enums\ContractType;
 use App\Enums\Currency;
 use App\Enums\EducationLevel;
@@ -13,8 +14,10 @@ use App\Enums\Language;
 use App\Enums\LanguageProficiency;
 use App\Enums\QuestionAnswerType;
 use App\Enums\RecruitmentType;
+use App\Exceptions\JobPost\AgencyUnavailableException;
 use App\Exceptions\JobPost\EmployerNotInAgencyException;
 use App\Exceptions\JobPost\PathwayMismatchException;
+use App\Models\Agency;
 use App\Models\JobPost;
 use App\Models\User;
 use App\Repositories\AuditLogRepository;
@@ -31,16 +34,7 @@ class JobPostService
     public function create(User $user, StoreJobPostData $data): JobPost
     {
         $agency = $this->agencies->forPosting($user);
-        $subcategory = $this->posts->findSubcategoryWithCategory($data->attributes['job_subcategory_id']);
-        if ($subcategory === null || $subcategory->category === null || $subcategory->category->trashed()
-            || $subcategory->category->pathway !== $agency->pathway) {
-            throw new PathwayMismatchException;
-        }
-
-        $employerId = $data->attributes['employer_id'];
-        if ($employerId !== null && $this->posts->findEmployerForAgency($employerId, $agency->id) === null) {
-            throw new EmployerNotInAgencyException;
-        }
+        $this->validateSelections($data, $agency);
 
         // Manpooling employers stay visible to staff; redact them in future applicant-facing responses.
         $post = $this->posts->create([
@@ -54,10 +48,73 @@ class JobPostService
         return $post;
     }
 
+    private function validateSelections(StoreJobPostData $data, Agency $agency): void
+    {
+        $subcategory = $this->posts->findSubcategoryWithCategory($data->attributes['job_subcategory_id']);
+        if ($subcategory === null || $subcategory->category === null || $subcategory->category->trashed()
+            || $subcategory->category->pathway !== $agency->pathway) {
+            throw new PathwayMismatchException;
+        }
+
+        $employerId = $data->attributes['employer_id'];
+        if ($employerId !== null && $this->posts->findEmployerForAgency($employerId, $agency->id) === null) {
+            throw new EmployerNotInAgencyException;
+        }
+
+    }
+
+    private function editablePost(User $user, int $id): JobPost
+    {
+        $post = $this->posts->findVisibleForUpdate($user, $id);
+        abort_if($post->status === JobPostStatus::Archived, 403, __('Archived job posts cannot be changed.'));
+        if ($post->agency->trashed() || $post->agency->suspended_at !== null) {
+            throw new AgencyUnavailableException;
+        }
+
+        return $post;
+    }
+
+    /** @return array<string, mixed> */
+    public function editFormData(User $user, int $id): array
+    {
+        $post = $this->editablePost($user, $id);
+
+        return [...$this->formDataForAgency($post->agency), 'jobPost' => $this->posts->formValues($post)];
+    }
+
+    public function update(User $user, int $id, UpdateJobPostData $data): JobPost
+    {
+        $post = $this->editablePost($user, $id);
+        $this->validateSelections($data, $post->agency);
+        $this->posts->update($post, $data->attributes);
+        $this->posts->syncLanguages($post, $data->languages);
+        $this->posts->syncQuestions($post, $data->questions);
+        $this->audit->recordJobPostChange($post, $user, 'updated', $data->ipAddress);
+
+        return $post;
+    }
+
+    public function changeStatus(User $user, int $id, string $ipAddress, bool $archive): JobPostStatus
+    {
+        $post = $this->editablePost($user, $id);
+        $this->posts->update($post, ['status' => $archive ? JobPostStatus::Archived : ($post->status === JobPostStatus::Closed ? JobPostStatus::Pending : JobPostStatus::Closed)]);
+        $action = match ($post->status) {
+            JobPostStatus::Archived => 'archived', JobPostStatus::Closed => 'closed', JobPostStatus::Pending => 'opened',
+        };
+        $this->audit->recordJobPostChange($post, $user, $action, $ipAddress);
+
+        return $post->status;
+    }
+
     /** @return array<string, mixed> */
     public function formData(User $user): array
     {
-        $agency = $this->agencies->forPosting($user);
+        return $this->formDataForAgency($this->agencies->forPosting($user));
+    }
+
+    /** @return array<string, mixed> */
+    private function formDataForAgency(Agency $agency): array
+    {
 
         return [
             'agency' => ['id' => $agency->id, 'name' => $agency->agency_name, 'pathway' => $agency->pathway->value],
@@ -89,8 +146,8 @@ class JobPostService
     /** @return list<array{id: int, job_title: string, created_at: ?string, display_status: string}> */
     public function duplicates(User $user, JobPostDuplicateData $data): array
     {
-        $agency = $this->agencies->forPosting($user);
+        $agency = $data->excludeId === null ? $this->agencies->forPosting($user) : $this->editablePost($user, $data->excludeId)->agency;
 
-        return $this->posts->findDuplicates($user, $agency->id, $data->employerId, Str::lower(Str::squish($data->title)), $data->subcategoryId);
+        return $this->posts->findDuplicates($user, $agency->id, $data->employerId, Str::lower(Str::squish($data->title)), $data->subcategoryId, $data->excludeId);
     }
 }

@@ -43,6 +43,7 @@ type JobPostPreviewDialogProps = {
     duplicates: DuplicateJobPost[];
     onConfirm: () => void;
     confirming?: boolean;
+    confirmLabel?: string;
     onValidationClose?: () => boolean;
 };
 
@@ -59,6 +60,7 @@ export function JobPostPreviewDialog({
     duplicates,
     onConfirm,
     confirming = false,
+    confirmLabel = 'Confirm and publish job post',
     onValidationClose,
 }: JobPostPreviewDialogProps) {
     const returnFocus = useRef<HTMLElement | null>(null);
@@ -154,7 +156,7 @@ export function JobPostPreviewDialog({
                                 ))}
                             </ul>
                             <p className="text-xs text-[var(--slate)]">
-                                Publishing anyway will create a second job post
+                                Saving anyway may result in a duplicate job post
                                 for the same role.
                             </p>
                         </div>
@@ -392,7 +394,7 @@ export function JobPostPreviewDialog({
                         onClick={onConfirm}
                         data-testid="button-confirm-publish"
                     >
-                        Confirm and publish job post
+                        {confirmLabel}
                     </Button>
                 </footer>
             </DialogContent>

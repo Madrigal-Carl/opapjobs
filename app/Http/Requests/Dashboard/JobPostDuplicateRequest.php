@@ -26,12 +26,14 @@ class JobPostDuplicateRequest extends JobPostFormRequest
             'employer_id' => ['nullable', 'integer', 'min:1'],
             'job_title' => ['required', 'string', 'max:255'],
             'job_subcategory_id' => ['required', 'integer', 'min:1'],
+            'exclude_job_post_id' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
     public function toDto(): JobPostDuplicateData
     {
         return new JobPostDuplicateData($this->input('employer_id') === null ? null : $this->integer('employer_id'),
-            $this->string('job_title')->toString(), $this->integer('job_subcategory_id'));
+            $this->string('job_title')->toString(), $this->integer('job_subcategory_id'),
+            $this->input('exclude_job_post_id') === null ? null : $this->integer('exclude_job_post_id'));
     }
 }

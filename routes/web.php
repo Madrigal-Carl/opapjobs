@@ -58,6 +58,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ManageJob->value)
                 ->name('dashboard.jobs.duplicates');
 
+            Route::middleware('can:'.Permission::ManageJob->value)->group(function () {
+                Route::get('jobs/{jobPost}/edit', [JobPostController::class, 'edit'])->whereNumber('jobPost')->name('dashboard.jobs.edit');
+                Route::put('jobs/{jobPost}', [JobPostController::class, 'update'])->whereNumber('jobPost')->name('dashboard.jobs.update');
+                Route::patch('jobs/{jobPost}/status', [JobPostController::class, 'status'])->whereNumber('jobPost')->name('dashboard.jobs.status');
+                Route::patch('jobs/{jobPost}/archive', [JobPostController::class, 'archive'])->whereNumber('jobPost')->name('dashboard.jobs.archive');
+            });
+
             Route::post('employers', [EmployerController::class, 'store'])
                 ->middleware('can:'.Permission::ManageJob->value)
                 ->name('dashboard.employers.store');

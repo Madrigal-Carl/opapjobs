@@ -305,6 +305,8 @@ A job post exists only once posted (no draft status; no featured flag; the home 
 | `posted_by_user_id`                                     | FK → `users.id`, restrict             | the admin or agency user who posted it; must belong to `agency_id`                                                                                                                                 |
 | `employer_id`                                           | FK → `employers.id` null, restrict    | **optional**; must belong to the same `agency_id`                                                                                                                                                  |
 | `recruitment_type`                                      | string                                | `RecruitmentType`. `manpooling` ⇒ the employer must be redacted in every applicant-facing response (API/resource layer, not only the UI).                                                          |
+| `job_order_number`                                      | string null, indexed                  | Required for `joborder`; always null for `manpooling`.                                                                                                                                             |
+| `required_documents`                                    | jsonb null                            | Ordered list of required document names, such as `COC` or `NBI`.                                                                                                                                   |
 | `job_title`                                             | string                                |                                                                                                                                                                                                    |
 | `job_subcategory_id`                                    | FK → `job_subcategories.id`, restrict | the job post's category **and** subcategory, in one column: the category is the subcategory's parent (see "Category and subcategory" below). The category's pathway must equal `agencies.pathway`. |
 | `work_location`                                         | string                                | e.g. "Riyadh, Saudi Arabia"                                                                                                                                                                        |
@@ -366,19 +368,20 @@ Filtering by display status uses the matching predicate: Active = `status = 'pen
 
 **Transitions** (all done by one Action in a DB transaction; it writes an `audit_logs` row when that table is installed, §12):
 
-| From                 | To                  | Who                       | Notes                                                                                                                                                                                                                                                |
-| -------------------- | ------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pending`            | `closed`            | poster, admin, superadmin | works on active **and** expired posts                                                                                                                                                                                                                |
-| `closed`             | `pending` (reopen)  | poster, admin, superadmin | if `closing_date` is in the past the Action requires a new future date, otherwise the post would instantly show as expired                                                                                                                           |
-| `pending` / `closed` | `archived`          | poster, admin, superadmin |                                                                                                                                                                                                                                                      |
-| `archived`           | `pending` (restore) | poster, admin, superadmin | goes back to the date rule using the **existing** `closing_date`; closed-then-archived posts do not remember "closed". If `closing_date` is in the past it comes back as **expired** (no new date is forced) and needs a new date to be active again |
-| expired              | active              | poster, admin, superadmin | not a status change: set a new `closing_date`                                                                                                                                                                                                        |
+| From                 | To                 | Who                       | Notes                                                                                 |
+| -------------------- | ------------------ | ------------------------- | ------------------------------------------------------------------------------------- |
+| `pending`            | `closed`           | poster, admin, superadmin | works on active **and** expired posts                                                 |
+| `closed`             | `pending` (reopen) | poster, admin, superadmin | keeps the existing closing date; a past date means the reopened post is still expired |
+| `pending` / `closed` | `archived`         | poster, admin, superadmin |                                                                                       |
+| expired              | active             | poster, admin, superadmin | not a status change: set a new `closing_date`                                         |
 
 "Poster" means the agency user who posted it (agency users may only act on their own job posts; the admin on any of their Agency's; the superadmin on any).
 
 Stored `closed`/`archived` posts keep their applications readable by the poster and the admin. Applicants who already applied keep seeing their application and its stage, with the post marked as no longer accepting applications.
 
-Indexes: `(agency_id, posted_by_user_id)`, `(agency_id, status, closing_date)`, `(job_subcategory_id)`, `(employer_id)`, `closing_date`, `created_at` (home page "latest"). Add full-text / trigram search on `job_title` and `work_location` when search moves server-side.
+Archived posts cannot be updated, closed, reopened or restored. Updating a non-archived post preserves its agency, poster and stored status. Update, close/open and archive each record the authenticated actor in the same transaction as the change.
+
+Indexes: `(agency_id, posted_by_user_id)`, `(agency_id, status, closing_date)`, `(job_subcategory_id)`, `(employer_id)`, `job_order_number`, `closing_date`, `created_at` (home page "latest"). Add full-text / trigram search on `job_title` and `work_location` when search moves server-side.
 
 **Visibility scopes:** agency user ⇒ `agency_id = own AND posted_by_user_id = auth user`; admin ⇒ `agency_id = own`; superadmin ⇒ all; applicants/public ⇒ display status `active` only (and the Agency must not be suspended).
 Duplicate warning (UX only, not a constraint): same `agency_id`, same `employer_id`, normalised `job_title` and `job_subcategory_id`.
@@ -392,6 +395,7 @@ Duplicate warning (UX only, not a constraint): same `agency_id`, same `employer_
 - Salary bounds are nonnegative with up to two decimal places and a maximum of 9,999,999,999.99; currency is required if either bound is present. Experience is optional, whole years from 0 to 255. For both ranges the maximum cannot be below the minimum. Contact fields are optional, with email validation when provided.
 - Job post, unique languages, all questions in order, and the creation audit row are saved in the same Action transaction. Failure rolls back everything. Rich text follows §4 exception 1; `other_requirements` is preserved rather than merged.
 - `GET /dashboard/jobs/duplicates` accepts `employer_id` (nullable), `job_title` and `job_subcategory_id`. It returns at most five `{ id, job_title, created_at, display_status }` results in the user's visible scope and the same agency, matching the employer, subcategory and trimmed, whitespace-collapsed, case-insensitive title. It is a debounced warning only, never a creation constraint.
+- Editing uses the same validation and agency/pathway checks as creation. Duplicate checks also accept `exclude_job_post_id` to omit the post being edited.
 
 ### 8.3 `job_post_languages`
 
@@ -415,9 +419,9 @@ Duplicate warning (UX only, not a constraint): same `agency_id`, same `employer_
 | `sort_order`             | unsigned smallint   |                                              |
 | `deleted_at`, timestamps |                     |                                              |
 
-A question that already has answers is **never edited**: archive it and add a new one, so past answers always read against the question text they were given for. (This is why `application_answers` stores no text snapshot.)
+Editing updates existing questions in place by their submitted `id` and inserts questions without an ID. IDs must belong to the edited post and cannot repeat. Removed questions without answers are soft-deleted; removed questions with answers are kept unchanged, so `application_answers.job_post_question_id` remains valid. Updating question text also changes the text shown beside existing answers; no text snapshot is stored.
 
-A job post may have **0 to 20** questions. Text is trimmed, required per row and at most 255 characters; duplicate question text within the post is rejected case-insensitively on the later row. Expected answers are nullable and at most 2,000 characters; for `yesno` they must be lowercase `yes` or `no` (null means no preference). `is_required` defaults to false. The server ignores client `sort_order` and assigns 0-based order from the submitted array, inserting the complete set in one query inside the job-post transaction. The editor supports adding, removing, duplicating, reordering and marking each question required; every question remains visible in order in the review dialog.
+A job post form may submit **0 to 20** questions; retaining answered questions can leave more stored questions than were submitted. Text is trimmed, required per row and at most 255 characters; duplicate submitted question text is rejected case-insensitively on the later row. Expected answers are nullable and at most 2,000 characters; for `yesno` they must be lowercase `yes` or `no` (null means no preference). `is_required` defaults to false. The server ignores client `sort_order` and assigns 0-based order from the submitted array. Creation inserts the complete set in one query; editing synchronizes IDs inside the job-post transaction. The editor supports adding, removing, duplicating, reordering and marking each question required; duplicating a question drops its database ID.
 
 ---
 

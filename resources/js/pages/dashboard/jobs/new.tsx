@@ -1,4 +1,4 @@
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, setLayoutProps } from '@inertiajs/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     ArrowLeft,
@@ -45,6 +45,7 @@ import {
     createJobFormSchema,
     serverErrorField,
     toJobPostPayload,
+    fromJobPostPayload,
     type JobPostFormProps,
     type JobForm,
 } from '@/data/job-form';
@@ -53,7 +54,10 @@ import { useJobPostDuplicates } from '@/hooks/use-job-post-duplicates';
 import { flashServerToast } from '@/hooks/use-flash-toast';
 import { cn } from '@/lib/utils';
 import { jobs } from '@/routes/dashboard';
-import { store as storeJobPost } from '@/routes/dashboard/jobs';
+import {
+    store as storeJobPost,
+    update as updateJobPost,
+} from '@/routes/dashboard/jobs';
 import type { ContractDuration, GenderRequirement } from '@/types/job';
 
 const inputClass =
@@ -94,7 +98,14 @@ function JobField({
 }
 
 export default function DashboardNewJob(props: JobPostFormProps) {
-    const { agency, categories, options, today } = props;
+    const { agency, categories, options, today, jobPost } = props;
+    const title = jobPost ? 'Update job post' : 'Post a new job';
+    setLayoutProps({
+        breadcrumbs: [
+            { title: 'Jobs', href: jobs() },
+            { title: jobPost ? 'Update job post' : 'New Job', href: '#' },
+        ],
+    });
     const [publishing, setPublishing] = useState(false);
     const publishingRef = useRef(false);
     const schema = useMemo(
@@ -111,7 +122,9 @@ export default function DashboardNewJob(props: JobPostFormProps) {
         handleSubmit,
         formState: { errors: formErrors },
     } = useForm<JobForm>({
-        defaultValues: emptyJobForm,
+        defaultValues: jobPost
+            ? fromJobPostPayload(jobPost, categories)
+            : emptyJobForm,
         resolver: zodResolver(schema),
         shouldFocusError: false,
     });
@@ -133,13 +146,12 @@ export default function DashboardNewJob(props: JobPostFormProps) {
         form.employerId,
         form.title,
         form.subcategoryId,
+        jobPost?.id,
     );
     const previewJob = buildJobPostPreview(form, {
         agency,
         categories,
-        // The employer picker is gone, so the form never carries one. An empty
-        // list keeps the preview honest: no employer name to resolve.
-        employers: [],
+        employers: props.employers,
     });
 
     const setField = <K extends keyof JobForm>(field: K, value: JobForm[K]) => {
@@ -171,43 +183,52 @@ export default function DashboardNewJob(props: JobPostFormProps) {
             (values) => {
                 if (publishingRef.current) return;
                 publishingRef.current = true;
-                router.post(storeJobPost().url, toJobPostPayload(values), {
-                    preserveScroll: true,
-                    preserveState: 'errors',
-                    onStart: () => setPublishing(true),
-                    onError: (serverErrors) => {
-                        let hasFieldErrors = false;
-                        for (const [key, message] of Object.entries(
-                            serverErrors,
-                        )) {
-                            const field = serverErrorField(key);
-                            if (field) {
-                                setError(field, { type: 'server', message });
-                                hasFieldErrors = true;
+                router[jobPost ? 'put' : 'post'](
+                    jobPost
+                        ? updateJobPost(jobPost.id).url
+                        : storeJobPost().url,
+                    toJobPostPayload(values),
+                    {
+                        preserveScroll: true,
+                        preserveState: 'errors',
+                        onStart: () => setPublishing(true),
+                        onError: (serverErrors) => {
+                            let hasFieldErrors = false;
+                            for (const [key, message] of Object.entries(
+                                serverErrors,
+                            )) {
+                                const field = serverErrorField(key);
+                                if (field) {
+                                    setError(field, {
+                                        type: 'server',
+                                        message,
+                                    });
+                                    hasFieldErrors = true;
+                                }
                             }
-                        }
-                        focusAfterReviewClose.current = hasFieldErrors;
-                        setReviewOpen(false);
-                    },
-                    onHttpException: (response) => {
-                        if (!flashServerToast(response.data))
+                            focusAfterReviewClose.current = hasFieldErrors;
+                            setReviewOpen(false);
+                        },
+                        onHttpException: (response) => {
+                            if (!flashServerToast(response.data))
+                                toast.error(
+                                    'Could not reach the server. Check your connection and try again.',
+                                );
+                            setReviewOpen(false);
+                            return false;
+                        },
+                        onNetworkError: () => {
                             toast.error(
                                 'Could not reach the server. Check your connection and try again.',
                             );
-                        setReviewOpen(false);
-                        return false;
+                            return false;
+                        },
+                        onFinish: () => {
+                            publishingRef.current = false;
+                            setPublishing(false);
+                        },
                     },
-                    onNetworkError: () => {
-                        toast.error(
-                            'Could not reach the server. Check your connection and try again.',
-                        );
-                        return false;
-                    },
-                    onFinish: () => {
-                        publishingRef.current = false;
-                        setPublishing(false);
-                    },
-                });
+                );
             },
             () => {
                 focusAfterReviewClose.current = true;
@@ -233,11 +254,15 @@ export default function DashboardNewJob(props: JobPostFormProps) {
 
     return (
         <>
-            <Head title="Post a new job" />
+            <Head title={title} />
             <DashboardPage className="md:px-8">
                 <PageHeader
-                    title="Post a new job"
-                    subtitle="Create a clear, applicant-focused job post for your next placement."
+                    title={title}
+                    subtitle={
+                        jobPost
+                            ? 'Update the details of your job post.'
+                            : 'Create a clear, applicant-focused job post for your next placement.'
+                    }
                     action={{
                         label: 'Back to jobs',
                         icon: ArrowLeft,
@@ -308,6 +333,37 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                     data-testid="input-job-title"
                                 />
                             </JobField>
+                            {jobPost &&
+                                form.employerId !== null &&
+                                !props.employers.some(
+                                    (employer) =>
+                                        employer.id === form.employerId,
+                                ) && (
+                                    <JobField
+                                        id="job-employer"
+                                        label="Employer"
+                                        error={errors.employerId}
+                                    >
+                                        <p className="text-sm text-[var(--slate)]">
+                                            The saved employer is no longer
+                                            available. Clear it before saving.
+                                        </p>
+                                        <Button
+                                            id="job-employer"
+                                            type="button"
+                                            variant="secondary"
+                                            onClick={() =>
+                                                setField('employerId', null)
+                                            }
+                                            {...invalid(
+                                                'employerId',
+                                                'job-employer',
+                                            )}
+                                        >
+                                            Clear employer
+                                        </Button>
+                                    </JobField>
+                                )}
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <JobField
                                     id="job-category"
@@ -1087,7 +1143,7 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                             data-testid="button-publish-job"
                             disabled={publishing}
                         >
-                            Review job post
+                            {jobPost ? 'Save changes' : 'Review job post'}
                             <ArrowRight className="size-4" aria-hidden="true" />
                         </Button>
                     </div>
@@ -1102,6 +1158,7 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                 duplicates={duplicates}
                 onConfirm={publish}
                 confirming={publishing}
+                confirmLabel={jobPost ? 'Save changes' : undefined}
                 onValidationClose={() => {
                     if (!focusAfterReviewClose.current) return false;
                     focusAfterReviewClose.current = false;
@@ -1112,10 +1169,3 @@ export default function DashboardNewJob(props: JobPostFormProps) {
         </>
     );
 }
-
-DashboardNewJob.layout = {
-    breadcrumbs: [
-        { title: 'Jobs', href: jobs() },
-        { title: 'New Job', href: '#' },
-    ],
-};

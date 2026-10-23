@@ -80,6 +80,7 @@ class DemoJobPostSeeder extends Seeder
                         'posted_by_user_id' => $poster->id,
                         'employer_id' => in_array($index, [2, 10], true) ? null : $employer->id,
                         'recruitment_type' => $recruitment, 'job_subcategory_id' => $subcategory->id,
+                        'job_order_number' => $recruitment === 'joborder' ? sprintf('JO-%d-%d-%04d', $today->year, $agency->id, $index + 1) : null,
                         'work_location' => $workLocation, 'vacant_positions' => 6 + $index % 7,
                         'contract_type' => $pathway === 'seabased' || $index % 3 !== 0 ? 'fixed' : 'permanent',
                         'salary_currency' => $currency, 'monthly_salary_min' => $minimum,

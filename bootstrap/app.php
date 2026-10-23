@@ -50,7 +50,8 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $isJobForm = fn (Request $request): bool => $request->routeIs(
-            'dashboard.jobs.create', 'dashboard.jobs.store', 'dashboard.jobs.duplicates', 'dashboard.employers.store',
+            'dashboard.jobs.create', 'dashboard.jobs.store', 'dashboard.jobs.edit', 'dashboard.jobs.update',
+            'dashboard.jobs.status', 'dashboard.jobs.archive', 'dashboard.jobs.duplicates', 'dashboard.employers.store',
         );
 
         $exceptions->render(function (JobPostException $exception, Request $request) use ($isJobForm) {
@@ -92,7 +93,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 $status = 500;
                 $message = $request->routeIs('dashboard.employers.store')
                     ? __('Something went wrong. The employer was not added. Please try again.')
-                    : __('Something went wrong. Your job post was not published. Please try again.');
+                    : ($request->routeIs('dashboard.jobs.store', 'dashboard.jobs.create', 'dashboard.jobs.duplicates')
+                        ? __('Something went wrong. Your job post was not published. Please try again.')
+                        : __('Something went wrong. Your job post was not changed. Please try again.'));
             }
             Toast::error($message);
             if ($status === 403 && $request->isMethod('GET') && ! $request->expectsJson()) {

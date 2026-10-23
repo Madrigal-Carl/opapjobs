@@ -2,20 +2,26 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Actions\JobPost\ChangeJobPostStatusAction;
 use App\Actions\JobPost\FindDuplicateJobPostsAction;
 use App\Actions\JobPost\ListJobPostsAction;
 use App\Actions\JobPost\ShowCreateJobPostAction;
+use App\Actions\JobPost\ShowEditJobPostAction;
 use App\Actions\JobPost\StoreJobPostAction;
+use App\Actions\JobPost\UpdateJobPostAction;
+use App\Enums\JobPostStatus;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Dashboard\CreateJobPostRequest;
 use App\Http\Requests\Dashboard\JobPostDuplicateRequest;
 use App\Http\Requests\Dashboard\JobPostIndexRequest;
 use App\Http\Requests\Dashboard\StoreJobPostRequest;
+use App\Http\Requests\Dashboard\UpdateJobPostRequest;
 use App\Http\Resources\JobPostRowResource;
 use App\Support\Toast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -39,6 +45,35 @@ class JobPostController extends Controller
     public function duplicates(JobPostDuplicateRequest $request, FindDuplicateJobPostsAction $action): JsonResponse
     {
         return response()->json(['duplicates' => $action->execute($request->user(), $request->toDto())]);
+    }
+
+    public function edit(Request $request, int $jobPost, ShowEditJobPostAction $action): Response
+    {
+        return Inertia::render('dashboard/jobs/new', $action->execute($request->user(), $jobPost));
+    }
+
+    public function update(UpdateJobPostRequest $request, int $jobPost, UpdateJobPostAction $action): RedirectResponse
+    {
+        $action->execute($request->user(), $jobPost, $request->toDto());
+        Toast::success(__('Job post updated.'));
+
+        return to_route('dashboard.jobs');
+    }
+
+    public function status(Request $request, int $jobPost, ChangeJobPostStatusAction $action): RedirectResponse
+    {
+        $status = $action->execute($request->user(), $jobPost, $request->ip() ?? '0.0.0.0');
+        Toast::success($status === JobPostStatus::Closed ? __('Job post closed.') : __('Job post opened.'));
+
+        return back();
+    }
+
+    public function archive(Request $request, int $jobPost, ChangeJobPostStatusAction $action): RedirectResponse
+    {
+        $action->execute($request->user(), $jobPost, $request->ip() ?? '0.0.0.0', archive: true);
+        Toast::success(__('Job post archived.'));
+
+        return back();
     }
 
     public function index(JobPostIndexRequest $request): Response

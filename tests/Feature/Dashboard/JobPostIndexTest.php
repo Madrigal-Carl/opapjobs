@@ -339,6 +339,10 @@ test('local demo staff each have job posts in every display status', function (i
     $this->seed(DemoJobPostSeeder::class);
 
     expect(JobPost::count())->toBe($count)->toBe(($agencyUserCount + 1) * 4);
+    expect(JobPost::where('recruitment_type', 'joborder')->whereNull('job_order_number')->count())->toBe(0);
+    expect(JobPost::where('recruitment_type', 'manpooling')->whereNotNull('job_order_number')->count())->toBe(0);
+    expect(JobPost::where('recruitment_type', 'joborder')->distinct()->count('job_order_number'))
+        ->toBe(JobPost::where('recruitment_type', 'joborder')->count());
     foreach ([$admin, ...$staff] as $poster) {
         expect(JobPost::where('posted_by_user_id', $poster->id)->get()->pluck('display_status')->all())
             ->toContain(JobPostDisplayStatus::Active, JobPostDisplayStatus::Expired, JobPostDisplayStatus::Closed, JobPostDisplayStatus::Archived);

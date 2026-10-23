@@ -349,3 +349,47 @@ await test('nested backend error keys map to the matching form row without inven
     );
     assert.equal(exports.serverErrorField('agency_id'), null);
 });
+
+await test('editing maps server values back and preserves database question ids through validation and submission', () => {
+    const post = {
+        ...exports.toJobPostPayload(valid()),
+        id: 42,
+        monthly_salary_min: '2500.50',
+        monthly_salary_max: null,
+        min_experience_years: 0,
+        required_documents: ['COC'],
+        closing_date: '2026-11-01',
+        is_urgent: true,
+        languages: [{ language: 'english', proficiency: 'fluent' }],
+        questions: [
+            {
+                id: 7,
+                question_text: 'Qualified?',
+                answer_type: 'yesno',
+                expected_answer: null,
+                is_required: true,
+            },
+        ],
+    };
+    const form = exports.fromJobPostPayload(post, categories);
+    assert.equal(form.categoryId, 1);
+    assert.equal(form.salaryMin, '2500.50');
+    assert.equal(form.salaryMax, '');
+    assert.equal(form.minExperienceYears, '0');
+    assert.equal(form.closingDate, '2026-11-01');
+    assert.equal(form.urgent, true);
+    assert.deepEqual(form.requiredDocuments, ['COC']);
+    const parsed = exports
+        .createJobFormSchema(options, '2026-10-19', categories)
+        .parse(form);
+    const payload = exports.toJobPostPayload(parsed);
+    assert.deepEqual(payload.questions, post.questions);
+    assert.deepEqual(payload.languages, post.languages);
+    assert.equal(payload.monthly_salary_min, 2500.5);
+    assert.equal(payload.job_order_number, 'JO-2026-0001');
+    assert.equal('id' in payload, false);
+    assert.deepEqual(exports.copyQuestion(form.questions[0]), {
+        ...question(),
+        answer: '',
+    });
+});
