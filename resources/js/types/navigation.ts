@@ -13,4 +13,10 @@ export type NavItem = {
     isActive?: boolean;
     /** Show the item when the user has any of these permissions. */
     permissions?: string[];
+    /**
+     * Sidebar section this item sits under, e.g. "Manage". Items sharing a
+     * group render under one Space Mono label; ungrouped items keep the
+     * default "Platform" label so the existing nav is unchanged.
+     */
+    group?: string;
 };

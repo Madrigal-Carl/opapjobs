@@ -34,7 +34,7 @@ type Props = {
     breadcrumbs?: BreadcrumbItem[];
 };
 
-const mainNavItems: NavItem[] = [
+const headerNavItems: NavItem[] = [
     {
         title: 'Overview',
         href: overview(),
@@ -48,6 +48,12 @@ const activeItemStyles =
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage();
     const { auth } = page.props;
+
+    // "Overview" belongs to the agency admin's own navigation; a superadmin
+    // works from the console groups in the sidebar, so it is not offered here.
+    const mainNavItems = auth.permissions?.includes('view system overview')
+        ? []
+        : headerNavItems;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 

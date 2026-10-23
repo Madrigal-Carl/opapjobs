@@ -26,6 +26,18 @@ const toneClasses: Record<KpiTone, string> = {
     navy: 'text-[var(--navy)]',
 };
 
+/** Tone-colored ground for the icon chip in `panel` variant. */
+const toneChipClasses: Record<KpiTone, string> = {
+    blue: 'bg-[var(--tone-blue)]/10 text-[var(--tone-blue)]',
+    violet: 'bg-[var(--tone-violet)]/10 text-[var(--tone-violet)]',
+    orange: 'bg-[var(--tone-orange)]/10 text-[var(--tone-orange)]',
+    emerald: 'bg-[var(--tone-emerald)]/10 text-[var(--tone-emerald)]',
+    teal: 'bg-[var(--teal)]/10 text-[var(--teal-ink)]',
+    amber: 'bg-[var(--amber)]/15 text-[var(--navy)]',
+    red: 'bg-[var(--danger-soft)] text-[var(--danger)]',
+    navy: 'bg-[var(--surface-soft)] text-[var(--navy)]',
+};
+
 const numberFormat = new Intl.NumberFormat('en-US');
 
 export type KpiCardProps = {
@@ -37,6 +49,13 @@ export type KpiCardProps = {
     tone?: KpiTone;
     /** Makes the whole card a link. */
     href?: string;
+    /**
+     * `panel` (console) tints the icon on a soft tone ground and lifts the
+     * value, so the tile reads as a raised panel on the console's tinted
+     * canvas. The default `flat` keeps the agency dashboard's tiles exactly
+     * as they are.
+     */
+    variant?: 'flat' | 'panel';
     /** Renders a skeleton instead of the figures. */
     loading?: boolean;
     trend?: { value: string; direction: 'up' | 'down' | 'flat' };
@@ -56,6 +75,7 @@ export function KpiCard({
     icon: Icon,
     tone = 'navy',
     href,
+    variant = 'flat',
     loading = false,
     trend,
     className,
@@ -63,6 +83,7 @@ export function KpiCard({
 }: KpiCardProps) {
     const formatted =
         typeof value === 'number' ? numberFormat.format(value) : value;
+    const panel = variant === 'panel';
 
     const body = (
         <>
@@ -70,10 +91,25 @@ export function KpiCard({
                 <span className="text-[13px] leading-tight font-medium text-[var(--slate)]">
                     {label}
                 </span>
-                <Icon
-                    className={cn('size-[18px] shrink-0', toneClasses[tone])}
-                    aria-hidden="true"
-                />
+                {panel ? (
+                    <span
+                        className={cn(
+                            'flex size-7 shrink-0 items-center justify-center rounded-lg',
+                            toneChipClasses[tone],
+                        )}
+                        aria-hidden="true"
+                    >
+                        <Icon className="size-4" />
+                    </span>
+                ) : (
+                    <Icon
+                        className={cn(
+                            'size-[18px] shrink-0',
+                            toneClasses[tone],
+                        )}
+                        aria-hidden="true"
+                    />
+                )}
             </div>
             {loading ? (
                 <Skeleton className="h-7 w-20" aria-hidden="true" />
@@ -120,7 +156,19 @@ export function KpiCard({
     );
 
     const classes = cn(
-        'flex h-[100px] flex-col justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-white p-4 shadow-xs',
+        // The panel variant's icon chip is 28px tall where the flat icon is
+        // 18px, so it needs the extra room: at 100px the content overflows
+        // the 68px left after padding and the caption lands on the bottom
+        // border. One height per variant avoids two conflicting utilities.
+        //
+        // `min-h`, not `h`: a figure like "SAR 2,500–3,200" wraps to two
+        // lines, and a fixed height would push the caption past the border
+        // again. Growing rather than truncating keeps the number readable,
+        // and `KpiGrid` is a grid, so the row stretches to match — every
+        // tile in a row stays the same height, with `justify-between`
+        // pinning each caption to the bottom padding.
+        panel ? 'min-h-[116px] shadow-sm' : 'h-[100px] shadow-xs',
+        'flex flex-col justify-between gap-1.5 rounded-lg border border-[var(--line)] bg-white p-4',
         href && 'transition-colors hover:border-[var(--teal)]',
         className,
     );
