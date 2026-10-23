@@ -30,17 +30,27 @@ test('applicants can visit an agency profile with the slug prop', function () {
             ->where('slug', 'some-slug'));
 });
 
-test('staff are redirected from the agencies directory to the dashboard overview', function (string $state) {
+test('staff are redirected from the agencies directory to their own home', function (string $state, string $home) {
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('agencies.index'))
-        ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['agency', 'admin', 'superadmin']);
+        ->assertRedirect(route($home, absolute: false));
+})->with([
+    'agency' => ['agency', 'dashboard.overview'],
+    'admin' => ['admin', 'dashboard.overview'],
+    // The console has no overview screen, so a superadmin's home is the
+    // Agencies list itself.
+    'superadmin' => ['superadmin', 'dashboard.system.agencies'],
+]);
 
-test('staff are redirected from an agency profile to the dashboard overview', function (string $state) {
+test('staff are redirected from an agency profile to their own home', function (string $state, string $home) {
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('agencies.show', 'some-slug'))
-        ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['agency', 'admin', 'superadmin']);
+        ->assertRedirect(route($home, absolute: false));
+})->with([
+    'agency' => ['agency', 'dashboard.overview'],
+    'admin' => ['admin', 'dashboard.overview'],
+    'superadmin' => ['superadmin', 'dashboard.system.agencies'],
+]);
 
 test('authenticated users without a role can visit the agencies directory but not an agency profile', function () {
     $user = User::factory()->create();

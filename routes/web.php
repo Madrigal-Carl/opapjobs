@@ -81,6 +81,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('accounts', [ViewController::class, 'dashboardAccounts'])
                 ->middleware('can:'.Permission::ViewAccounts->value)
                 ->name('dashboard.accounts');
+
+            /**
+             * Super Admin console. Every screen is gated on the one
+             * superadmin-only capability (docs §2.3); the pages themselves
+             * run on mock data in the browser and write nothing.
+             */
+            Route::prefix('system')
+                ->middleware('can:'.Permission::ViewSystemOverview->value)
+                ->group(function () {
+                    Route::get('overview', [ViewController::class, 'systemOverview'])->name('dashboard.system.overview');
+
+                    Route::get('agencies/new', [ViewController::class, 'systemAgenciesCreate'])->name('dashboard.system.agencies.create');
+                    Route::get('agencies/{agency}', [ViewController::class, 'systemAgenciesShow'])->name('dashboard.system.agencies.show');
+                    Route::get('agencies', [ViewController::class, 'systemAgencies'])->name('dashboard.system.agencies');
+
+                    Route::get('accounts', [ViewController::class, 'systemAccounts'])->name('dashboard.system.accounts');
+
+                    Route::get('job-posts/new', [ViewController::class, 'systemJobPostsCreate'])->name('dashboard.system.job-posts.create');
+                    Route::get('job-posts/{jobPost}', [ViewController::class, 'systemJobPostsShow'])->name('dashboard.system.job-posts.show');
+                    Route::get('job-posts', [ViewController::class, 'systemJobPosts'])->name('dashboard.system.job-posts');
+
+                    Route::get('applications', [ViewController::class, 'systemApplications'])->name('dashboard.system.applications');
+
+                    Route::get('applicants/{applicant}', [ViewController::class, 'systemApplicantsShow'])->name('dashboard.system.applicants.show');
+                    Route::get('applicants', [ViewController::class, 'systemApplicants'])->name('dashboard.system.applicants');
+
+                    Route::get('reviews', [ViewController::class, 'systemReviews'])->name('dashboard.system.reviews');
+
+                    Route::get('categories', [ViewController::class, 'systemCategories'])->name('dashboard.system.categories');
+
+                    Route::get('fields', [ViewController::class, 'systemFields'])->name('dashboard.system.fields');
+
+                    Route::get('content', [ViewController::class, 'systemContent'])->name('dashboard.system.content');
+
+                    Route::get('audit-log', [ViewController::class, 'systemAuditLog'])->name('dashboard.system.audit-log');
+
+                    Route::get('settings', [ViewController::class, 'systemSettings'])->name('dashboard.system.settings');
+                });
         });
 });
 

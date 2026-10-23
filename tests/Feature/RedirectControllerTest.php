@@ -12,11 +12,17 @@ test('the dashboard index redirects applicants home', function () {
         ->assertRedirect(route('home', absolute: false));
 });
 
-test('the dashboard index redirects staff to the overview', function (string $state) {
+test('the dashboard index redirects staff to their own home', function (string $state, string $home) {
     $this->actingAs(User::factory()->{$state}()->create())
         ->get(route('dashboard'))
-        ->assertRedirect(route('dashboard.overview', absolute: false));
-})->with(['agency', 'admin', 'superadmin']);
+        ->assertRedirect(route($home, absolute: false));
+})->with([
+    'agency' => ['agency', 'dashboard.overview'],
+    'admin' => ['admin', 'dashboard.overview'],
+    // A superadmin's home is the console's Agencies list: the console
+    // has no overview screen of its own.
+    'superadmin' => ['superadmin', 'dashboard.system.agencies'],
+]);
 
 test('the settings index redirects staff to the profile page', function () {
     $this->actingAs(User::factory()->admin()->create())
