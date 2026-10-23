@@ -48,7 +48,7 @@ import type { ApplicationStage } from '@/types/application';
 
 const STAGE_OPTIONS: ApplicationStage[] = [
     'Pending',
-    'Under review',
+    'Reviewed',
     'Shortlisted',
     'Interviewed',
     'Hired',

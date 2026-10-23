@@ -5,11 +5,18 @@ namespace App\Models;
 use App\Enums\ApplicationStage;
 use App\Enums\Availability;
 use Database\Factories\ApplicationFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property ApplicationStage $stage
+ * @property Carbon $submitted_at
+ */
 class Application extends Model
 {
     /** @use HasFactory<ApplicationFactory> */
@@ -29,6 +36,13 @@ class Application extends Model
             'submitted_at' => 'datetime',
             'applicant_archived_at' => 'datetime',
         ];
+    }
+
+    /** @param Builder<static> $query */
+    #[Scope]
+    protected function visibleTo(Builder $query, User $user): void
+    {
+        $query->whereIn('applications.job_post_id', JobPost::query()->visibleTo($user)->select('job_posts.id'));
     }
 
     /** @return BelongsTo<JobPost, $this> */

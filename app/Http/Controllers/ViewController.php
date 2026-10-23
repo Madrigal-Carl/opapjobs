@@ -71,11 +71,6 @@ class ViewController extends Controller
         return Inertia::render($component);
     }
 
-    public function dashboardApplications(): Response
-    {
-        return Inertia::render('dashboard/applications');
-    }
-
     public function dashboardApplication(string $application): Response
     {
         return Inertia::render('dashboard/applications/show', [

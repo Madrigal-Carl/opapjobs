@@ -12,7 +12,7 @@ export const applications: Application[] = [
         id: 2,
         applicantId: 2,
         jobId: 'land-2',
-        stage: 'Under review',
+        stage: 'Reviewed',
         appliedAt: '2026-10-06',
     },
     {
@@ -68,7 +68,7 @@ export const applications: Application[] = [
         id: 10,
         applicantId: 10,
         jobId: 'land-1',
-        stage: 'Under review',
+        stage: 'Reviewed',
         appliedAt: '2026-09-30',
     },
     {
@@ -110,7 +110,7 @@ export const applications: Application[] = [
         id: 16,
         applicantId: 26,
         jobId: 'sea-1',
-        stage: 'Under review',
+        stage: 'Reviewed',
         appliedAt: '2026-09-29',
     },
     {
@@ -166,7 +166,7 @@ export const applications: Application[] = [
         id: 24,
         applicantId: 34,
         jobId: 'sea-2',
-        stage: 'Under review',
+        stage: 'Reviewed',
         appliedAt: '2026-09-24',
     },
     {

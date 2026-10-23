@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
 use App\Http\Controllers\RedirectController;
@@ -77,7 +78,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ViewApplications->value)
                 ->name('dashboard.applications.show');
 
-            Route::get('applications', [ViewController::class, 'dashboardApplications'])
+            Route::get('applications', [ApplicationController::class, 'index'])
                 ->middleware('can:'.Permission::ViewApplications->value)
                 ->name('dashboard.applications');
 

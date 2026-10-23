@@ -65,7 +65,7 @@ class DemoApplicationSeeder extends Seeder
                     $submitted = CarbonImmutable::parse($post->created_at)->addDays(2 + $index % 3)->addHour();
                     $slot = ($ordinal * 37) % 100;
                     $stage = match (true) {
-                        $slot < 30 => 'pending', $slot < 55 => 'under_review', $slot < 70 => 'shortlisted',
+                        $slot < 30 => 'pending', $slot < 55 => 'reviewed', $slot < 70 => 'shortlisted',
                         $slot < 85 => 'interviewed', default => 'hired',
                     };
                     if ($stage === 'hired') {
@@ -76,10 +76,10 @@ class DemoApplicationSeeder extends Seeder
                         }
                     }
                     $path = match ($stage) {
-                        'pending' => ['pending'], 'under_review' => ['pending', 'under_review'],
-                        'shortlisted' => ['pending', 'under_review', 'shortlisted'],
-                        'interviewed' => ['pending', 'under_review', 'shortlisted', 'interviewed'],
-                        'hired' => ['pending', 'under_review', 'shortlisted', 'interviewed', 'hired'],
+                        'pending' => ['pending'], 'reviewed' => ['pending', 'reviewed'],
+                        'shortlisted' => ['pending', 'reviewed', 'shortlisted'],
+                        'interviewed' => ['pending', 'reviewed', 'shortlisted', 'interviewed'],
+                        'hired' => ['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired'],
                     };
                     $resume = $applicant->documents->firstOrFail(fn ($document): bool => $document->getRawOriginal('document_type') === 'resume' && $document->is_primary);
                     $salary = ((int) $post->getRawOriginal('monthly_salary_min') + (int) $post->getRawOriginal('monthly_salary_max')) / 2;
@@ -100,7 +100,7 @@ class DemoApplicationSeeder extends Seeder
                             'changed_by_user_id' => $step === 0 ? null : ($ordinal % 2 === 0 ? $post->posted_by_user_id : $post->agency->admin_user_id),
                             'note' => match ($toStage) {
                                 'pending' => 'Application submitted and awaiting initial review.',
-                                'under_review' => 'Resume and screening responses checked against the job requirements.',
+                                'reviewed' => 'Resume and screening responses checked against the job requirements.',
                                 'shortlisted' => 'Candidate shortlisted for an interview with the recruitment team.',
                                 'interviewed' => 'Candidate completed the interview with the recruitment coordinator.',
                                 'hired' => 'Written offer accepted following the final selection interview.',

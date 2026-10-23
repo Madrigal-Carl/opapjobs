@@ -499,7 +499,7 @@ export function getApplicationRow(id: number): ApplicationRow | undefined {
 export function getApplicationStageCounts(): Record<ApplicationStage, number> {
     const counts: Record<ApplicationStage, number> = {
         Pending: 0,
-        'Under review': 0,
+        Reviewed: 0,
         Shortlisted: 0,
         Interviewed: 0,
         Hired: 0,
@@ -522,7 +522,7 @@ export function getApplicationDashboardKpis(today = new Date()) {
         newApplicationsToday: applications.filter(
             (application) => application.appliedAt === localDate,
         ).length,
-        underReview: stageCounts['Under review'],
+        reviewed: stageCounts.Reviewed,
         shortlistedApplicants: stageCounts.Shortlisted,
     };
 }

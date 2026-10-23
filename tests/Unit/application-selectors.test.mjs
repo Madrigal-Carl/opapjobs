@@ -54,12 +54,12 @@ await test('application sorting orders dates and breaks ties by id before pagina
 
 await test('application stages filter using the new pipeline labels', () => {
     assert.deepEqual(
-        ids({ stage: 'Under review', sort: 'oldest' }),
+        ids({ stage: 'Reviewed', sort: 'oldest' }),
         [24, 16, 10, 2],
     );
     assert.deepEqual(selectors.getApplicationStageCounts(), {
         Pending: 12,
-        'Under review': 4,
+        Reviewed: 4,
         Shortlisted: 4,
         Interviewed: 7,
         Hired: 3,
@@ -71,7 +71,7 @@ await test('application KPIs count the entire dataset using today in local time'
     assert.deepEqual(selectors.getApplicationDashboardKpis(today), {
         totalApplicants: 30,
         newApplicationsToday: 2,
-        underReview: 4,
+        reviewed: 4,
         shortlistedApplicants: 4,
     });
     assert.equal(
@@ -81,56 +81,109 @@ await test('application KPIs count the entire dataset using today in local time'
     );
 });
 
-await test('application pagination follows clamped results after a debounced search', () => {
-    const states = [];
-    let stateIndex = 0;
-    let debouncedQ = '';
+await test('application table uses server rows, pagination, stage labels and deferred KPIs', () => {
+    let tableOptions;
+    const filterChanges = [];
+    const filters = { q: null, stage: null, sort: 'newest', per_page: 10 };
+    const serverTable = {
+        values: filters,
+        page: 2,
+        loading: true,
+        setFilter: (...args) => filterChanges.push(args),
+        reset: () => {},
+        setPage: () => {},
+    };
     const { default: Applications } = loadModule(
         'resources/js/pages/dashboard/applications.tsx',
         {
             'react/jsx-runtime': jsxRuntime,
-            react: {
-                useState(initial) {
-                    const index = stateIndex++;
-                    if (!(index in states)) states[index] = initial;
-                    return [
-                        states[index],
-                        (value) => {
-                            states[index] =
-                                typeof value === 'function'
-                                    ? value(states[index])
-                                    : value;
-                        },
-                    ];
+            '@/hooks/use-server-table': {
+                useServerTable(options) {
+                    tableOptions = options;
+                    return serverTable;
                 },
             },
-            '@/data/selectors': selectors,
-            '@/hooks/use-debounced-value': {
-                useDebouncedValue: () => debouncedQ,
+            '@/routes/dashboard': {
+                applications: () => ({ url: '/dashboard/applications' }),
             },
-            '@/routes/dashboard': { applications: () => ({ url: '/' }) },
+            '@/routes/dashboard/applications': {
+                show: (id) => ({ url: `/dashboard/applications/${id}` }),
+            },
         },
     );
-    function renderTable() {
-        stateIndex = 0;
-        return Applications().props.children[1].props.children[2].props;
+    const row = {
+        id: 42,
+        applicant_name: 'Maria Santos',
+        job_title: 'Welder',
+        employer_name: null,
+        stage: 'reviewed',
+        submitted_at: new Date(2026, 9, 1, 12).toISOString(),
+    };
+    const props = {
+        applications: { data: [row], meta: { current_page: 2, last_page: 3 } },
+        filters,
+    };
+    const render = (kpis) =>
+        Applications({ ...props, kpis }).props.children[1].props.children;
+    const [, kpiGrid, tableElement] = render();
+    const table = tableElement.props;
+
+    assert.equal(tableOptions.url, '/dashboard/applications');
+    assert.deepEqual(tableOptions.only, ['applications', 'filters']);
+    assert.equal(tableOptions.page, 2);
+    assert.equal(tableOptions.filters, filters);
+    assert.deepEqual(tableOptions.defaults, filters);
+    assert.equal(table.data[0], row);
+    assert.equal(table.loading, true);
+    assert.equal(table.pagination.totalPages, 3);
+    assert.equal(table.pagination.page, 2);
+    assert.equal(table.pagination.onPageChange, serverTable.setPage);
+    assert.equal(table.getRowId(row), '42');
+    assert.equal(table.columns[0].cell(row).props.children, 'Maria Santos');
+    assert.equal(table.columns[1].cell(row).props.children, 'Welder');
+    for (const [stage, label] of Object.entries({
+        pending: 'Pending',
+        reviewed: 'Reviewed',
+        shortlisted: 'Shortlisted',
+        interviewed: 'Interviewed',
+        hired: 'Hired',
+    })) {
+        assert.equal(
+            table.columns[2].cell({ ...row, stage }).props.stage,
+            label,
+        );
     }
-
-    let table = renderTable();
-    table.toolbar.props.children[0].props.children.props.onChange(
-        'Maria Lourdes',
-    );
-    table = renderTable();
-    table.pagination.onPageChange(3);
-    debouncedQ = 'Maria Lourdes';
-    table = renderTable();
-
-    assert.equal(table.pagination.totalPages, 1);
-    assert.equal(table.pagination.page, 1);
+    assert.equal(table.columns[3].cell(row), 'Oct 1, 2026');
+    const fields = table.toolbar.props.children;
+    fields[0].props.children.props.onChange('Maria');
+    fields[1].props.children.props.onValueChange('oldest');
+    fields[2].props.children.props.onValueChange('reviewed');
+    fields[2].props.children.props.onValueChange('all');
+    assert.deepEqual(filterChanges, [
+        ['q', 'Maria'],
+        ['sort', 'oldest'],
+        ['stage', 'reviewed'],
+        ['stage', null],
+    ]);
+    assert.equal(fields[3].props.onClick, serverTable.reset);
+    assert.equal(fields[3].props.spinning, true);
+    assert.ok(kpiGrid.props.children.every((card) => card.props.loading));
+    const loaded = render({
+        total_applicants: 12,
+        new_today: 2,
+        reviewed: 4,
+        shortlisted: 3,
+    });
     assert.deepEqual(
-        table.data.map(({ application }) => application.id),
-        [1],
+        loaded[1].props.children.map((card) => card.props.value),
+        [12, 2, 4, 3],
     );
+    assert.ok(loaded[1].props.children.every((card) => !card.props.loading));
+    assert.equal(loaded[1].props.children[2].props.label, 'Reviewed');
+    const menu = table.renderRowActions(row);
+    const link = menu.type(menu.props).props.children[1].props.children.props
+        .children;
+    assert.deepEqual(link.props.href, { url: '/dashboard/applications/42' });
 });
 
 await test('application detail keeps the stage hook before the missing-application return', () => {

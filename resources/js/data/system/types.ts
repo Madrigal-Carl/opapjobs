@@ -10,7 +10,7 @@ import type { Pathway } from '@/types/agency';
  *
  * The enum-valued types below use the **stored** values from §6.1. The
  * pre-existing `types/application.ts`, `types/applicant.ts` and
- * `types/applicant-profile.ts` model the older UI *labels* ("Under review",
+ * `types/applicant-profile.ts` model the older UI *labels* ("Reviewed",
  * "Available now"); docs §12.1 declares those reference-only, so the console
  * speaks the stored values and maps to labels at the edge.
  */

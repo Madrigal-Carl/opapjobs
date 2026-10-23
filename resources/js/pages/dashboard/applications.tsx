@@ -7,7 +7,6 @@ import {
     UserPlus,
     Users,
 } from 'lucide-react';
-import { useState } from 'react';
 import { StageBadge } from '@/components/dashboard/badges';
 import {
     DataTable,
@@ -29,28 +28,26 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    APPLICATIONS_PER_PAGE,
-    getApplicationDashboardKpis,
-    getApplicationPage,
-    type ApplicationRow,
-} from '@/data/selectors';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
-import { applications } from '@/routes/dashboard';
+import { useServerTable } from '@/hooks/use-server-table';
+import { applications as applicationsRoute } from '@/routes/dashboard';
 import { show as showApplication } from '@/routes/dashboard/applications';
 import type { ApplicationStage } from '@/types/application';
 
-type ApplicationFilters = {
-    q: string;
-    sort: 'newest' | 'oldest';
-    stage: ApplicationStage | 'All stages';
-};
+import type {
+    ApplicationStageValue,
+    DashboardApplicationFilters,
+    DashboardApplicationKpis,
+    DashboardApplicationRow,
+} from '@/types/dashboard-application';
+import type { Paginated } from '@/types/pagination';
 
-const DEFAULT_FILTERS: ApplicationFilters = {
-    q: '',
+const DEFAULT_FILTERS: DashboardApplicationFilters = {
+    q: null,
     sort: 'newest',
-    stage: 'All stages',
+    stage: null,
+    per_page: 10,
 };
+const TABLE_PROPS = ['applications', 'filters'];
 
 const SORT_OPTIONS = [
     { value: 'newest', label: 'Newest' },
@@ -58,13 +55,21 @@ const SORT_OPTIONS = [
 ];
 
 const STAGE_OPTIONS = [
-    { value: 'All stages', label: 'All stages' },
-    { value: 'Pending', label: 'Pending' },
-    { value: 'Under review', label: 'Under review' },
-    { value: 'Shortlisted', label: 'Shortlisted' },
-    { value: 'Interviewed', label: 'Interviewed' },
-    { value: 'Hired', label: 'Hired' },
+    { value: 'all', label: 'All stages' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'reviewed', label: 'Reviewed' },
+    { value: 'shortlisted', label: 'Shortlisted' },
+    { value: 'interviewed', label: 'Interviewed' },
+    { value: 'hired', label: 'Hired' },
 ];
+
+const STAGE_LABELS: Record<ApplicationStageValue, ApplicationStage> = {
+    pending: 'Pending',
+    reviewed: 'Reviewed',
+    shortlisted: 'Shortlisted',
+    interviewed: 'Interviewed',
+    hired: 'Hired',
+};
 
 const appliedDate = new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -72,17 +77,17 @@ const appliedDate = new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
 });
 
-const applicationColumns: Column<ApplicationRow>[] = [
+const applicationColumns: Column<DashboardApplicationRow>[] = [
     {
         key: 'applicant',
         header: 'Applicant name',
         width: '28%',
-        cell: ({ applicant }) => (
+        cell: ({ applicant_name }) => (
             <span
                 className="block max-w-[20rem] truncate font-bold text-[var(--navy-deep)]"
-                title={applicant.name}
+                title={applicant_name}
             >
-                {applicant.name}
+                {applicant_name}
             </span>
         ),
     },
@@ -90,12 +95,16 @@ const applicationColumns: Column<ApplicationRow>[] = [
         key: 'job',
         header: 'Applied for',
         width: '28%',
-        cell: ({ job }) => (
+        cell: ({ job_title, employer_name }) => (
             <span
                 className="block max-w-[20rem] truncate text-[var(--navy-deep)]"
-                title={`${job.title} — ${job.employer}`}
+                title={
+                    employer_name
+                        ? `${job_title} — ${employer_name}`
+                        : job_title
+                }
             >
-                {job.title}
+                {job_title}
             </span>
         ),
     },
@@ -103,27 +112,26 @@ const applicationColumns: Column<ApplicationRow>[] = [
         key: 'stage',
         header: 'Stage',
         width: '18%',
-        cell: ({ application }) => <StageBadge stage={application.stage} />,
+        cell: ({ stage }) => <StageBadge stage={STAGE_LABELS[stage]} />,
     },
     {
         key: 'applied',
         header: 'Applied by',
         width: '20%',
         className: 'whitespace-nowrap text-[var(--slate)]',
-        cell: ({ application }) =>
-            appliedDate.format(new Date(`${application.appliedAt}T12:00:00`)),
+        cell: ({ submitted_at }) => appliedDate.format(new Date(submitted_at)),
     },
 ];
 
-function ApplicationRowMenu({ row }: { row: ApplicationRow }) {
+function ApplicationRowMenu({ row }: { row: DashboardApplicationRow }) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={`Actions for ${row.applicant.name}`}
-                    data-testid={`button-application-actions-${row.application.id}`}
+                    aria-label={`Actions for ${row.applicant_name}`}
+                    data-testid={`button-application-actions-${row.id}`}
                 >
                     <MoreHorizontal className="size-4" aria-hidden="true" />
                 </Button>
@@ -131,8 +139,8 @@ function ApplicationRowMenu({ row }: { row: ApplicationRow }) {
             <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
                     <Link
-                        href={showApplication(row.application.id)}
-                        data-testid={`button-view-application-${row.application.id}`}
+                        href={showApplication(row.id)}
+                        data-testid={`button-view-application-${row.id}`}
                     >
                         View application
                     </Link>
@@ -142,32 +150,23 @@ function ApplicationRowMenu({ row }: { row: ApplicationRow }) {
     );
 }
 
-export default function DashboardApplications() {
-    const [filters, setFilters] = useState(DEFAULT_FILTERS);
-    const [page, setPage] = useState(1);
-    const debouncedQ = useDebouncedValue(filters.q, 300);
-    const results = getApplicationPage({
-        ...filters,
-        q: filters.q.trim() ? debouncedQ : '',
-        page,
-        perPage: APPLICATIONS_PER_PAGE,
+export default function DashboardApplications({
+    applications,
+    filters,
+    kpis,
+}: {
+    applications: Paginated<DashboardApplicationRow>;
+    filters: DashboardApplicationFilters;
+    kpis?: DashboardApplicationKpis;
+}) {
+    const table = useServerTable({
+        url: applicationsRoute().url,
+        filters,
+        page: applications.meta.current_page,
+        defaults: DEFAULT_FILTERS,
+        only: TABLE_PROPS,
     });
-    const kpis = getApplicationDashboardKpis();
-    const isFiltered =
-        filters.q.trim() !== '' || filters.stage !== 'All stages';
-
-    const setFilter = <K extends keyof ApplicationFilters>(
-        key: K,
-        value: ApplicationFilters[K],
-    ) => {
-        setFilters((current) => ({ ...current, [key]: value }));
-        setPage(1);
-    };
-
-    const resetFilters = () => {
-        setFilters(DEFAULT_FILTERS);
-        setPage(1);
-    };
+    const isFiltered = Boolean(filters.q || filters.stage);
 
     return (
         <>
@@ -180,40 +179,43 @@ export default function DashboardApplications() {
                 <KpiGrid>
                     <KpiCard
                         label="Total Applicants"
-                        value={kpis.totalApplicants}
+                        value={kpis?.total_applicants ?? 0}
+                        loading={!kpis}
                         caption="Across all job posts"
                         icon={Users}
                         tone="violet"
                     />
                     <KpiCard
                         label="New Applications Today"
-                        value={kpis.newApplicationsToday}
+                        value={kpis?.new_today ?? 0}
+                        loading={!kpis}
                         caption="Applied today"
                         icon={UserPlus}
                         tone="blue"
                     />
                     <KpiCard
-                        label="Under Review"
-                        value={kpis.underReview}
-                        caption="Currently being reviewed"
+                        label="Reviewed"
+                        value={kpis?.reviewed ?? 0}
+                        loading={!kpis}
+                        caption="Applications at the reviewed stage"
                         icon={FileSearch}
                         tone="orange"
                     />
                     <KpiCard
                         label="Shortlisted Applicants"
-                        value={kpis.shortlistedApplicants}
+                        value={kpis?.shortlisted ?? 0}
+                        loading={!kpis}
                         caption="Moved to the shortlist"
                         icon={UserCheck}
                         tone="emerald"
                     />
                 </KpiGrid>
-                <DataTable<ApplicationRow>
+                <DataTable<DashboardApplicationRow>
                     columns={applicationColumns}
-                    data={results.items}
-                    getRowId={(row) => String(row.application.id)}
-                    getRowTestId={(row) =>
-                        `row-application-${row.application.id}`
-                    }
+                    data={applications.data}
+                    loading={table.loading}
+                    getRowId={(row) => String(row.id)}
+                    getRowTestId={(row) => `row-application-${row.id}`}
                     renderRowActions={(row) => <ApplicationRowMenu row={row} />}
                     toolbar={
                         <DataTableToolbar data-testid="applications-table-toolbar">
@@ -224,8 +226,10 @@ export default function DashboardApplications() {
                             >
                                 <DataTableSearch
                                     id="filter-search"
-                                    value={filters.q}
-                                    onChange={(value) => setFilter('q', value)}
+                                    value={table.values.q ?? ''}
+                                    onChange={(value) =>
+                                        table.setFilter('q', value)
+                                    }
                                     placeholder="Search by applicant name or job title..."
                                     className="w-full"
                                     data-testid="input-search-applications"
@@ -235,11 +239,13 @@ export default function DashboardApplications() {
                                 label="Sort by"
                                 htmlFor="filter-sort"
                             >
-                                <DataTableSelect<ApplicationFilters['sort']>
+                                <DataTableSelect<
+                                    DashboardApplicationFilters['sort']
+                                >
                                     id="filter-sort"
-                                    value={filters.sort}
+                                    value={table.values.sort}
                                     onValueChange={(value) =>
-                                        setFilter('sort', value)
+                                        table.setFilter('sort', value)
                                     }
                                     options={SORT_OPTIONS}
                                     ariaLabel="Sort applications by"
@@ -250,11 +256,14 @@ export default function DashboardApplications() {
                                 label="Stage"
                                 htmlFor="filter-stage"
                             >
-                                <DataTableSelect<ApplicationFilters['stage']>
+                                <DataTableSelect<ApplicationStageValue | 'all'>
                                     id="filter-stage"
-                                    value={filters.stage}
+                                    value={table.values.stage ?? 'all'}
                                     onValueChange={(value) =>
-                                        setFilter('stage', value)
+                                        table.setFilter(
+                                            'stage',
+                                            value === 'all' ? null : value,
+                                        )
                                     }
                                     options={STAGE_OPTIONS}
                                     ariaLabel="Filter application stage"
@@ -262,15 +271,16 @@ export default function DashboardApplications() {
                                 />
                             </DataTableField>
                             <DataTableRefreshButton
-                                onClick={resetFilters}
+                                onClick={table.reset}
+                                spinning={table.loading}
                                 data-testid="button-refresh-applications"
                             />
                         </DataTableToolbar>
                     }
                     pagination={{
-                        page: results.page,
-                        totalPages: results.totalPages,
-                        onPageChange: setPage,
+                        page: table.page,
+                        totalPages: applications.meta.last_page,
+                        onPageChange: table.setPage,
                         alwaysShow: true,
                         label: 'Applications pagination',
                         testIdPrefix: 'applications-pagination',
@@ -288,7 +298,7 @@ export default function DashboardApplications() {
                                     ? 'Try a different applicant name, job title or stage.'
                                     : 'Applications will appear here once applicants apply to your job posts.'
                             }
-                            onReset={isFiltered ? resetFilters : undefined}
+                            onReset={isFiltered ? table.reset : undefined}
                         />
                     }
                     data-testid="table-applications"
@@ -302,7 +312,7 @@ DashboardApplications.layout = {
     breadcrumbs: [
         {
             title: 'Applications',
-            href: applications(),
+            href: applicationsRoute(),
         },
     ],
 };

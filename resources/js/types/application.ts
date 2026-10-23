@@ -10,7 +10,7 @@ import type { Availability } from '@/types/applicant';
 
 export type ApplicationStage =
     | 'Pending'
-    | 'Under review'
+    | 'Reviewed'
     | 'Shortlisted'
     | 'Interviewed'
     | 'Hired';

@@ -60,12 +60,7 @@ const overviewCopy: Record<DashboardOverviewVariant, OverviewCopy> = {
     },
 };
 
-const STAGE_LABELS = [
-    'Pending',
-    'Under review',
-    'Interviewed',
-    'Hired',
-] as const;
+const STAGE_LABELS = ['Pending', 'Reviewed', 'Interviewed', 'Hired'] as const;
 
 function formatShortDate(date: string): string {
     return new Date(`${date}T12:00:00`).toLocaleDateString('en-US', {
@@ -605,7 +600,7 @@ export function AgencyOverview({
                             index={0}
                             label="Application review"
                             value={
-                                summary.stageCounts['Under review'] +
+                                summary.stageCounts.Reviewed +
                                 summary.stageCounts.Pending
                             }
                             suffix="applicants"
