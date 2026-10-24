@@ -74,6 +74,8 @@ test('application rows include archived applications and inactive posts but expo
             'id' => $application->id, 'stage' => 'reviewed',
             'submitted_at' => '2026-10-01T09:30:00.000000Z',
             'applicant_name' => 'Maria Santos', 'job_title' => 'Welder', 'employer_name' => 'Example employer',
+            'available_transitions' => ['proceed', 'reject'],
+            'can_proceed' => true, 'next_stage' => 'shortlisted', 'can_reject' => true,
         ]]));
 });
 
@@ -177,12 +179,13 @@ test('application kpis ignore filters and include all post statuses within the s
         ]);
     }
     Application::factory()->for(JobPost::factory()->forPoster($admin))->create(['stage' => ApplicationStage::Reviewed]);
+    Application::factory()->for(JobPost::factory()->forPoster($poster)->closed())->rejected()->create(['submitted_at' => '2026-10-16 12:00:00']);
     Application::factory()->create(['stage' => ApplicationStage::Shortlisted]);
 
     foreach ([
-        [$poster, ['total_applicants' => 4, 'new_today' => 2, 'reviewed' => 1, 'shortlisted' => 1]],
-        [$admin, ['total_applicants' => 5, 'new_today' => 3, 'reviewed' => 2, 'shortlisted' => 1]],
-        [User::factory()->superadmin()->create(), ['total_applicants' => 6, 'new_today' => 4, 'reviewed' => 2, 'shortlisted' => 2]],
+        [$poster, ['total_applicants' => 5, 'new_today' => 2, 'reviewed' => 1, 'shortlisted' => 1]],
+        [$admin, ['total_applicants' => 6, 'new_today' => 3, 'reviewed' => 2, 'shortlisted' => 1]],
+        [User::factory()->superadmin()->create(), ['total_applicants' => 7, 'new_today' => 4, 'reviewed' => 2, 'shortlisted' => 2]],
     ] as [$user, $expected]) {
         $this->actingAs($user)->get(route('dashboard.applications', ['q' => 'no-match', 'stage' => 'pending', 'page' => 99]))
             ->assertOk()->assertInertia(fn (Assert $page) => $page

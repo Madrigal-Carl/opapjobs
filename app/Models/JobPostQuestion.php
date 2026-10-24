@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property QuestionAnswerType $answer_type
+ * @property bool $is_required
+ */
 class JobPostQuestion extends Model
 {
     use SoftDeletes;

@@ -12,6 +12,7 @@ enum Permission: string
     case ViewJobs = 'view jobs';
     case ManageJob = 'managejob';
     case ViewApplications = 'view applications';
+    case ManageApplications = 'manage applications';
     case ViewCandidates = 'view candidates';
     case ViewAccounts = 'view accounts';
 }

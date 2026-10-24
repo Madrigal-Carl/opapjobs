@@ -74,9 +74,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ViewJobs->value)
                 ->name('dashboard.jobs');
 
-            Route::get('applications/{application}', [ViewController::class, 'dashboardApplication'])
+            Route::get('applications/{application}', [ApplicationController::class, 'show'])
+                ->whereNumber('application')
                 ->middleware('can:'.Permission::ViewApplications->value)
                 ->name('dashboard.applications.show');
+
+            Route::get('applications/{application}/documents/{document}', [ApplicationController::class, 'document'])
+                ->whereNumber('application')->whereNumber('document')
+                ->middleware('can:'.Permission::ViewApplications->value)
+                ->name('dashboard.applications.documents');
+
+            Route::middleware('can:'.Permission::ManageApplications->value)->group(function () {
+                Route::patch('applications/{application}/proceed', [ApplicationController::class, 'proceed'])
+                    ->whereNumber('application')->name('dashboard.applications.proceed');
+
+                Route::patch('applications/{application}/reject', [ApplicationController::class, 'reject'])
+                    ->whereNumber('application')->name('dashboard.applications.reject');
+            });
 
             Route::get('applications', [ApplicationController::class, 'index'])
                 ->middleware('can:'.Permission::ViewApplications->value)

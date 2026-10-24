@@ -4,7 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property Carbon|null $started_on
+ * @property Carbon|null $ended_on
+ */
 class ApplicantEducation extends Model
 {
     protected $table = 'applicant_education';

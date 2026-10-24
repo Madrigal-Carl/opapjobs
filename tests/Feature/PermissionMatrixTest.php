@@ -42,6 +42,10 @@ test('applicants cannot manage jobs', function () {
     expect(User::factory()->applicant()->create()->can('managejob'))->toBeFalse();
 });
 
+test('applicants cannot manage applications', function () {
+    expect(User::factory()->applicant()->create()->can(Permission::ManageApplications->value))->toBeFalse();
+});
+
 test('superadmin passes the view agency profile ability through the superuser gate', function () {
     expect(User::factory()->superadmin()->create()
         ->can(Permission::ViewAgencyProfile->value))->toBeTrue();
@@ -71,6 +75,7 @@ test('agency dashboard permissions match the matrix', function () {
     expect($role->hasPermissionTo(Permission::ViewHiringOverview->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewJobs->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewApplications->value))->toBeTrue();
+    expect($role->hasPermissionTo(Permission::ManageApplications->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewCandidates->value))->toBeTrue();
 
     expect($role->hasPermissionTo(Permission::ViewPlatformOverview->value))->toBeFalse();
@@ -85,6 +90,7 @@ test('admin dashboard permissions match the matrix', function () {
     expect($role->hasPermissionTo(Permission::ViewPlatformOverview->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewJobs->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewApplications->value))->toBeTrue();
+    expect($role->hasPermissionTo(Permission::ManageApplications->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewCandidates->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewAccounts->value))->toBeTrue();
 
@@ -101,6 +107,7 @@ test('superadmins have system overview dashboard permissions assigned directly',
         Permission::ViewJobs,
         Permission::ManageJob,
         Permission::ViewApplications,
+        Permission::ManageApplications,
         Permission::ViewCandidates,
         Permission::ViewAccounts,
     ];
@@ -123,6 +130,7 @@ test('superadmins pass every dashboard ability through the superuser gate', func
     Permission::ViewJobs,
     Permission::ManageJob,
     Permission::ViewApplications,
+    Permission::ManageApplications,
     Permission::ViewCandidates,
     Permission::ViewAccounts,
 ]);
@@ -138,6 +146,7 @@ test('the shared auth props include the superadmin dashboard permissions', funct
                 && $permissions->contains(Permission::ViewJobs->value)
                 && $permissions->contains(Permission::ManageJob->value)
                 && $permissions->contains(Permission::ViewApplications->value)
+                && $permissions->contains(Permission::ManageApplications->value)
                 && $permissions->contains(Permission::ViewCandidates->value)
                 && $permissions->contains(Permission::ViewAccounts->value)
                 && $permissions->contains(Permission::AccessDashboard->value)

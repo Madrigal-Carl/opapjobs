@@ -63,6 +63,7 @@ await test('application stages filter using the new pipeline labels', () => {
         Shortlisted: 4,
         Interviewed: 7,
         Hired: 3,
+        Rejected: 0,
     });
 });
 
@@ -97,6 +98,24 @@ await test('application table uses server rows, pagination, stage labels and def
         'resources/js/pages/dashboard/applications.tsx',
         {
             'react/jsx-runtime': jsxRuntime,
+            react: {
+                useState: (initial) => [initial, () => {}],
+            },
+            '@/components/dashboard/application-actions': {
+                RejectApplicationDialog: () => null,
+                useApplicationStageTransition: () => ({
+                    processing: false,
+                    proceed: () => {},
+                    reject: () => {},
+                }),
+            },
+            '@/components/ui/dropdown-menu': {
+                DropdownMenu: ({ children }) =>
+                    jsxRuntime.jsx('div', { children }),
+                DropdownMenuTrigger: () => null,
+                DropdownMenuContent: () => null,
+                DropdownMenuItem: () => null,
+            },
             '@/hooks/use-server-table': {
                 useServerTable(options) {
                     tableOptions = options;
@@ -109,6 +128,9 @@ await test('application table uses server rows, pagination, stage labels and def
             '@/routes/dashboard/applications': {
                 show: (id) => ({ url: `/dashboard/applications/${id}` }),
             },
+            '@/types/dashboard-application': loadModule(
+                'resources/js/types/dashboard-application.ts',
+            ),
         },
     );
     const row = {
@@ -118,10 +140,15 @@ await test('application table uses server rows, pagination, stage labels and def
         employer_name: null,
         stage: 'reviewed',
         submitted_at: new Date(2026, 9, 1, 12).toISOString(),
+        available_transitions: ['proceed', 'reject'],
+        can_proceed: true,
+        next_stage: 'shortlisted',
+        can_reject: true,
     };
     const props = {
         applications: { data: [row], meta: { current_page: 2, last_page: 3 } },
         filters,
+        canManageApplications: true,
     };
     const render = (kpis) =>
         Applications({ ...props, kpis }).props.children[1].props.children;
@@ -147,6 +174,7 @@ await test('application table uses server rows, pagination, stage labels and def
         shortlisted: 'Shortlisted',
         interviewed: 'Interviewed',
         hired: 'Hired',
+        rejected: 'Rejected',
     })) {
         assert.equal(
             table.columns[2].cell({ ...row, stage }).props.stage,
@@ -181,66 +209,160 @@ await test('application table uses server rows, pagination, stage labels and def
     assert.ok(loaded[1].props.children.every((card) => !card.props.loading));
     assert.equal(loaded[1].props.children[2].props.label, 'Reviewed');
     const menu = table.renderRowActions(row);
-    const link = menu.type(menu.props).props.children[1].props.children.props
-        .children;
-    assert.deepEqual(link.props.href, { url: '/dashboard/applications/42' });
+    const dropdown = menu.type(menu.props).props.children[0];
+    const [viewItem, proceedItem, rejectItem] = dropdown.type(dropdown.props)
+        .props.children[1].props.children;
+    assert.deepEqual(viewItem.props.children.props.href, {
+        url: '/dashboard/applications/42',
+    });
+    assert.equal(
+        viewItem.props.children.props['data-testid'],
+        'button-view-application-42',
+    );
+    assert.equal(
+        proceedItem.props['data-testid'],
+        'button-proceed-application-42',
+    );
+    assert.deepEqual(proceedItem.props.children, [
+        'Proceed',
+        ' to Shortlisted',
+    ]);
+    assert.equal(proceedItem.props.disabled, false);
+    assert.equal(
+        rejectItem.props['data-testid'],
+        'button-reject-application-42',
+    );
+    assert.equal(rejectItem.props.variant, 'destructive');
+
+    const terminalMenu = table.renderRowActions({
+        ...row,
+        can_proceed: false,
+        next_stage: null,
+        can_reject: false,
+    });
+    const terminalDropdown = terminalMenu.type(terminalMenu.props).props
+        .children[0];
+    const terminalItems = terminalDropdown.type(terminalDropdown.props).props
+        .children[1].props.children;
+    assert.equal(terminalItems.filter(Boolean).length, 1);
 });
 
-await test('application detail keeps the stage hook before the missing-application return', () => {
-    let hookCalls = 0;
+await test('application detail uses the server application prop and keeps hooks before the missing-application return', () => {
+    const transitionCalls = [];
     let layoutProps;
+    let selectedState = 0;
     const { default: ShowApplication } = loadModule(
         'resources/js/pages/dashboard/applications/show.tsx',
         {
             'react/jsx-runtime': jsxRuntime,
             '@inertiajs/react': {
+                Head: () => null,
+                Link: () => null,
                 setLayoutProps: (props) => {
                     layoutProps = props;
                 },
             },
             react: {
                 useState(initial) {
-                    hookCalls += 1;
+                    selectedState += 1;
                     return [initial, () => {}];
                 },
             },
-            '@/data/selectors': selectors,
-            '@/data/application-details': {
-                getApplicationDetail: (...args) =>
-                    loadModule(
-                        'resources/js/data/application-details.ts',
-                    ).getApplicationDetail(...args),
+            '@/components/dashboard/application-actions': {
+                RejectApplicationDialog: () => null,
+                useApplicationStageTransition(only, id) {
+                    transitionCalls.push([only, id]);
+                    return {
+                        processing: false,
+                        proceed: () => {},
+                        reject: () => {},
+                    };
+                },
             },
-            '@/data/job-questions': loadModule(
-                'resources/js/data/job-questions.ts',
-            ),
-            '@/lib/application-utils': loadModule(
-                'resources/js/lib/application-utils.ts',
-            ),
-            '@/types/applicant-profile': loadModule(
-                'resources/js/types/applicant-profile.ts',
-            ),
-            '@/data/job-attributes': loadModule(
-                'resources/js/data/job-attributes.ts',
-            ),
+            '@/data/job-attributes': {
+                CONTRACT_LABELS: {},
+                EDUCATION_LABELS: {},
+            },
+            '@/data/job-questions': {
+                getQuestionAnswerType: () => ({ label: 'Short answer' }),
+            },
+            '@/lib/application-utils': {
+                elapsedSince: () => 'Applied today',
+            },
             '@/routes/dashboard': {
                 applications: () => ({ url: '/dashboard/applications' }),
             },
-            '@/routes/dashboard/applications': {
-                show: (id) => ({ url: `/dashboard/applications/${id}` }),
-            },
+            '@/types/applicant-profile': { SKILL_LEVEL_DOTS: {} },
+            '@/types/dashboard-application': loadModule(
+                'resources/js/types/dashboard-application.ts',
+            ),
         },
     );
+    const application = {
+        id: 7,
+        stage: 'shortlisted',
+        submitted_at: '2026-10-01T09:00:00.000Z',
+        cover_letter: null,
+        expected_monthly_salary: null,
+        availability: null,
+        applicant: {
+            id: 1,
+            name: 'Maria Santos',
+            initials: 'MS',
+            email: 'maria@example.com',
+            phone: null,
+            headline: null,
+            location: null,
+            summary: null,
+            pathway: null,
+        },
+        job: {
+            id: 3,
+            title: 'Welder',
+            employer: null,
+            agency: null,
+            pathway: null,
+            location: null,
+            salary: 'PHP 30,000',
+            category: null,
+            sub_category: null,
+            posting_type: 'joborder',
+            contract_type: null,
+            vacancies: 2,
+            education: null,
+            min_experience_years: null,
+            max_experience_years: null,
+            closing_date: null,
+            posted_at: null,
+            other_requirements: null,
+            job_description: null,
+            languages: [],
+        },
+        questions: [],
+        experiences: [],
+        education: [],
+        certifications: [],
+        skills: [],
+        documents: [],
+        resume_document_id: null,
+        history: [],
+        available_transitions: ['proceed', 'reject'],
+        can_proceed: true,
+        next_stage: 'interviewed',
+        can_reject: true,
+        can_manage: true,
+    };
 
-    ShowApplication({ applicationId: '99999' });
-    assert.equal(hookCalls, 1);
+    ShowApplication({});
+    assert.deepEqual(transitionCalls[0], [['application'], 0]);
     assert.equal(layoutProps.breadcrumbs[1].title, 'Application not found');
-    hookCalls = 0;
-    ShowApplication({ applicationId: '1' });
-    assert.equal(hookCalls, 1);
+
+    ShowApplication({ application });
+    assert.deepEqual(transitionCalls[1], [['application'], 7]);
+    assert.equal(selectedState, 2);
     assert.deepEqual(layoutProps.breadcrumbs, [
         { title: 'Applications', href: { url: '/dashboard/applications' } },
-        { title: 'Maria Lourdes Santos', href: '#' },
+        { title: 'Maria Santos', href: '#' },
     ]);
 });
 

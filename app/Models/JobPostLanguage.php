@@ -7,6 +7,10 @@ use App\Enums\LanguageProficiency;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+/**
+ * @property Language $language
+ * @property LanguageProficiency $proficiency
+ */
 class JobPostLanguage extends Pivot
 {
     public $timestamps = false;

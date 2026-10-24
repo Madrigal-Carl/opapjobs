@@ -20,7 +20,7 @@ test('applications and their history persist each step of the new pipeline', fun
     $application = Application::factory()->create();
     $previous = null;
 
-    foreach (['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired'] as $value) {
+    foreach (['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired', 'rejected'] as $value) {
         $stage = ApplicationStage::from($value);
         $application->update(['stage' => $stage]);
         $history = ApplicationStageHistory::create([
@@ -72,4 +72,29 @@ test('stage normalization preserves applications and history while converting le
     'shortlisted' => ['shortlisted', 'shortlisted'],
     'interviewed' => ['interviewed', 'interviewed'],
     'hired' => ['hired', 'hired'],
+]);
+
+test('each stage reports the next step and whether it is terminal', function () {
+    expect(ApplicationStage::Pending->next())->toBe(ApplicationStage::Reviewed)
+        ->and(ApplicationStage::Reviewed->next())->toBe(ApplicationStage::Shortlisted)
+        ->and(ApplicationStage::Shortlisted->next())->toBe(ApplicationStage::Interviewed)
+        ->and(ApplicationStage::Interviewed->next())->toBe(ApplicationStage::Hired)
+        ->and(ApplicationStage::Hired->next())->toBeNull()
+        ->and(ApplicationStage::Rejected->next())->toBeNull();
+
+    expect(ApplicationStage::Hired->isTerminal())->toBeTrue()
+        ->and(ApplicationStage::Rejected->isTerminal())->toBeTrue()
+        ->and(ApplicationStage::Pending->isTerminal())->toBeFalse()
+        ->and(ApplicationStage::Interviewed->isTerminal())->toBeFalse();
+});
+
+test('factory stage states set each pipeline stage', function (string $state, ApplicationStage $stage) {
+    expect(Application::factory()->{$state}()->create()->fresh()->stage)->toBe($stage);
+})->with([
+    'pending' => ['pending', ApplicationStage::Pending],
+    'reviewed' => ['reviewed', ApplicationStage::Reviewed],
+    'shortlisted' => ['shortlisted', ApplicationStage::Shortlisted],
+    'interviewed' => ['interviewed', ApplicationStage::Interviewed],
+    'hired' => ['hired', ApplicationStage::Hired],
+    'rejected' => ['rejected', ApplicationStage::Rejected],
 ]);

@@ -6,6 +6,7 @@ use App\Enums\SkillLevel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** @property SkillLevel $skill_level */
 class ApplicantSkill extends Model
 {
     protected $fillable = ['applicant_user_id', 'skill_name', 'skill_level', 'sort_order'];

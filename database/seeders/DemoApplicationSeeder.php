@@ -34,9 +34,11 @@ class DemoApplicationSeeder extends Seeder
             $archivedUsed = false;
             $answers = [];
             $hired = [];
+            $agencyOrdinals = [];
 
             foreach ($curated as $index => $identity) {
                 $applicant = $applicants->get($identity['email']) ?? throw new \LogicException('Seed the curated applicant profiles before their applications.');
+                // Skip the two shared sign-in applicants so their dashboards start without applications.
                 if ($index < 2) {
                     continue;
                 }
@@ -63,10 +65,13 @@ class DemoApplicationSeeder extends Seeder
 
                 foreach ($candidates->take(3 + $index % 3) as $post) {
                     $submitted = CarbonImmutable::parse($post->created_at)->addDays(2 + $index % 3)->addHour();
-                    $slot = ($ordinal * 37) % 100;
+                    // Count per agency so every agency's own slot walk covers all six stages.
+                    $agencyOrdinal = $agencyOrdinals[$post->agency_id] ?? 0;
+                    $agencyOrdinals[$post->agency_id] = $agencyOrdinal + 1;
+                    $slot = ($agencyOrdinal * 37) % 100;
                     $stage = match (true) {
-                        $slot < 30 => 'pending', $slot < 55 => 'reviewed', $slot < 70 => 'shortlisted',
-                        $slot < 85 => 'interviewed', default => 'hired',
+                        $slot < 25 => 'pending', $slot < 44 => 'reviewed', $slot < 59 => 'shortlisted',
+                        $slot < 74 => 'interviewed', $slot < 82 => 'hired', default => 'rejected',
                     };
                     if ($stage === 'hired') {
                         if (($hired[$post->id] ?? 0) >= $post->vacant_positions) {
@@ -80,6 +85,15 @@ class DemoApplicationSeeder extends Seeder
                         'shortlisted' => ['pending', 'reviewed', 'shortlisted'],
                         'interviewed' => ['pending', 'reviewed', 'shortlisted', 'interviewed'],
                         'hired' => ['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired'],
+                        'rejected' => [
+                            'pending', 'reviewed',
+                            ...match (true) {
+                                $ordinal % 3 === 0 => ['shortlisted', 'interviewed'],
+                                $ordinal % 2 === 0 => ['shortlisted'],
+                                default => [],
+                            },
+                            'rejected',
+                        ],
                     };
                     $resume = $applicant->documents->firstOrFail(fn ($document): bool => $document->getRawOriginal('document_type') === 'resume' && $document->is_primary);
                     $salary = ((int) $post->getRawOriginal('monthly_salary_min') + (int) $post->getRawOriginal('monthly_salary_max')) / 2;
@@ -104,6 +118,11 @@ class DemoApplicationSeeder extends Seeder
                                 'shortlisted' => 'Candidate shortlisted for an interview with the recruitment team.',
                                 'interviewed' => 'Candidate completed the interview with the recruitment coordinator.',
                                 'hired' => 'Written offer accepted following the final selection interview.',
+                                'rejected' => match ($ordinal % 3) {
+                                    0 => 'Interview completed, but another candidate better matched the current requirements.',
+                                    1 => 'Application closed after screening; the role needs credentials the candidate does not yet hold.',
+                                    default => 'Candidate withdrew after review because the assignment dates no longer fit.',
+                                },
                             },
                             'created_at' => $submitted->addDays($step),
                         ])->save();

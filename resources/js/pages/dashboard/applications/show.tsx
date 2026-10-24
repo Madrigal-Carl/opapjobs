@@ -19,7 +19,10 @@ import {
     Users,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
+import {
+    RejectApplicationDialog,
+    useApplicationStageTransition,
+} from '@/components/dashboard/application-actions';
 import { PathwayBadge, StageBadge } from '@/components/dashboard/badges';
 import { FormSection } from '@/components/dashboard/form-section';
 import { ListingFactGrid } from '@/components/dashboard/listing-fact-grid';
@@ -29,30 +32,25 @@ import { PageHeader } from '@/components/dashboard/page-header';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { getApplicationDetail } from '@/data/application-details';
 import { CONTRACT_LABELS, EDUCATION_LABELS } from '@/data/job-attributes';
 import { getQuestionAnswerType } from '@/data/job-questions';
-import { getApplicationRow } from '@/data/selectors';
 import { elapsedSince } from '@/lib/application-utils';
 import { applications } from '@/routes/dashboard';
 import { SKILL_LEVEL_DOTS } from '@/types/applicant-profile';
-import type { ApplicationStage } from '@/types/application';
+import {
+    APPLICATION_STAGE_LABELS,
+    type DashboardApplicationDetail,
+} from '@/types/dashboard-application';
 
-const STAGE_OPTIONS: ApplicationStage[] = [
-    'Pending',
-    'Reviewed',
-    'Shortlisted',
-    'Interviewed',
-    'Hired',
-];
+const AVAILABILITY_LABELS: Record<
+    NonNullable<DashboardApplicationDetail['availability']>,
+    string
+> = {
+    immediately: 'Immediately',
+    within_2_weeks: 'Within 2 weeks',
+    within_1_month: 'Within 1 month',
+    more_than_1_month: 'More than 1 month',
+};
 
 const dateFormat = new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -63,27 +61,54 @@ const sectionLabel = 'text-sm font-semibold text-[var(--navy)]';
 const softBlock =
     'rounded-lg border border-[var(--line)] bg-[var(--surface-soft)] p-4 text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]';
 
+/** Formats ISO timestamps and date-only values without shifting the day. */
+function formatDate(value: string | null): string | undefined {
+    return value
+        ? dateFormat.format(
+              new Date(value.includes('T') ? value : `${value}T12:00:00`),
+          )
+        : undefined;
+}
+
+function experienceRequired(job: DashboardApplicationDetail['job']): string {
+    if (
+        job.min_experience_years !== null &&
+        job.max_experience_years !== null
+    ) {
+        return `${job.min_experience_years}–${job.max_experience_years} years`;
+    }
+
+    if (job.min_experience_years !== null) {
+        return `${job.min_experience_years}+ years`;
+    }
+
+    return job.max_experience_years !== null
+        ? `Up to ${job.max_experience_years} years`
+        : '';
+}
+
 export default function DashboardApplicationShow({
-    applicationId,
+    application,
 }: {
-    applicationId: string;
+    application?: DashboardApplicationDetail;
 }) {
-    const row = getApplicationRow(Number(applicationId));
-    const [stage, setStage] = useState<ApplicationStage>(
-        row?.application.stage ?? 'Pending',
+    const { processing, proceed, reject } = useApplicationStageTransition(
+        ['application'],
+        application?.id ?? 0,
     );
+    const [rejectOpen, setRejectOpen] = useState(false);
 
     setLayoutProps({
         breadcrumbs: [
             { title: 'Applications', href: applications() },
             {
-                title: row?.applicant.name ?? 'Application not found',
+                title: application?.applicant.name ?? 'Application not found',
                 href: '#',
             },
         ],
     });
 
-    if (!row) {
+    if (!application) {
         return (
             <>
                 <Head title="Application not found" />
@@ -117,35 +142,14 @@ export default function DashboardApplicationShow({
         );
     }
 
-    const { application, applicant, job } = row;
-    const detail = getApplicationDetail(application, applicant, job);
-    const questions = job.questions ?? [];
-    const answered = questions.filter((question) => {
-        const answer = detail.answers[question.id];
-        return Array.isArray(answer)
-            ? answer.length > 0
-            : Boolean(answer?.trim());
-    }).length;
-    const appliedDate = dateFormat.format(
-        new Date(`${application.appliedAt}T12:00:00`),
-    );
-    const history = STAGE_OPTIONS.slice(0, STAGE_OPTIONS.indexOf(stage) + 1);
-    const experienceRequired =
-        job.minExperienceYears !== undefined &&
-        job.maxExperienceYears !== undefined
-            ? `${job.minExperienceYears}–${job.maxExperienceYears} years`
-            : job.minExperienceYears !== undefined
-              ? `${job.minExperienceYears}+ years`
-              : job.maxExperienceYears !== undefined
-                ? `Up to ${job.maxExperienceYears} years`
-                : undefined;
-
-    const changeStage = (nextStage: ApplicationStage) => {
-        setStage(nextStage);
-        toast.success(
-            `${applicant.name}'s stage is now ${nextStage.toLowerCase()}.`,
-        );
-    };
+    const { applicant, job } = application;
+    const answered = application.questions.filter((question) =>
+        question.answer?.trim(),
+    ).length;
+    const appliedDate = formatDate(application.submitted_at);
+    const nextStage = application.next_stage
+        ? APPLICATION_STAGE_LABELS[application.next_stage]
+        : null;
 
     return (
         <>
@@ -153,13 +157,44 @@ export default function DashboardApplicationShow({
             <DashboardPage className="md:px-8">
                 <PageHeader
                     title={applicant.name}
-                    subtitle={`Applied for ${job.title} · ${job.employer}`}
-                    action={{
-                        label: 'Back to applications',
-                        icon: ArrowLeft,
-                        href: applications().url,
-                        testId: 'button-back-to-applications',
-                    }}
+                    subtitle={
+                        job.employer
+                            ? `Applied for ${job.title} · ${job.employer}`
+                            : `Applied for ${job.title}`
+                    }
+                    actions={
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button variant="secondary" asChild>
+                                <Link
+                                    href={applications()}
+                                    data-testid="button-back-to-applications"
+                                >
+                                    <ArrowLeft aria-hidden="true" />
+                                    Back to applications
+                                </Link>
+                            </Button>
+                            {application.can_proceed && (
+                                <Button
+                                    onClick={proceed}
+                                    loading={processing}
+                                    data-testid={`button-proceed-application-${application.id}`}
+                                >
+                                    Proceed
+                                    {nextStage ? ` to ${nextStage}` : ''}
+                                </Button>
+                            )}
+                            {application.can_reject && (
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => setRejectOpen(true)}
+                                    disabled={processing}
+                                    data-testid={`button-reject-application-${application.id}`}
+                                >
+                                    Reject
+                                </Button>
+                            )}
+                        </div>
+                    }
                 />
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="flex min-w-0 flex-col gap-5 wrap-anywhere">
@@ -170,16 +205,14 @@ export default function DashboardApplicationShow({
                             icon={CircleHelp}
                             headerAction={
                                 <span className="text-xs font-medium text-[var(--slate)]">
-                                    {answered} of {questions.length} answered
+                                    {answered} of {application.questions.length}{' '}
+                                    answered
                                 </span>
                             }
                         >
-                            {questions.length ? (
-                                questions.map((question) => {
-                                    const value = detail.answers[question.id];
-                                    const answer = Array.isArray(value)
-                                        ? value.join(', ')
-                                        : value;
+                            {application.questions.length ? (
+                                application.questions.map((question) => {
+                                    const answer = question.answer;
 
                                     return (
                                         <div
@@ -242,12 +275,22 @@ export default function DashboardApplicationShow({
                                 facts={[
                                     {
                                         label: 'Expected monthly salary',
-                                        value: detail.expectedSalary,
+                                        value: application.expected_monthly_salary
+                                            ? Number(
+                                                  application.expected_monthly_salary,
+                                              ).toLocaleString('en-US', {
+                                                  maximumFractionDigits: 0,
+                                              })
+                                            : undefined,
                                         icon: Banknote,
                                     },
                                     {
                                         label: 'Availability',
-                                        value: detail.availability,
+                                        value: application.availability
+                                            ? AVAILABILITY_LABELS[
+                                                  application.availability
+                                              ]
+                                            : undefined,
                                         icon: Clock3,
                                     },
                                     {
@@ -259,9 +302,9 @@ export default function DashboardApplicationShow({
                             />
                             <div className="flex flex-col gap-3">
                                 <h3 className={sectionLabel}>Cover letter</h3>
-                                {detail.coverLetter.trim() ? (
+                                {application.cover_letter?.trim() ? (
                                     <div className={softBlock}>
-                                        {detail.coverLetter}
+                                        {application.cover_letter}
                                     </div>
                                 ) : (
                                     <p className="text-sm text-[var(--slate)]">
@@ -276,42 +319,45 @@ export default function DashboardApplicationShow({
                             description="Files submitted with this application."
                             icon={FileText}
                         >
-                            <h3 className={sectionLabel}>Submitted resume</h3>
-                            {detail.documents.map((document, index) => (
-                                <div
-                                    key={document.id}
-                                    className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 first-of-type:border-t-0 first-of-type:pt-0"
-                                >
-                                    {index === 1 && (
-                                        <h3 className={sectionLabel}>
-                                            Supporting documents
-                                        </h3>
-                                    )}
-                                    <div className="flex items-start gap-3">
-                                        <FileText
-                                            className="mt-0.5 size-5 shrink-0 text-[var(--slate)]"
-                                            aria-hidden="true"
-                                        />
-                                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                                            <p className={sectionLabel}>
-                                                {document.name}
-                                            </p>
-                                            <p className="text-xs text-[var(--slate)]">
-                                                {document.size} · Uploaded{' '}
-                                                {document.uploadedAt}
-                                            </p>
-                                            {document.primary && (
-                                                <div>
-                                                    <ListingTag tone="teal">
-                                                        Primary
-                                                    </ListingTag>
-                                                </div>
-                                            )}
+                            {application.documents.length ? (
+                                application.documents.map((document, index) => (
+                                    <div
+                                        key={document.id}
+                                        className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 first-of-type:border-t-0 first-of-type:pt-0"
+                                    >
+                                        {index === 1 && (
+                                            <h3 className={sectionLabel}>
+                                                Supporting documents
+                                            </h3>
+                                        )}
+                                        <div className="flex items-start gap-3">
+                                            <FileText
+                                                className="mt-0.5 size-5 shrink-0 text-[var(--slate)]"
+                                                aria-hidden="true"
+                                            />
+                                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                                <p className={sectionLabel}>
+                                                    {document.name}
+                                                </p>
+                                                <p className="text-xs text-[var(--slate)]">
+                                                    {document.size}
+                                                    {document.uploaded_at
+                                                        ? ` · Uploaded ${formatDate(document.uploaded_at)}`
+                                                        : ''}
+                                                </p>
+                                                {document.primary && (
+                                                    <div>
+                                                        <ListingTag tone="teal">
+                                                            Primary
+                                                        </ListingTag>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(['Preview', 'Download'] as const).map(
-                                            (action) => (
+                                        <div className="flex flex-wrap gap-2">
+                                            {(
+                                                ['Preview', 'Download'] as const
+                                            ).map((action) => (
                                                 <Button
                                                     key={action}
                                                     variant="secondary"
@@ -322,7 +368,7 @@ export default function DashboardApplicationShow({
                                                     )}
                                                     data-testid={
                                                         document.id ===
-                                                        detail.resumeId
+                                                        application.resume_document_id
                                                             ? action ===
                                                               'Preview'
                                                                 ? 'button-preview-resume'
@@ -363,11 +409,16 @@ export default function DashboardApplicationShow({
                                                         </>
                                                     )}
                                                 </Button>
-                                            ),
-                                        )}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <p className="text-sm text-[var(--slate)]">
+                                    No documents were submitted with this
+                                    application.
+                                </p>
+                            )}
                         </FormSection>
                         <FormSection
                             step={4}
@@ -375,12 +426,12 @@ export default function DashboardApplicationShow({
                             description="Professional background, qualifications and skills."
                             icon={UserRound}
                         >
-                            {detail.summary && (
+                            {applicant.summary && (
                                 <p className="text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
-                                    {detail.summary}
+                                    {applicant.summary}
                                 </p>
                             )}
-                            {detail.experiences.length > 0 && (
+                            {application.experiences.length > 0 && (
                                 <section
                                     className="flex flex-col gap-3"
                                     aria-label="Work experience"
@@ -388,54 +439,70 @@ export default function DashboardApplicationShow({
                                     <h3 className={sectionLabel}>
                                         Work experience
                                     </h3>
-                                    {detail.experiences.map((experience) => (
-                                        <div
-                                            key={experience.id}
-                                            className="flex flex-col gap-1 border-t border-[var(--line)] pt-3"
-                                        >
-                                            <p className={sectionLabel}>
-                                                {experience.role} ·{' '}
-                                                {experience.company}
-                                            </p>
-                                            <p className="text-xs text-[var(--slate)]">
-                                                {experience.start} –{' '}
-                                                {experience.end || 'Present'} ·{' '}
-                                                {experience.location}
-                                            </p>
-                                            <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
-                                                {experience.description}
-                                            </p>
-                                        </div>
-                                    ))}
+                                    {application.experiences.map(
+                                        (experience) => (
+                                            <div
+                                                key={experience.id}
+                                                className="flex flex-col gap-1 border-t border-[var(--line)] pt-3"
+                                            >
+                                                <p className={sectionLabel}>
+                                                    {experience.role} ·{' '}
+                                                    {experience.company}
+                                                </p>
+                                                <p className="text-xs text-[var(--slate)]">
+                                                    {[
+                                                        formatDate(
+                                                            experience.start,
+                                                        ),
+                                                        formatDate(
+                                                            experience.end,
+                                                        ) ?? 'Present',
+                                                        experience.location,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
+                                                </p>
+                                                {experience.description && (
+                                                    <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
+                                                        {experience.description}
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ),
+                                    )}
                                 </section>
                             )}
-                            {detail.education.length > 0 && (
+                            {application.education.length > 0 && (
                                 <section
                                     className="flex flex-col gap-3"
                                     aria-label="Education"
                                 >
                                     <h3 className={sectionLabel}>Education</h3>
-                                    {detail.education.map((education) => (
+                                    {application.education.map((entry) => (
                                         <div
-                                            key={education.id}
+                                            key={entry.id}
                                             className="flex flex-col gap-1 border-t border-[var(--line)] pt-3"
                                         >
                                             <p className={sectionLabel}>
-                                                {education.degree} ·{' '}
-                                                {education.field}
+                                                {entry.degree} · {entry.field}
                                             </p>
                                             <p className="text-sm text-[var(--navy)]">
-                                                {education.school}
+                                                {entry.school}
                                             </p>
                                             <p className="text-xs text-[var(--slate)]">
-                                                {education.start} –{' '}
-                                                {education.end || 'Present'}
+                                                {[
+                                                    formatDate(entry.start),
+                                                    formatDate(entry.end) ??
+                                                        'Present',
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' – ')}
                                             </p>
                                         </div>
                                     ))}
                                 </section>
                             )}
-                            {detail.certifications.length > 0 && (
+                            {application.certifications.length > 0 && (
                                 <section
                                     className="flex flex-col gap-3"
                                     aria-label="Certifications"
@@ -443,7 +510,7 @@ export default function DashboardApplicationShow({
                                     <h3 className={sectionLabel}>
                                         Certifications
                                     </h3>
-                                    {detail.certifications.map(
+                                    {application.certifications.map(
                                         (certification) => (
                                             <div
                                                 key={certification.id}
@@ -456,28 +523,30 @@ export default function DashboardApplicationShow({
                                                     {certification.issuer}
                                                 </p>
                                                 <p className="text-xs text-[var(--slate)]">
-                                                    Issued{' '}
-                                                    {dateFormat.format(
-                                                        new Date(
-                                                            `${certification.issueDate}T12:00:00`,
-                                                        ),
-                                                    )}
-                                                    {certification.expiryDate &&
-                                                        ` · Expires ${dateFormat.format(new Date(`${certification.expiryDate}T12:00:00`))}`}
+                                                    {[
+                                                        certification.issue_date
+                                                            ? `Issued ${formatDate(certification.issue_date)}`
+                                                            : null,
+                                                        certification.expiry_date
+                                                            ? `Expires ${formatDate(certification.expiry_date)}`
+                                                            : null,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
                                                 </p>
                                             </div>
                                         ),
                                     )}
                                 </section>
                             )}
-                            {detail.skills.length > 0 && (
+                            {application.skills.length > 0 && (
                                 <section
                                     className="flex flex-col gap-3"
                                     aria-label="Skills"
                                 >
                                     <h3 className={sectionLabel}>Skills</h3>
                                     <div className="flex flex-wrap gap-2">
-                                        {detail.skills.map((skill) => (
+                                        {application.skills.map((skill) => (
                                             <ListingTag
                                                 key={skill.id}
                                                 tone="neutral"
@@ -548,32 +617,32 @@ export default function DashboardApplicationShow({
                                     },
                                     {
                                         label: 'Category / Sub-category',
-                                        value: [job.category, job.subCategory]
+                                        value: [job.category, job.sub_category]
                                             .filter(Boolean)
                                             .join(' / '),
                                         icon: Tags,
                                     },
                                     {
                                         label: 'Recruitment type',
-                                        value: job.postingType
-                                            ? job.postingType === 'joborder'
+                                        value:
+                                            job.posting_type === 'joborder'
                                                 ? 'Job order'
-                                                : 'Manpooling'
-                                            : undefined,
+                                                : job.posting_type ===
+                                                    'manpooling'
+                                                  ? 'Manpooling'
+                                                  : undefined,
                                         icon: BriefcaseBusiness,
                                     },
                                     {
                                         label: 'Contract duration',
-                                        value: job.contractDuration
-                                            ? CONTRACT_LABELS[
-                                                  job.contractDuration
-                                              ]
+                                        value: job.contract_type
+                                            ? CONTRACT_LABELS[job.contract_type]
                                             : undefined,
                                         icon: CalendarDays,
                                     },
                                     {
                                         label: 'Vacancies',
-                                        value: job.quantity,
+                                        value: job.vacancies,
                                         icon: Users,
                                     },
                                     {
@@ -585,49 +654,30 @@ export default function DashboardApplicationShow({
                                     },
                                     {
                                         label: 'Experience required',
-                                        value: experienceRequired,
+                                        value:
+                                            experienceRequired(job) ||
+                                            undefined,
                                         icon: Award,
                                     },
                                     {
                                         label: 'Closing date',
-                                        value: job.closingDate
-                                            ? dateFormat.format(
-                                                  new Date(
-                                                      `${job.closingDate}T12:00:00`,
-                                                  ),
-                                              )
-                                            : undefined,
+                                        value: formatDate(job.closing_date),
                                         icon: CalendarDays,
                                     },
                                     {
                                         label: 'Posted',
-                                        value: job.posted,
+                                        value: formatDate(job.posted_at),
                                         icon: Clock3,
                                     },
                                 ]}
                             />
-                            {Boolean(job.benefits?.length) && (
-                                <div className="flex flex-col gap-3">
-                                    <h3 className={sectionLabel}>Benefits</h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {job.benefits?.map((benefit) => (
-                                            <ListingTag
-                                                key={benefit}
-                                                tone="teal"
-                                            >
-                                                {benefit}
-                                            </ListingTag>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {Boolean(job.languages?.length) && (
+                            {job.languages.length > 0 && (
                                 <div className="flex flex-col gap-3">
                                     <h3 className={sectionLabel}>Languages</h3>
                                     <div className="flex flex-wrap gap-2">
-                                        {job.languages?.map((language) => (
+                                        {job.languages.map((language) => (
                                             <ListingTag
-                                                key={language.language}
+                                                key={`${language.language}-${language.proficiency}`}
                                                 tone="neutral"
                                             >
                                                 {language.language} ·{' '}
@@ -637,13 +687,23 @@ export default function DashboardApplicationShow({
                                     </div>
                                 </div>
                             )}
-                            {job.otherRequirements?.trim() && (
+                            {job.other_requirements?.trim() && (
                                 <div className="flex flex-col gap-3">
                                     <h3 className={sectionLabel}>
                                         Other requirements
                                     </h3>
                                     <p className="text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
-                                        {job.otherRequirements}
+                                        {job.other_requirements}
+                                    </p>
+                                </div>
+                            )}
+                            {job.job_description?.trim() && (
+                                <div className="flex flex-col gap-3">
+                                    <h3 className={sectionLabel}>
+                                        Job description
+                                    </h3>
+                                    <p className="text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
+                                        {job.job_description}
                                     </p>
                                 </div>
                             )}
@@ -665,23 +725,31 @@ export default function DashboardApplicationShow({
                                         <h2 className="font-semibold text-[var(--navy)]">
                                             {applicant.name}
                                         </h2>
-                                        <p className="text-sm text-[var(--slate)]">
-                                            {detail.headline}
-                                        </p>
+                                        {applicant.headline && (
+                                            <p className="text-sm text-[var(--slate)]">
+                                                {applicant.headline}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
-                                <p className="flex items-start gap-2 text-sm text-[var(--slate)]">
-                                    <MapPin
-                                        className="mt-0.5 size-4 shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                    {applicant.location}
-                                </p>
-                                <div>
-                                    <PathwayBadge pathway={applicant.pathway} />
-                                </div>
+                                {applicant.location && (
+                                    <p className="flex items-start gap-2 text-sm text-[var(--slate)]">
+                                        <MapPin
+                                            className="mt-0.5 size-4 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        {applicant.location}
+                                    </p>
+                                )}
+                                {applicant.pathway && (
+                                    <div>
+                                        <PathwayBadge
+                                            pathway={applicant.pathway}
+                                        />
+                                    </div>
+                                )}
                                 <a
-                                    href={`mailto:${detail.email}`}
+                                    href={`mailto:${applicant.email}`}
                                     className="flex items-start gap-2 text-sm text-[var(--navy)] hover:underline"
                                 >
                                     <Mail
@@ -689,19 +757,21 @@ export default function DashboardApplicationShow({
                                         aria-hidden="true"
                                     />
                                     <span className="min-w-0">
-                                        {detail.email}
+                                        {applicant.email}
                                     </span>
                                 </a>
-                                <a
-                                    href={`tel:${detail.phone.replaceAll(' ', '')}`}
-                                    className="flex items-start gap-2 text-sm text-[var(--navy)] hover:underline"
-                                >
-                                    <Phone
-                                        className="mt-0.5 size-4 shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                    {detail.phone}
-                                </a>
+                                {applicant.phone && (
+                                    <a
+                                        href={`tel:${applicant.phone.replaceAll(' ', '')}`}
+                                        className="flex items-start gap-2 text-sm text-[var(--navy)] hover:underline"
+                                    >
+                                        <Phone
+                                            className="mt-0.5 size-4 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        {applicant.phone}
+                                    </a>
+                                )}
                             </CardContent>
                         </Card>
                         <Card className="gap-4 rounded-xl border-[var(--line)] bg-white p-5 shadow-sm">
@@ -712,43 +782,19 @@ export default function DashboardApplicationShow({
                             </CardHeader>
                             <CardContent className="flex flex-col gap-4 p-0">
                                 <div>
-                                    <StageBadge stage={stage} />
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <Label
-                                        htmlFor="detail-stage"
-                                        className="text-xs font-semibold text-[var(--navy)]"
-                                    >
-                                        Update stage
-                                    </Label>
-                                    <Select
-                                        value={stage}
-                                        onValueChange={(value) =>
-                                            changeStage(
-                                                value as ApplicationStage,
-                                            )
+                                    <StageBadge
+                                        stage={
+                                            APPLICATION_STAGE_LABELS[
+                                                application.stage
+                                            ]
                                         }
-                                    >
-                                        <SelectTrigger
-                                            id="detail-stage"
-                                            className="h-9 w-full border-[var(--line)] bg-white text-sm text-[var(--navy)]"
-                                            aria-label={`Update stage for ${applicant.name}`}
-                                            data-testid={`select-detail-stage-${application.id}`}
-                                        >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {STAGE_OPTIONS.map((option) => (
-                                                <SelectItem
-                                                    key={option}
-                                                    value={option}
-                                                >
-                                                    {option}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    />
                                 </div>
+                                {nextStage && application.can_proceed && (
+                                    <p className="text-sm text-[var(--slate)]">
+                                        Next stage: {nextStage}
+                                    </p>
+                                )}
                                 <dl className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 text-sm">
                                     <div>
                                         <dt className="text-xs text-[var(--slate)]">
@@ -764,7 +810,10 @@ export default function DashboardApplicationShow({
                                         </dt>
                                         <dd className="mt-1 font-medium text-[var(--navy)]">
                                             {elapsedSince(
-                                                application.appliedAt,
+                                                application.submitted_at.slice(
+                                                    0,
+                                                    10,
+                                                ),
                                             ).replace(/^Applied /, '')}
                                         </dd>
                                     </div>
@@ -777,45 +826,81 @@ export default function DashboardApplicationShow({
                                     Stage history
                                 </CardTitle>
                                 <p className="text-xs text-[var(--slate)]">
-                                    Mock timeline based on the current stage.
+                                    Every recorded stage change.
                                 </p>
                             </CardHeader>
                             <CardContent className="p-0">
-                                <ol className="flex flex-col">
-                                    {history.map((step, index) => {
-                                        const date = new Date(
-                                            `${application.appliedAt}T12:00:00`,
-                                        );
-                                        date.setDate(date.getDate() + index);
-                                        return (
-                                            <li
-                                                key={step}
-                                                className="relative ml-1 border-l border-[var(--line)] pb-5 pl-5 last:border-transparent last:pb-0"
-                                            >
-                                                <span
-                                                    className={`absolute top-1 -left-1 size-2 rounded-full ${step === stage ? 'bg-[var(--teal)]' : 'bg-[var(--slate)]'}`}
-                                                    aria-hidden="true"
-                                                />
-                                                <p className="text-sm font-semibold text-[var(--navy)]">
-                                                    {step}
-                                                </p>
-                                                <p className="mt-1 text-xs text-[var(--slate)]">
-                                                    {dateFormat.format(date)}
-                                                </p>
-                                                {index === 0 && (
-                                                    <p className="mt-1 text-xs text-[var(--slate)]">
-                                                        Application submitted.
-                                                    </p>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ol>
+                                {application.history.length ? (
+                                    <ol className="flex flex-col">
+                                        {application.history.map(
+                                            (entry, index) => (
+                                                <li
+                                                    key={entry.id}
+                                                    className="relative ml-1 border-l border-[var(--line)] pb-5 pl-5 last:border-transparent last:pb-0"
+                                                >
+                                                    <span
+                                                        className={`absolute top-1 -left-1 size-2 rounded-full ${
+                                                            index ===
+                                                            application.history
+                                                                .length -
+                                                                1
+                                                                ? 'bg-[var(--teal)]'
+                                                                : 'bg-[var(--slate)]'
+                                                        }`}
+                                                        aria-hidden="true"
+                                                    />
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <StageBadge
+                                                            stage={
+                                                                APPLICATION_STAGE_LABELS[
+                                                                    entry.stage
+                                                                ]
+                                                            }
+                                                        />
+                                                        {entry.changed_at && (
+                                                            <span className="text-xs text-[var(--slate)]">
+                                                                {formatDate(
+                                                                    entry.changed_at,
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {entry.changed_by && (
+                                                        <p className="mt-1 text-xs text-[var(--slate)]">
+                                                            Changed by{' '}
+                                                            {entry.changed_by}
+                                                        </p>
+                                                    )}
+                                                    {entry.note && (
+                                                        <p className="mt-1 text-xs text-[var(--slate)]">
+                                                            {entry.note}
+                                                        </p>
+                                                    )}
+                                                </li>
+                                            ),
+                                        )}
+                                    </ol>
+                                ) : (
+                                    <p className="text-sm text-[var(--slate)]">
+                                        No stage changes recorded yet.
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
                     </aside>
                 </div>
             </DashboardPage>
+            <RejectApplicationDialog
+                applicationId={application.id}
+                applicantName={applicant.name}
+                open={rejectOpen}
+                busy={processing}
+                onOpenChange={setRejectOpen}
+                onConfirm={(note) => {
+                    reject(note);
+                    setRejectOpen(false);
+                }}
+            />
         </>
     );
 }

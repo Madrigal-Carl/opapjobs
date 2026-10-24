@@ -126,6 +126,7 @@ const stageClasses: Record<ApplicationStage, string> = {
     Shortlisted: 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]',
     Interviewed: 'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
     Hired: 'border-transparent bg-[var(--teal)] text-white',
+    Rejected: 'border-transparent bg-[var(--danger-soft)] text-[var(--danger)]',
     Pending: 'border-transparent bg-[var(--amber)]/20 text-[var(--navy)]',
 };
 

@@ -7,6 +7,11 @@ import {
     UserPlus,
     Users,
 } from 'lucide-react';
+import { useState } from 'react';
+import {
+    RejectApplicationDialog,
+    useApplicationStageTransition,
+} from '@/components/dashboard/application-actions';
 import { StageBadge } from '@/components/dashboard/badges';
 import {
     DataTable,
@@ -31,13 +36,13 @@ import {
 import { useServerTable } from '@/hooks/use-server-table';
 import { applications as applicationsRoute } from '@/routes/dashboard';
 import { show as showApplication } from '@/routes/dashboard/applications';
-import type { ApplicationStage } from '@/types/application';
 
-import type {
-    ApplicationStageValue,
-    DashboardApplicationFilters,
-    DashboardApplicationKpis,
-    DashboardApplicationRow,
+import {
+    APPLICATION_STAGE_LABELS,
+    type ApplicationStageValue,
+    type DashboardApplicationFilters,
+    type DashboardApplicationKpis,
+    type DashboardApplicationRow,
 } from '@/types/dashboard-application';
 import type { Paginated } from '@/types/pagination';
 
@@ -48,6 +53,7 @@ const DEFAULT_FILTERS: DashboardApplicationFilters = {
     per_page: 10,
 };
 const TABLE_PROPS = ['applications', 'filters'];
+const TRANSITION_PROPS = ['applications', 'kpis'];
 
 const SORT_OPTIONS = [
     { value: 'newest', label: 'Newest' },
@@ -61,15 +67,8 @@ const STAGE_OPTIONS = [
     { value: 'shortlisted', label: 'Shortlisted' },
     { value: 'interviewed', label: 'Interviewed' },
     { value: 'hired', label: 'Hired' },
+    { value: 'rejected', label: 'Rejected' },
 ];
-
-const STAGE_LABELS: Record<ApplicationStageValue, ApplicationStage> = {
-    pending: 'Pending',
-    reviewed: 'Reviewed',
-    shortlisted: 'Shortlisted',
-    interviewed: 'Interviewed',
-    hired: 'Hired',
-};
 
 const appliedDate = new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -112,7 +111,9 @@ const applicationColumns: Column<DashboardApplicationRow>[] = [
         key: 'stage',
         header: 'Stage',
         width: '18%',
-        cell: ({ stage }) => <StageBadge stage={STAGE_LABELS[stage]} />,
+        cell: ({ stage }) => (
+            <StageBadge stage={APPLICATION_STAGE_LABELS[stage]} />
+        ),
     },
     {
         key: 'applied',
@@ -123,30 +124,81 @@ const applicationColumns: Column<DashboardApplicationRow>[] = [
     },
 ];
 
-function ApplicationRowMenu({ row }: { row: DashboardApplicationRow }) {
+function ApplicationRowMenu({
+    row,
+    canManage,
+}: {
+    row: DashboardApplicationRow;
+    canManage: boolean;
+}) {
+    const { processing, proceed, reject } = useApplicationStageTransition(
+        TRANSITION_PROPS,
+        row.id,
+    );
+    const [rejectOpen, setRejectOpen] = useState(false);
+    const canProceed = canManage && row.can_proceed;
+    const canReject = canManage && row.can_reject;
+
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Actions for ${row.applicant_name}`}
-                    data-testid={`button-application-actions-${row.id}`}
-                >
-                    <MoreHorizontal className="size-4" aria-hidden="true" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                    <Link
-                        href={showApplication(row.id)}
-                        data-testid={`button-view-application-${row.id}`}
+        <>
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Actions for ${row.applicant_name}`}
+                        data-testid={`button-application-actions-${row.id}`}
                     >
-                        View application
-                    </Link>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                        <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                        <Link
+                            href={showApplication(row.id)}
+                            data-testid={`button-view-application-${row.id}`}
+                        >
+                            View application
+                        </Link>
+                    </DropdownMenuItem>
+                    {canProceed && (
+                        <DropdownMenuItem
+                            disabled={processing}
+                            onSelect={() => proceed()}
+                            data-testid={`button-proceed-application-${row.id}`}
+                        >
+                            Proceed
+                            {row.next_stage
+                                ? ` to ${APPLICATION_STAGE_LABELS[row.next_stage]}`
+                                : ''}
+                        </DropdownMenuItem>
+                    )}
+                    {canReject && (
+                        <DropdownMenuItem
+                            variant="destructive"
+                            disabled={processing}
+                            onSelect={() => setRejectOpen(true)}
+                            data-testid={`button-reject-application-${row.id}`}
+                        >
+                            Reject application
+                        </DropdownMenuItem>
+                    )}
+                </DropdownMenuContent>
+            </DropdownMenu>
+            {canReject && (
+                <RejectApplicationDialog
+                    applicationId={row.id}
+                    applicantName={row.applicant_name}
+                    open={rejectOpen}
+                    busy={processing}
+                    onOpenChange={setRejectOpen}
+                    onConfirm={(note) => {
+                        reject(note);
+                        setRejectOpen(false);
+                    }}
+                />
+            )}
+        </>
     );
 }
 
@@ -154,10 +206,12 @@ export default function DashboardApplications({
     applications,
     filters,
     kpis,
+    canManageApplications = false,
 }: {
     applications: Paginated<DashboardApplicationRow>;
     filters: DashboardApplicationFilters;
     kpis?: DashboardApplicationKpis;
+    canManageApplications?: boolean;
 }) {
     const table = useServerTable({
         url: applicationsRoute().url,
@@ -216,7 +270,12 @@ export default function DashboardApplications({
                     loading={table.loading}
                     getRowId={(row) => String(row.id)}
                     getRowTestId={(row) => `row-application-${row.id}`}
-                    renderRowActions={(row) => <ApplicationRowMenu row={row} />}
+                    renderRowActions={(row) => (
+                        <ApplicationRowMenu
+                            row={row}
+                            canManage={canManageApplications}
+                        />
+                    )}
                     toolbar={
                         <DataTableToolbar data-testid="applications-table-toolbar">
                             <DataTableField

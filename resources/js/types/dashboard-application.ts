@@ -1,9 +1,26 @@
+import type { Pathway } from '@/types/agency';
+import type { ApplicationStage } from '@/types/application';
+import type { SkillLevel } from '@/types/applicant-profile';
+
 export type ApplicationStageValue =
     | 'pending'
     | 'reviewed'
     | 'shortlisted'
     | 'interviewed'
-    | 'hired';
+    | 'hired'
+    | 'rejected';
+
+export const APPLICATION_STAGE_LABELS: Record<
+    ApplicationStageValue,
+    ApplicationStage
+> = {
+    pending: 'Pending',
+    reviewed: 'Reviewed',
+    shortlisted: 'Shortlisted',
+    interviewed: 'Interviewed',
+    hired: 'Hired',
+    rejected: 'Rejected',
+};
 
 export type DashboardApplicationRow = {
     id: number;
@@ -12,6 +29,10 @@ export type DashboardApplicationRow = {
     applicant_name: string;
     job_title: string;
     employer_name: string | null;
+    available_transitions: ('proceed' | 'reject')[];
+    can_proceed: boolean;
+    next_stage: ApplicationStageValue | null;
+    can_reject: boolean;
 };
 
 export type DashboardApplicationFilters = {
@@ -26,4 +47,106 @@ export type DashboardApplicationKpis = {
     new_today: number;
     reviewed: number;
     shortlisted: number;
+};
+
+export type DashboardApplicationDetail = {
+    id: number;
+    stage: ApplicationStageValue;
+    submitted_at: string;
+    cover_letter: string | null;
+    expected_monthly_salary: string | null;
+    availability:
+        | 'immediately'
+        | 'within_2_weeks'
+        | 'within_1_month'
+        | 'more_than_1_month'
+        | null;
+    applicant: {
+        id: number;
+        name: string;
+        initials: string;
+        email: string;
+        phone: string | null;
+        headline: string | null;
+        location: string | null;
+        summary: string | null;
+        pathway: Pathway | null;
+    };
+    job: {
+        id: number;
+        title: string;
+        employer: string | null;
+        agency: string | null;
+        pathway: Pathway | null;
+        location: string | null;
+        salary: string;
+        category: string | null;
+        sub_category: string | null;
+        posting_type: 'joborder' | 'manpooling' | null;
+        contract_type: 'permanent' | 'fixed' | 'seasonal' | null;
+        vacancies: number;
+        education: 'secondary' | 'vocational' | 'bachelor' | 'master' | null;
+        min_experience_years: number | null;
+        max_experience_years: number | null;
+        closing_date: string | null;
+        posted_at: string | null;
+        other_requirements: string | null;
+        job_description: string | null;
+        languages: { language: string; proficiency: string }[];
+    };
+    questions: {
+        id: number;
+        label: string;
+        type: 'yesno' | 'short' | 'paragraph';
+        required: boolean;
+        answer: string | null;
+    }[];
+    experiences: {
+        id: number;
+        role: string;
+        company: string;
+        start: string | null;
+        end: string | null;
+        location: string | null;
+        description: string | null;
+    }[];
+    education: {
+        id: number;
+        school: string;
+        degree: string;
+        field: string;
+        start: string | null;
+        end: string | null;
+    }[];
+    certifications: {
+        id: number;
+        name: string;
+        issuer: string;
+        issue_date: string | null;
+        expiry_date: string | null;
+        credential_url: string | null;
+    }[];
+    skills: { id: number; name: string; level: SkillLevel }[];
+    documents: {
+        id: number;
+        name: string;
+        uploaded_at: string | null;
+        size: string;
+        url: string | null;
+        primary: boolean;
+    }[];
+    resume_document_id: number | null;
+    history: {
+        id: number;
+        from_stage: ApplicationStageValue | null;
+        stage: ApplicationStageValue;
+        changed_at: string | null;
+        changed_by: string | null;
+        note: string | null;
+    }[];
+    available_transitions: ('proceed' | 'reject')[];
+    can_proceed: boolean;
+    next_stage: ApplicationStageValue | null;
+    can_reject: boolean;
+    can_manage: boolean;
 };

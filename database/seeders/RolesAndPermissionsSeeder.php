@@ -42,6 +42,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::ViewJobs,
                 Permission::ManageJob,
                 Permission::ViewApplications,
+                Permission::ManageApplications,
                 Permission::ViewCandidates,
             ],
             Role::Admin->value => [
@@ -50,6 +51,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::ViewJobs,
                 Permission::ManageJob,
                 Permission::ViewApplications,
+                Permission::ManageApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,
             ],
@@ -59,6 +61,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::ViewJobs,
                 Permission::ManageJob,
                 Permission::ViewApplications,
+                Permission::ManageApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,
             ],

@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property ApplicationStage $stage
+ * @property Availability|null $availability
  * @property Carbon $submitted_at
  */
 class Application extends Model

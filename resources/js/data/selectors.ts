@@ -503,6 +503,7 @@ export function getApplicationStageCounts(): Record<ApplicationStage, number> {
         Shortlisted: 0,
         Interviewed: 0,
         Hired: 0,
+        Rejected: 0,
     };
 
     for (const application of applications) {

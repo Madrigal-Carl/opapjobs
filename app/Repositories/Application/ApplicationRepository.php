@@ -4,6 +4,7 @@ namespace App\Repositories\Application;
 
 use App\Enums\ApplicationSort;
 use App\Enums\ApplicationStage;
+use App\Models\ApplicantDocument;
 use App\Models\Application;
 use App\Models\User;
 use App\Support\ApplicationIndexFilters;
@@ -14,6 +15,44 @@ use Illuminate\Support\Facades\DB;
 
 class ApplicationRepository
 {
+    public function findVisibleOrFail(User $user, int $id): Application
+    {
+        return Application::query()->visibleTo($user)->with($this->detailRelations())->findOrFail($id);
+    }
+
+    public function findVisibleForUpdate(User $user, int $id): Application
+    {
+        return Application::query()->visibleTo($user)->lockForUpdate()->findOrFail($id);
+    }
+
+    public function findVisibleDocument(Application $application, int $documentId): ?ApplicantDocument
+    {
+        return $application->applicant->documents
+            ->first(fn (ApplicantDocument $document): bool => $document->id === $documentId
+                && $document->uploaded_at->lessThanOrEqualTo($application->submitted_at));
+    }
+
+    /** @return array<int|string, mixed> */
+    private function detailRelations(): array
+    {
+        return [
+            'applicant.applicantProfile',
+            'applicant.experiences' => fn ($query) => $query->orderBy('sort_order'),
+            'applicant.education' => fn ($query) => $query->orderBy('sort_order'),
+            'applicant.certifications' => fn ($query) => $query->orderBy('sort_order'),
+            'applicant.skills' => fn ($query) => $query->orderBy('sort_order'),
+            'applicant.documents' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('uploaded_at')->orderBy('id'),
+            'jobPost.employer',
+            'jobPost.agency',
+            'jobPost.subcategory.category',
+            'jobPost.languages',
+            'jobPost.questions' => fn ($query) => $query->withTrashed()->orderBy('sort_order'),
+            'answers.question',
+            'stageHistory' => fn ($query) => $query->orderBy('created_at')->orderBy('id'),
+            'stageHistory.changedBy:id,name',
+        ];
+    }
+
     /** @return LengthAwarePaginator<int, Application> */
     public function paginateForUser(User $user, ApplicationIndexFilters $filters): LengthAwarePaginator
     {

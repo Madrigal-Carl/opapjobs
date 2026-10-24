@@ -6,6 +6,10 @@ use App\Enums\ApplicationStage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property ApplicationStage|null $from_stage
+ * @property ApplicationStage $to_stage
+ */
 class ApplicationStageHistory extends Model
 {
     public const UPDATED_AT = null;

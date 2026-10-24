@@ -7,6 +7,10 @@ use App\Enums\Pathway;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property Availability|null $availability
+ * @property Pathway|null $preferred_pathway
+ */
 class ApplicantProfile extends Model
 {
     public $incrementing = false;

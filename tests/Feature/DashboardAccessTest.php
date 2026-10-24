@@ -3,6 +3,8 @@
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Agency;
+use App\Models\Application;
+use App\Models\JobPost;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Permission as PermissionModel;
@@ -135,12 +137,16 @@ test('the superadmin gate still grants job management without an assigned permis
 });
 
 test('staff can open an application detail page', function (string $role) {
-    $this->actingAs(User::factory()->{$role}()->create())
-        ->get(route('dashboard.applications.show', 1))
+    $agency = Agency::factory()->create();
+    $user = User::factory()->{$role}()->forAgency($agency)->create();
+    $application = Application::factory()->for(JobPost::factory()->forPoster($user))->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard.applications.show', $application))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('dashboard/applications/show')
-            ->where('applicationId', '1')
+            ->where('application.id', $application->id)
         );
 })->with(['agency', 'admin', 'superadmin']);
 

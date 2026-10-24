@@ -4,7 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property Carbon|null $issued_on
+ * @property Carbon|null $expires_on
+ */
 class ApplicantCertification extends Model
 {
     protected $fillable = [
