@@ -1,21 +1,32 @@
 import { Head } from '@inertiajs/react';
 import {
-    Pencil,
-    Search,
+    BriefcaseBusiness,
+    MoreHorizontal,
     SearchX,
-    ShieldAlert,
-    Users,
+    UserCheck,
     UserRoundPlus,
+    Users,
+    UserX,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AccountStatusBadge } from '@/components/dashboard/badges';
 import { DashboardEmptyState } from '@/components/dashboard/empty-state';
-import { DashboardPageHeader } from '@/components/dashboard/page-header';
-import { SummaryStat } from '@/components/dashboard/summary-stat';
+import { KpiCard, KpiGrid } from '@/components/dashboard/kpi-card';
+import { DashboardPage } from '@/components/dashboard/page';
+import { PageHeader } from '@/components/dashboard/page-header';
+import { StaffFormDialog } from '@/components/dashboard/accounts/staff-form-dialog';
+import { StaffViewDialog } from '@/components/dashboard/accounts/staff-view-dialog';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import {
+    DataTable,
+    DataTableField,
+    DataTableRefreshButton,
+    DataTableSearch,
+    DataTableSelect,
+    DataTableToolbar,
+    type Column,
+} from '@/components/dashboard/data-table';
 import {
     Dialog,
     DialogContent,
@@ -24,170 +35,254 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Pagination } from '@/components/pagination';
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Switch } from '@/components/ui/switch';
 import { paginate, ACCOUNTS_PER_PAGE } from '@/data/selectors';
-import { accounts } from '@/data/accounts';
+import { accounts as initialAccounts } from '@/data/accounts';
 import { accounts as accountsRoute } from '@/routes/dashboard';
-import type { Account } from '@/types/account';
-import { DashboardPage } from '@/components/dashboard/page';
+import type { Account, AccountStatus } from '@/types/account';
+
+const DEFAULT_PAGE = 1;
+
+const postedDate = new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+});
+
+const statusOptions = [
+    { value: 'all', label: 'All status' },
+    { value: 'Active', label: 'Active' },
+    { value: 'Suspended', label: 'Suspended' },
+];
+
+const accountColumns: Column<Account>[] = [
+    {
+        key: 'staff',
+        header: 'Staff member',
+        width: '40%',
+        cell: (account) => (
+            <div className="min-w-0">
+                <span
+                    className="block max-w-[22rem] truncate font-bold text-[var(--navy-deep)]"
+                    title={account.fullName}
+                >
+                    {account.fullName}
+                </span>
+                <span
+                    className="block max-w-[22rem] truncate text-xs text-[var(--slate)]"
+                    title={account.email}
+                >
+                    {account.email}
+                </span>
+            </div>
+        ),
+    },
+    {
+        key: 'employeeId',
+        header: 'Employee ID',
+        width: '20%',
+        cell: (account) => (
+            <span className="text-[var(--navy-deep)]">
+                {account.employeeId}
+            </span>
+        ),
+    },
+    {
+        key: 'jobsCreated',
+        header: 'Jobs created',
+        width: '18%',
+        align: 'center',
+        className: 'text-center',
+        cell: (account) => (
+            <span className="tabular-nums">{account.jobsCreated}</span>
+        ),
+    },
+    {
+        key: 'status',
+        header: 'Status',
+        width: '22%',
+        align: 'center',
+        className: 'text-center',
+        cell: (account) => (
+            <div className="flex items-center justify-center gap-2">
+                <AccountStatusBadge status={account.status} />
+            </div>
+        ),
+    },
+];
+
+function AccountRowMenu({
+    account,
+    onView,
+    onEdit,
+}: {
+    account: Account;
+    onView: (account: Account) => void;
+    onEdit: (account: Account) => void;
+}) {
+    const trigger = useRef<HTMLButtonElement>(null);
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    ref={trigger}
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Actions for ${account.fullName}`}
+                    data-testid={`button-staff-actions-${account.id}`}
+                >
+                    <MoreHorizontal className="size-4" aria-hidden="true" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    trigger.current?.focus();
+                }}
+            >
+                <DropdownMenuItem onSelect={() => onView(account)}>
+                    View
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onEdit(account)}>
+                    Edit
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
 
 export default function DashboardAccounts() {
-    const [staff, setStaff] = useState<Account[]>(accounts);
+    const [staff, setStaff] = useState<Account[]>(initialAccounts);
     const [keyword, setKeyword] = useState('');
+    const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>(
+        'all',
+    );
     const [page, setPage] = useState(1);
     const [formOpen, setFormOpen] = useState(false);
+    const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
+    const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+    const [viewOpen, setViewOpen] = useState(false);
+    const [viewingAccount, setViewingAccount] = useState<Account | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [pendingStatusId, setPendingStatusId] = useState<string | null>(null);
-    const [form, setForm] = useState({ fullName: '', email: '' });
-    const [error, setError] = useState('');
+    const [pendingStatusAccount, setPendingStatusAccount] =
+        useState<Account | null>(null);
+    const [targetStatus, setTargetStatus] =
+        useState<AccountStatus>('Suspended');
 
-    useEffect(() => {
-        setPage(1);
-    }, [keyword]);
+    const isFiltered = Boolean(keyword.trim()) || statusFilter !== 'all';
 
-    const query = keyword.trim().toLowerCase();
-    const matches = staff.filter((account) => {
-        if (!query) {
-            return true;
-        }
+    const filtered = useMemo(() => {
+        const query = keyword.trim().toLowerCase();
 
-        return [account.fullName, account.email].some((value) =>
-            value.toLowerCase().includes(query),
-        );
-    });
+        return staff.filter((account) => {
+            if (statusFilter !== 'all' && account.status !== statusFilter) {
+                return false;
+            }
 
-    const results = paginate(matches, page, ACCOUNTS_PER_PAGE);
+            if (!query) {
+                return true;
+            }
+
+            return [account.fullName, account.email].some((value) =>
+                value.toLowerCase().includes(query),
+            );
+        });
+    }, [keyword, staff, statusFilter]);
+
+    const results = useMemo(
+        () => paginate(filtered, page, ACCOUNTS_PER_PAGE),
+        [filtered, page],
+    );
 
     const activeCount = staff.filter(
         (account) => account.status === 'Active',
     ).length;
-    const isFiltered = query !== '';
+    const suspendedCount = staff.length - activeCount;
+    const jobsCreatedTotal = staff.reduce(
+        (sum, account) => sum + account.jobsCreated,
+        0,
+    );
 
     const resetFilters = () => {
         setKeyword('');
+        setStatusFilter('all');
         setPage(1);
     };
 
     const beginAdd = () => {
-        setEditingId(null);
-        setForm({ fullName: '', email: '' });
-        setError('');
+        setFormMode('add');
+        setEditingAccount(null);
         setFormOpen(true);
     };
 
     const beginEdit = (account: Account) => {
-        setEditingId(account.id);
-        setForm({ fullName: account.fullName, email: account.email });
-        setError('');
+        setFormMode('edit');
+        setEditingAccount(account);
         setFormOpen(true);
     };
 
-    const closeForm = () => {
-        setFormOpen(false);
-        setEditingId(null);
-        setError('');
+    const beginView = (account: Account) => {
+        setViewingAccount(account);
+        setViewOpen(true);
     };
 
-    const submitForm = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-
-        const fullName = form.fullName.trim();
-        const email = form.email.trim().toLowerCase();
-
-        if (
-            staff.some(
-                (account) =>
-                    account.email.toLowerCase() === email &&
-                    account.id !== editingId,
-            )
-        ) {
-            setError('A staff account with this email already exists.');
+    const handleStatusToggle = (account: Account, checked: boolean) => {
+        if (checked) {
+            setStaff((current) =>
+                current.map((item) =>
+                    item.id === account.id
+                        ? { ...item, status: 'Active' }
+                        : item,
+                ),
+            );
+            toast.success(`${account.fullName}'s account is now active.`);
             return;
         }
 
-        if (editingId) {
-            setStaff((current) =>
-                current.map((account) =>
-                    account.id === editingId
-                        ? { ...account, fullName, email }
-                        : account,
-                ),
-            );
-            toast.success('Staff account updated.');
-        } else {
-            setStaff((current) => [
-                {
-                    id: `staff-${Date.now()}`,
-                    fullName,
-                    email,
-                    status: 'Active',
-                    jobsCreated: 0,
-                },
-                ...current,
-            ]);
-            toast.success('Staff account added.');
-        }
-
-        closeForm();
-    };
-
-    const beginStatusChange = (account: Account) => {
-        setPendingStatusId(account.id);
+        setPendingStatusAccount(account);
+        setTargetStatus('Suspended');
         setConfirmOpen(true);
     };
 
     const confirmStatusChange = () => {
-        const id = pendingStatusId;
+        const account = pendingStatusAccount;
+
+        if (!account) {
+            setConfirmOpen(false);
+            return;
+        }
+
+        const newStatus = targetStatus;
 
         setStaff((current) =>
-            current.map((account) =>
-                account.id === id
-                    ? {
-                          ...account,
-                          status:
-                              account.status === 'Active'
-                                  ? 'Suspended'
-                                  : 'Active',
-                      }
-                    : account,
+            current.map((item) =>
+                item.id === account.id ? { ...item, status: newStatus } : item,
             ),
         );
 
-        const changed = staff.find((account) => account.id === id);
-
-        if (changed) {
-            toast.success(
-                `${changed.fullName}'s account is now ${
-                    changed.status === 'Active' ? 'suspended' : 'active'
-                }.`,
-            );
+        if (newStatus === 'Suspended') {
+            toast.success(`${account.fullName}'s account is now suspended.`);
+        } else {
+            toast.success(`${account.fullName}'s account is now active.`);
         }
 
         setConfirmOpen(false);
-        setPendingStatusId(null);
+        setPendingStatusAccount(null);
     };
-
-    const pendingAccount = staff.find(
-        (account) => account.id === pendingStatusId,
-    );
 
     return (
         <>
             <Head title="Accounts" />
-
-            <DashboardPage>
-                <DashboardPageHeader
+            <DashboardPage className="md:px-8">
+                <PageHeader
                     title="Accounts"
                     subtitle="Add staff members, update their details, and manage account status."
                     actions={
@@ -200,273 +295,181 @@ export default function DashboardAccounts() {
                         </Button>
                     }
                 />
-
-                <div
-                    className="flex flex-wrap gap-2"
-                    aria-label="Account totals"
-                >
-                    <SummaryStat label="accounts" value={staff.length} />
-                    <SummaryStat label="active" value={activeCount} />
-                    <SummaryStat
-                        label="suspended"
-                        value={staff.length - activeCount}
+                <KpiGrid>
+                    <KpiCard
+                        label="Total Staff"
+                        value={staff.length}
+                        caption="All staff accounts"
+                        icon={Users}
+                        tone="blue"
                     />
-                </div>
-
-                <p
-                    className="rounded-lg border border-[var(--line)] bg-white px-4 py-3 text-sm text-[var(--slate)]"
-                    role="note"
-                >
-                    Staff account records are sample data stored in the
-                    workspace. Login access and invitation emails are not
-                    enabled yet.
-                </p>
-
-                <Card>
-                    <CardContent className="flex flex-col gap-4 pt-6">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative w-full sm:w-64">
-                                <Search
-                                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                                    aria-hidden="true"
-                                />
-                                <Input
-                                    type="search"
+                    <KpiCard
+                        label="Active"
+                        value={activeCount}
+                        caption="Can sign in to the workspace"
+                        icon={UserCheck}
+                        tone="emerald"
+                    />
+                    <KpiCard
+                        label="Suspended"
+                        value={suspendedCount}
+                        caption="Access temporarily disabled"
+                        icon={UserX}
+                        tone="red"
+                    />
+                    <KpiCard
+                        label="Jobs Created"
+                        value={jobsCreatedTotal}
+                        caption="Posted by all staff"
+                        icon={BriefcaseBusiness}
+                        tone="violet"
+                    />
+                </KpiGrid>
+                <DataTable<Account>
+                    columns={accountColumns}
+                    data={results.items}
+                    getRowId={(account) => account.id}
+                    getRowTestId={(account) => `row-staff-${account.id}`}
+                    getRowAccent={(account) =>
+                        account.status === 'Active' ? 'amber' : 'red'
+                    }
+                    renderRowActions={(account) => (
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                checked={account.status === 'Active'}
+                                aria-label={
+                                    account.status === 'Active'
+                                        ? `Suspend ${account.fullName}`
+                                        : `Reactivate ${account.fullName}`
+                                }
+                                data-testid={`toggle-staff-status-${account.id}`}
+                                onCheckedChange={(checked) =>
+                                    handleStatusToggle(account, checked)
+                                }
+                            />
+                            <AccountRowMenu
+                                account={account}
+                                onView={beginView}
+                                onEdit={beginEdit}
+                            />
+                        </div>
+                    )}
+                    toolbar={
+                        <DataTableToolbar data-testid="accounts-table-toolbar">
+                            <DataTableField
+                                label="Search"
+                                htmlFor="filter-search-accounts"
+                                className="basis-full sm:min-w-64 sm:flex-1 sm:basis-auto"
+                            >
+                                <DataTableSearch
+                                    id="filter-search-accounts"
                                     value={keyword}
-                                    onChange={(event) =>
-                                        setKeyword(event.target.value)
-                                    }
-                                    placeholder="Search staff"
-                                    aria-label="Search staff accounts"
-                                    className="h-9 pl-9 text-sm"
+                                    onChange={(value) => {
+                                        setKeyword(value);
+                                        setPage(1);
+                                    }}
+                                    placeholder="Search by name or email"
+                                    className="w-full"
                                     data-testid="input-search-accounts"
                                 />
-                            </div>
-                        </div>
-
-                        {results.items.length ? (
-                            <Table data-testid="table-accounts">
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Staff member</TableHead>
-                                        <TableHead>Work email</TableHead>
-                                        <TableHead className="text-right">
-                                            Jobs created
-                                        </TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">
-                                            Actions
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {results.items.map((account) => (
-                                        <TableRow
-                                            key={account.id}
-                                            data-testid={`row-staff-${account.id}`}
-                                        >
-                                            <TableCell>
-                                                <span className="font-semibold text-[var(--navy)]">
-                                                    {account.fullName}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span
-                                                    className="block max-w-64 truncate"
-                                                    title={account.email}
-                                                >
-                                                    {account.email}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <span
-                                                    className="tabular-nums"
-                                                    aria-label={`${account.jobsCreated} ${
-                                                        account.jobsCreated ===
-                                                        1
-                                                            ? 'job'
-                                                            : 'jobs'
-                                                    } created`}
-                                                >
-                                                    {account.jobsCreated}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <AccountStatusBadge
-                                                    status={account.status}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-wrap justify-end gap-2">
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            beginEdit(account)
-                                                        }
-                                                        aria-label={`Edit ${account.fullName}`}
-                                                        data-testid={`button-edit-staff-${account.id}`}
-                                                    >
-                                                        <Pencil aria-hidden="true" />
-                                                        Edit
-                                                    </Button>
-                                                    <Button
-                                                        variant={
-                                                            account.status ===
-                                                            'Active'
-                                                                ? 'destructive'
-                                                                : 'secondary'
-                                                        }
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            beginStatusChange(
-                                                                account,
-                                                            )
-                                                        }
-                                                        aria-label={
-                                                            account.status ===
-                                                            'Active'
-                                                                ? `Suspend ${account.fullName}`
-                                                                : `Reactivate ${account.fullName}`
-                                                        }
-                                                        data-testid={`button-toggle-staff-${account.id}`}
-                                                    >
-                                                        <ShieldAlert aria-hidden="true" />
-                                                        {account.status ===
-                                                        'Active'
-                                                            ? 'Suspend'
-                                                            : 'Reactivate'}
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        ) : (
-                            <DashboardEmptyState
-                                icon={isFiltered ? SearchX : Users}
-                                title="No staff accounts found"
-                                message={
-                                    isFiltered
-                                        ? 'No accounts match your search.'
-                                        : 'No staff accounts yet. Add a staff member to get started.'
-                                }
-                                onReset={isFiltered ? resetFilters : undefined}
+                            </DataTableField>
+                            <DataTableField
+                                label="Status"
+                                htmlFor="filter-status-accounts"
+                            >
+                                <DataTableSelect<AccountStatus | 'all'>
+                                    id="filter-status-accounts"
+                                    value={statusFilter}
+                                    onValueChange={(value) => {
+                                        setStatusFilter(value);
+                                        setPage(1);
+                                    }}
+                                    options={statusOptions}
+                                    ariaLabel="Filter by status"
+                                    data-testid="select-staff-status-filter"
+                                />
+                            </DataTableField>
+                            <DataTableRefreshButton
+                                onClick={resetFilters}
+                                data-testid="button-refresh-accounts"
                             />
-                        )}
-
-                        <Pagination
-                            page={results.page}
-                            totalPages={results.totalPages}
-                            label="Staff accounts pagination"
-                            testIdPrefix="accounts-pagination"
-                            onPageChange={setPage}
+                        </DataTableToolbar>
+                    }
+                    pagination={{
+                        page: results.page,
+                        totalPages: results.totalPages,
+                        onPageChange: setPage,
+                        alwaysShow: true,
+                        label: 'Staff accounts pagination',
+                        testIdPrefix: 'accounts-pagination',
+                    }}
+                    emptyState={
+                        <DashboardEmptyState
+                            icon={isFiltered ? SearchX : Users}
+                            title={
+                                isFiltered
+                                    ? 'No staff accounts found'
+                                    : 'No staff accounts yet'
+                            }
+                            message={
+                                isFiltered
+                                    ? 'No accounts match your search.'
+                                    : 'Add a staff member to get started.'
+                            }
+                            onReset={isFiltered ? resetFilters : undefined}
                         />
-                    </CardContent>
-                </Card>
+                    }
+                    data-testid="table-accounts"
+                />
             </DashboardPage>
 
-            <Dialog open={formOpen} onOpenChange={setFormOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingId
-                                ? 'Edit staff account'
-                                : 'Add a staff account'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Update the staff member&apos;s details. Changes are
-                            sample data only and stay in this workspace.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form
-                        onSubmit={submitForm}
-                        className="flex flex-col gap-4"
-                        data-testid="form-staff-account"
-                    >
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="staff-full-name">Full name</Label>
-                            <Input
-                                id="staff-full-name"
-                                required
-                                value={form.fullName}
-                                onChange={(event) => {
-                                    setForm({
-                                        ...form,
-                                        fullName: event.target.value,
-                                    });
-                                    setError('');
-                                }}
-                                data-testid="input-staff-name"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5">
-                            <Label htmlFor="staff-email">Work email</Label>
-                            <Input
-                                id="staff-email"
-                                type="email"
-                                required
-                                value={form.email}
-                                onChange={(event) => {
-                                    setForm({
-                                        ...form,
-                                        email: event.target.value,
-                                    });
-                                    setError('');
-                                }}
-                                data-testid="input-staff-email"
-                            />
-                        </div>
-                        {error && (
-                            <p
-                                className="text-sm font-medium text-destructive"
-                                role="alert"
-                            >
-                                {error}
-                            </p>
-                        )}
-                        <DialogFooter>
-                            <Button
-                                variant="secondary"
-                                type="button"
-                                onClick={closeForm}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                type="submit"
-                                data-testid="button-save-staff"
-                            >
-                                {editingId
-                                    ? 'Save changes'
-                                    : 'Add staff account'}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <StaffFormDialog
+                open={formOpen}
+                mode={formMode}
+                account={editingAccount}
+                staff={staff}
+                onOpenChange={setFormOpen}
+                onAdd={(account) => {
+                    setStaff((current) => [account, ...current]);
+                }}
+                onEdit={(account) => {
+                    setStaff((current) =>
+                        current.map((item) =>
+                            item.id === account.id ? account : item,
+                        ),
+                    );
+                }}
+            />
+
+            <StaffViewDialog
+                open={viewOpen}
+                account={viewingAccount}
+                onOpenChange={setViewOpen}
+                onEdit={(account) => {
+                    setViewOpen(false);
+                    beginEdit(account);
+                }}
+            />
 
             <Dialog
                 open={confirmOpen}
                 onOpenChange={(open) => {
                     setConfirmOpen(open);
                     if (!open) {
-                        setPendingStatusId(null);
+                        setPendingStatusAccount(null);
                     }
                 }}
             >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>
-                            {pendingAccount?.status === 'Active'
-                                ? `Suspend ${pendingAccount?.fullName}?`
-                                : `Reactivate ${pendingAccount?.fullName}?`}
+                            {pendingStatusAccount
+                                ? `Suspend ${pendingStatusAccount.fullName}?`
+                                : 'Suspend staff account?'}
                         </DialogTitle>
                         <DialogDescription>
-                            {pendingAccount?.status === 'Active'
-                                ? 'The staff member will lose access to this workspace until the account is reactivated.'
-                                : 'The staff member will regain access to this workspace.'}
+                            The staff member will lose access to this workspace
+                            until the account is reactivated.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
@@ -474,23 +477,17 @@ export default function DashboardAccounts() {
                             variant="secondary"
                             onClick={() => {
                                 setConfirmOpen(false);
-                                setPendingStatusId(null);
+                                setPendingStatusAccount(null);
                             }}
                         >
                             Cancel
                         </Button>
                         <Button
-                            variant={
-                                pendingAccount?.status === 'Active'
-                                    ? 'destructive'
-                                    : 'primary'
-                            }
+                            variant="destructive"
                             onClick={confirmStatusChange}
                             data-testid="button-confirm-status-change"
                         >
-                            {pendingAccount?.status === 'Active'
-                                ? 'Suspend account'
-                                : 'Reactivate account'}
+                            Suspend account
                         </Button>
                     </DialogFooter>
                 </DialogContent>
