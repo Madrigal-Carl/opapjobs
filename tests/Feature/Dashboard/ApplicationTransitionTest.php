@@ -43,8 +43,8 @@ test('proceeding walks the whole pipeline and records history and audit entries'
 
     $audit = AuditLog::query()->where('subject_id', $application->id)->where('action', 'application.stage_changed')->orderBy('id')->get();
     expect($audit)->toHaveCount(4)
-        ->and($audit->first()->changes)->toBe(['from' => 'pending', 'to' => 'reviewed'])
-        ->and($audit->last()->changes)->toBe(['from' => 'interviewed', 'to' => 'hired'])
+        ->and($audit->first()->changes)->toEqual(['from' => 'pending', 'to' => 'reviewed'])
+        ->and($audit->last()->changes)->toEqual(['from' => 'interviewed', 'to' => 'hired'])
         ->and($audit->every(fn (AuditLog $log): bool => $log->actor_user_id === $this->poster->id
             && $log->subject_type === Application::class
             && $log->ip_address === '127.0.0.1'))->toBeTrue();
