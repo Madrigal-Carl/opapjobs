@@ -20,8 +20,8 @@ export type Account = {
     phone?: string | null;
     employeeId: string;
     jobTitle?: string | null;
-    department?: AccountDepartment | string | null;
-    staffRole?: AccountStaffRole | string | null;
+    department?: AccountDepartment | null;
+    staffRole?: AccountStaffRole | null;
     dateHired?: string | null;
     notes?: string | null;
     status: AccountStatus;

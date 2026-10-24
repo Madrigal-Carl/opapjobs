@@ -47,14 +47,6 @@ import { accounts as initialAccounts } from '@/data/accounts';
 import { accounts as accountsRoute } from '@/routes/dashboard';
 import type { Account, AccountStatus } from '@/types/account';
 
-const DEFAULT_PAGE = 1;
-
-const postedDate = new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-});
-
 const statusOptions = [
     { value: 'all', label: 'All status' },
     { value: 'Active', label: 'Active' },
