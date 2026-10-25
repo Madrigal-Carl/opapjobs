@@ -107,6 +107,53 @@ test('screening answers keep answered questions that were later deleted', functi
         ->where('application.questions.0.answer', 'Kept'));
 });
 
+test('application details include stored job requirements and document context without private paths', function () {
+    Storage::fake('local');
+    [$poster, $post, $applicant] = applicationDetailContext();
+    $post->update([
+        'salary_currency' => 'SAR', 'job_order_number' => 'JO-2026-0100',
+        'gender_requirement' => 'any', 'required_documents' => ['Valid passport', 'Trade certificate'],
+        'application_instructions' => 'Bring original certificates to the interview.',
+        'contact_person_name' => 'Hiring coordinator', 'contact_email' => 'hiring@example.test',
+        'contact_phone' => '+63 917 555 0200', 'is_urgent' => true,
+    ]);
+    $certificate = $applicant->certifications()->create([
+        'certification_name' => 'Welding NC II', 'issuing_organization' => 'TESDA',
+        'credential_url' => 'https://example.test/credentials/welding', 'sort_order' => 0,
+    ]);
+    $resume = ApplicantDocument::create([
+        'applicant_user_id' => $applicant->id, 'document_type' => 'resume',
+        'original_file_name' => 'Submitted CV.pdf', 'storage_path' => 'private/selected-cv.pdf',
+        'mime_type' => 'application/pdf', 'file_size_bytes' => 2048,
+        'is_primary' => false, 'uploaded_at' => '2026-09-30 08:00:00',
+    ]);
+    $application = Application::factory()->for($post)->for($applicant, 'applicant')->create([
+        'submitted_at' => '2026-10-01 09:30:00', 'resume_document_id' => $resume->id,
+        'expected_monthly_salary' => '0.00',
+    ]);
+
+    $this->actingAs($poster)->get(route('dashboard.applications.show', $application))
+        ->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('application.expected_monthly_salary', '0.00')
+        ->where('application.job.salary_currency', 'SAR')
+        ->where('application.job.job_order_number', 'JO-2026-0100')
+        ->where('application.job.gender_requirement', 'any')
+        ->where('application.job.required_documents', ['Valid passport', 'Trade certificate'])
+        ->where('application.job.application_instructions', 'Bring original certificates to the interview.')
+        ->where('application.job.contact_person_name', 'Hiring coordinator')
+        ->where('application.job.contact_email', 'hiring@example.test')
+        ->where('application.job.contact_phone', '+63 917 555 0200')
+        ->where('application.job.status', 'active')
+        ->where('application.job.is_urgent', true)
+        ->where('application.certifications.0.id', $certificate->id)
+        ->where('application.certifications.0.credential_url', 'https://example.test/credentials/welding')
+        ->where('application.resume_document_id', $resume->id)
+        ->where('application.documents.0.document_type', 'resume')
+        ->missing('application.documents.0.storage_path')
+        ->missing('application.applicant.default_cover_letter')
+        ->missing('application.applicant.avatar_path'));
+});
+
 test('documents are limited to files uploaded before submission and only link files that exist', function () {
     Storage::fake('local');
     Storage::disk('local')->put('resumes/cv.pdf', 'resume contents');

@@ -80,18 +80,28 @@ export type DashboardApplicationDetail = {
         pathway: Pathway | null;
         location: string | null;
         salary: string;
+        salary_currency: string | null;
         category: string | null;
         sub_category: string | null;
         posting_type: 'joborder' | 'manpooling' | null;
+        job_order_number: string | null;
         contract_type: 'permanent' | 'fixed' | 'seasonal' | null;
         vacancies: number;
         education: 'secondary' | 'vocational' | 'bachelor' | 'master' | null;
+        gender_requirement: 'any' | 'male' | 'female' | null;
         min_experience_years: number | null;
         max_experience_years: number | null;
         closing_date: string | null;
         posted_at: string | null;
         other_requirements: string | null;
         job_description: string | null;
+        required_documents: string[];
+        application_instructions: string | null;
+        contact_person_name: string | null;
+        contact_email: string | null;
+        contact_phone: string | null;
+        status: 'active' | 'expired' | 'closed' | 'archived';
+        is_urgent: boolean;
         languages: { language: string; proficiency: string }[];
     };
     questions: {
@@ -130,6 +140,7 @@ export type DashboardApplicationDetail = {
     documents: {
         id: number;
         name: string;
+        document_type: 'resume' | 'certificate' | 'passport' | 'other';
         uploaded_at: string | null;
         size: string;
         url: string | null;

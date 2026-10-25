@@ -4,6 +4,7 @@ namespace App\Services\Account;
 
 use App\Data\Account\StoreAccountData;
 use App\Data\Account\UpdateAccountData;
+use App\Enums\DataScope;
 use App\Enums\Role;
 use App\Events\StaffAccountCreated;
 use App\Exceptions\Account\AccountLimitReachedException;
@@ -14,6 +15,7 @@ use App\Models\User;
 use App\Repositories\Account\AccountRepository;
 use App\Repositories\AuditLogRepository;
 use App\Support\AccountIndexFilters;
+use App\Support\DataScopeResolver;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -161,6 +163,22 @@ class AccountService
         }
 
         return $user->load('staffProfile');
+    }
+
+    public function archive(User $actor, int $userId, string $ipAddress): User
+    {
+        if (DataScopeResolver::for($actor) !== DataScope::Agency) {
+            throw new AgencyRequiredException;
+        }
+
+        $agency = $this->accounts->lockAgency((int) $actor->agency_id);
+        $user = $this->accounts->findVisibleForUpdate($agency->id, $userId);
+
+        $user->delete();
+        $this->accounts->deleteSessionsFor($user->id);
+        $this->auditLogs->log($actor, 'account.archived', $user, [], $ipAddress);
+
+        return $user;
     }
 
     private function nullable(?string $value): ?string

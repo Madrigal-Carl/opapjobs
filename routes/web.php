@@ -119,6 +119,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ManageAccounts->value)
                 ->name('dashboard.accounts.status');
 
+            Route::patch('accounts/{account}/archive', [AccountController::class, 'archive'])
+                ->whereNumber('account')
+                ->middleware('can:'.Permission::ManageAccounts->value)
+                ->name('dashboard.accounts.archive');
+
             /**
              * Super Admin console. Every screen is gated on the one
              * superadmin-only capability (docs §2.3); the pages themselves

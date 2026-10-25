@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property RecruitmentType $recruitment_type
  * @property ContractType $contract_type
  * @property EducationLevel $education_level
+ * @property GenderRequirement $gender_requirement
  * @property Currency|null $salary_currency
  * @property Carbon|null $closing_date
  * @property string|null $other_requirements

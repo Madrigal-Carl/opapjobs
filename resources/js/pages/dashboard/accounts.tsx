@@ -1,8 +1,11 @@
 import { Head, router } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
+    Eye,
     MoreHorizontal,
+    Pencil,
     SearchX,
+    Trash2,
     UserCheck,
     UserRoundPlus,
     Users,
@@ -38,12 +41,16 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { useServerTable } from '@/hooks/use-server-table';
 import { accounts as accountsRoute } from '@/routes/dashboard';
-import { status as accountStatusRoute } from '@/routes/dashboard/accounts';
+import {
+    archive as archiveAccountRoute,
+    status as accountStatusRoute,
+} from '@/routes/dashboard/accounts';
 import type { Account, AccountRow } from '@/types/account';
 import type { Paginated } from '@/types/pagination';
 
@@ -140,11 +147,13 @@ function AccountRowMenu({
     canManage,
     onView,
     onEdit,
+    onRemove,
 }: {
     account: Account;
     canManage: boolean;
     onView: (account: Account) => void;
     onEdit: (account: Account) => void;
+    onRemove: (account: Account) => void;
 }) {
     const trigger = useRef<HTMLButtonElement>(null);
 
@@ -173,10 +182,21 @@ function AccountRowMenu({
                 }}
             >
                 <DropdownMenuItem onSelect={() => onView(account)}>
+                    <Eye className="size-4" aria-hidden="true" />
                     View
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onEdit(account)}>
+                    <Pencil className="size-4" aria-hidden="true" />
                     Edit
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={() => onRemove(account)}
+                    data-testid={`button-remove-staff-${account.id}`}
+                >
+                    <Trash2 aria-hidden="true" />
+                    Remove
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
@@ -224,6 +244,10 @@ export default function DashboardAccounts({
     const [pendingStatusAccount, setPendingStatusAccount] =
         useState<Account | null>(null);
     const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
+    const [accountToRemove, setAccountToRemove] = useState<Account | null>(
+        null,
+    );
+    const [removing, setRemoving] = useState(false);
 
     const isFiltered =
         Boolean((table.values.q ?? '').trim()) ||
@@ -287,6 +311,23 @@ export default function DashboardAccounts({
                     setConfirmOpen(false);
                     setPendingStatusAccount(null);
                 },
+            },
+        );
+    };
+
+    const confirmRemove = () => {
+        if (!accountToRemove || removing || !canManageAccounts) {
+            return;
+        }
+
+        setRemoving(true);
+        router.patch(
+            archiveAccountRoute(accountToRemove.id).url,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => setAccountToRemove(null),
+                onFinish: () => setRemoving(false),
             },
         );
     };
@@ -387,6 +428,7 @@ export default function DashboardAccounts({
                                 canManage={canManageAccounts}
                                 onView={beginView}
                                 onEdit={beginEdit}
+                                onRemove={setAccountToRemove}
                             />
                         </div>
                     )}
@@ -499,6 +541,45 @@ export default function DashboardAccounts({
                             onClick={confirmStatusChange}
                         >
                             Suspend
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={accountToRemove !== null}
+                onOpenChange={(open) => {
+                    if (!open && !removing) {
+                        setAccountToRemove(null);
+                    }
+                }}
+            >
+                <DialogContent data-testid="dialog-remove-staff">
+                    <DialogHeader>
+                        <DialogTitle>Remove staff account</DialogTitle>
+                        <DialogDescription>
+                            This will archive{' '}
+                            <span className="font-medium wrap-anywhere text-[var(--navy-deep)]">
+                                {accountToRemove?.fullName}
+                            </span>
+                            , sign them out, and free their staff seat. Their
+                            job posts and application history will be kept.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="secondary"
+                            onClick={() => setAccountToRemove(null)}
+                            disabled={removing}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmRemove}
+                            loading={removing}
+                            data-testid="button-confirm-remove-staff"
+                        >
+                            Remove account
                         </Button>
                     </DialogFooter>
                 </DialogContent>

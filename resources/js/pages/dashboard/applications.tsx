@@ -1,5 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
 import {
+    ArrowRight,
+    CircleX,
+    Eye,
     FileSearch,
     MoreHorizontal,
     SearchX,
@@ -158,6 +161,7 @@ function ApplicationRowMenu({
                             href={showApplication(row.id)}
                             data-testid={`button-view-application-${row.id}`}
                         >
+                            <Eye className="size-4" aria-hidden="true" />
                             View application
                         </Link>
                     </DropdownMenuItem>
@@ -167,6 +171,7 @@ function ApplicationRowMenu({
                             onSelect={() => proceed()}
                             data-testid={`button-proceed-application-${row.id}`}
                         >
+                            <ArrowRight className="size-4" aria-hidden="true" />
                             Proceed
                             {row.next_stage
                                 ? ` to ${APPLICATION_STAGE_LABELS[row.next_stage]}`
@@ -180,6 +185,7 @@ function ApplicationRowMenu({
                             onSelect={() => setRejectOpen(true)}
                             data-testid={`button-reject-application-${row.id}`}
                         >
+                            <CircleX className="size-4" aria-hidden="true" />
                             Reject application
                         </DropdownMenuItem>
                     )}

@@ -1,11 +1,15 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useRef, useState } from 'react';
 import {
+    Archive,
     BadgeCheck,
     BriefcaseBusiness,
     ClipboardList,
+    CircleX,
     MoreHorizontal,
+    Pencil,
     Plus,
+    RotateCcw,
     SearchX,
     Users,
 } from 'lucide-react';
@@ -210,7 +214,10 @@ function JobPostRowMenu({ post }: { post: JobPostRow }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
-                        <Link href={edit(post.id)}>Update</Link>
+                        <Link href={edit(post.id)}>
+                            <Pencil className="size-4" aria-hidden="true" />
+                            Update
+                        </Link>
                     </DropdownMenuItem>
                     {!isArchived && (
                         <DropdownMenuItem
@@ -223,6 +230,17 @@ function JobPostRowMenu({ post }: { post: JobPostRow }) {
                             }
                             data-testid={`button-toggle-status-${post.id}`}
                         >
+                            {isClosed ? (
+                                <RotateCcw
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <CircleX
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            )}
                             {isClosed ? 'Open' : 'Close'}
                         </DropdownMenuItem>
                     )}
@@ -231,6 +249,7 @@ function JobPostRowMenu({ post }: { post: JobPostRow }) {
                             onSelect={() => setArchiveOpen(true)}
                             data-testid={`button-archive-job-${post.id}`}
                         >
+                            <Archive className="size-4" aria-hidden="true" />
                             Archive
                         </DropdownMenuItem>
                     )}

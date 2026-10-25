@@ -57,18 +57,28 @@ class ApplicationDetailResource extends JsonResource
                 'pathway' => $post->agency?->pathway?->value,
                 'location' => $post->work_location,
                 'salary' => $this->salary(),
+                'salary_currency' => $post->salary_currency?->value,
                 'category' => $post->subcategory?->category?->category_name,
                 'sub_category' => $post->subcategory?->subcategory_name,
                 'posting_type' => $post->recruitment_type->value,
+                'job_order_number' => $post->job_order_number,
                 'contract_type' => $post->contract_type->value,
                 'vacancies' => $post->vacant_positions,
                 'education' => $post->education_level->value,
+                'gender_requirement' => $post->gender_requirement->value,
                 'min_experience_years' => $post->min_experience_years,
                 'max_experience_years' => $post->max_experience_years,
                 'closing_date' => $post->closing_date?->toDateString(),
                 'posted_at' => $post->created_at?->toISOString(),
                 'other_requirements' => $post->other_requirements,
                 'job_description' => $post->job_description,
+                'required_documents' => $post->required_documents ?? [],
+                'application_instructions' => $post->application_instructions,
+                'contact_person_name' => $post->contact_person_name,
+                'contact_email' => $post->contact_email,
+                'contact_phone' => $post->contact_phone,
+                'status' => $post->display_status->value,
+                'is_urgent' => $post->is_urgent,
                 'languages' => $post->languages->map(fn ($language): array => [
                     'language' => Str::headline($language->language->value),
                     'proficiency' => Str::headline($language->proficiency->value),
@@ -161,7 +171,7 @@ class ApplicationDetailResource extends JsonResource
             ])->all());
     }
 
-    /** @return list<array{id: int, name: string, uploaded_at: ?string, size: string, url: ?string, primary: bool}> */
+    /** @return list<array{id: int, name: string, document_type: string, uploaded_at: ?string, size: string, url: ?string, primary: bool}> */
     private function documents(): array
     {
         return array_values($this->applicant->documents
@@ -169,6 +179,7 @@ class ApplicationDetailResource extends JsonResource
             ->map(fn (ApplicantDocument $document): array => [
                 'id' => $document->id,
                 'name' => $document->original_file_name,
+                'document_type' => $document->document_type->value,
                 'uploaded_at' => $document->uploaded_at->toISOString(),
                 'size' => $this->fileSize($document->file_size_bytes),
                 'url' => Storage::disk('local')->exists($document->storage_path)

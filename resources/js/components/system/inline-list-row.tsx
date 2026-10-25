@@ -430,6 +430,7 @@ export function MoveToItem({
                         onSelect={() => onMoveTo(target.id)}
                         data-testid={`menu-move-to-${target.id}`}
                     >
+                        <FolderInput className="size-4" aria-hidden="true" />
                         {target.name}
                     </DropdownMenuItem>
                 ))}

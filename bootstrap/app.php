@@ -127,12 +127,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
                     return null;
                 }
-                Toast::error(__('Something went wrong. The staff account was not saved.'));
+                $message = $request->routeIs('dashboard.accounts.archive')
+                    ? __('Something went wrong. The staff account was not removed. Please try again.')
+                    : __('Something went wrong. The staff account was not saved.');
+                Toast::error($message);
                 if ($request->expectsJson()) {
-                    return response()->json(['message' => __('Something went wrong. The staff account was not saved.')], 500);
+                    return response()->json(['message' => $message], 500);
+                }
+                if ($request->routeIs('dashboard.accounts.archive')) {
+                    return back()->withErrors(['account' => $message]);
                 }
 
-                return back()->with('toast', ['type' => 'error', 'title' => __('Error'), 'message' => __('Something went wrong. The staff account was not saved.')]);
+                return back()->with('toast', ['type' => 'error', 'title' => __('Error'), 'message' => $message]);
             }
 
             if (! $isJobForm($request) || $exception instanceof ValidationException

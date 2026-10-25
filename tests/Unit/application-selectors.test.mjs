@@ -223,10 +223,12 @@ await test('application table uses server rows, pagination, stage labels and def
         proceedItem.props['data-testid'],
         'button-proceed-application-42',
     );
-    assert.deepEqual(proceedItem.props.children, [
-        'Proceed',
-        ' to Shortlisted',
-    ]);
+    assert.equal(
+        proceedItem.props.children
+            .filter((child) => typeof child === 'string')
+            .join(''),
+        'Proceed to Shortlisted',
+    );
     assert.equal(proceedItem.props.disabled, false);
     assert.equal(
         rejectItem.props['data-testid'],
@@ -324,18 +326,28 @@ await test('application detail uses the server application prop and keeps hooks 
             pathway: null,
             location: null,
             salary: 'PHP 30,000',
+            salary_currency: 'PHP',
             category: null,
             sub_category: null,
             posting_type: 'joborder',
+            job_order_number: null,
             contract_type: null,
             vacancies: 2,
             education: null,
+            gender_requirement: null,
             min_experience_years: null,
             max_experience_years: null,
             closing_date: null,
             posted_at: null,
             other_requirements: null,
             job_description: null,
+            required_documents: [],
+            application_instructions: null,
+            contact_person_name: null,
+            contact_email: null,
+            contact_phone: null,
+            status: 'active',
+            is_urgent: false,
             languages: [],
         },
         questions: [],

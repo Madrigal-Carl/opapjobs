@@ -315,6 +315,33 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                 </div>
                             }
                         >
+                            {form.postingType === 'joborder' && (
+                                <JobField
+                                    id="job-order-number"
+                                    label="Job order number"
+                                    required
+                                    error={errors.jobOrderNumber}
+                                >
+                                    <Input
+                                        id="job-order-number"
+                                        required
+                                        value={form.jobOrderNumber}
+                                        onChange={(event) =>
+                                            setField(
+                                                'jobOrderNumber',
+                                                event.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g. JO-2026-0184"
+                                        {...invalid(
+                                            'jobOrderNumber',
+                                            'job-order-number',
+                                        )}
+                                        className={inputClass}
+                                        data-testid="input-job-order-number"
+                                    />
+                                </JobField>
+                            )}
                             <JobField
                                 id="job-title"
                                 label="Job title"
@@ -548,33 +575,6 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                     </Select>
                                 </JobField>
                             </div>
-                            {form.postingType === 'joborder' && (
-                                <JobField
-                                    id="job-order-number"
-                                    label="Job order number"
-                                    required
-                                    error={errors.jobOrderNumber}
-                                >
-                                    <Input
-                                        id="job-order-number"
-                                        required
-                                        value={form.jobOrderNumber}
-                                        onChange={(event) =>
-                                            setField(
-                                                'jobOrderNumber',
-                                                event.target.value,
-                                            )
-                                        }
-                                        placeholder="e.g. JO-2026-0184"
-                                        {...invalid(
-                                            'jobOrderNumber',
-                                            'job-order-number',
-                                        )}
-                                        className={inputClass}
-                                        data-testid="input-job-order-number"
-                                    />
-                                </JobField>
-                            )}
                             <div className="grid gap-4 sm:grid-cols-[1.6fr_1fr]">
                                 <div className="flex min-w-0 flex-col gap-1.5">
                                     <Label

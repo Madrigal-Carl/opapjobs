@@ -37,11 +37,18 @@ class AccountRepository
             default => null,
         };
 
-        return $query
+        $results = $query
             ->orderByDesc('created_at')
             ->orderByDesc('id')
             ->paginate($filters->perPage, ['*'], 'page', $filters->page)
             ->withQueryString();
+
+        if ($results->currentPage() > $results->lastPage()) {
+            $results = $query->paginate($filters->perPage, ['*'], 'page', $results->lastPage(), total: $results->total())
+                ->withQueryString();
+        }
+
+        return $results;
     }
 
     /** @return array{total_staff: int, active: int, suspended: int, jobs_created: int} */

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Dashboard;
 
+use App\Actions\Account\ArchiveAccountAction;
 use App\Actions\Account\ChangeAccountStatusAction;
 use App\Actions\Account\ListAccountsAction;
 use App\Actions\Account\StoreAccountAction;
@@ -90,6 +91,14 @@ class AccountController extends Controller
         Toast::success($validated['status'] === 'suspended'
             ? __('Staff account suspended.')
             : __('Staff account reactivated.'));
+
+        return back();
+    }
+
+    public function archive(Request $request, int $account, ArchiveAccountAction $action): RedirectResponse
+    {
+        $action->execute($request->user(), $account, $request->ip() ?? '0.0.0.0');
+        Toast::success(__('Staff account removed.'));
 
         return back();
     }
