@@ -33,9 +33,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @property int|null $agency_id
  * @property int|null $created_by_user_id
  * @property Carbon|null $suspended_at
+ * @property Carbon|null $last_login_at
  * @property Carbon|null $deleted_at
  */
-#[Fillable(['name', 'email', 'password', 'agency_id', 'created_by_user_id', 'suspended_at'])]
+#[Fillable(['name', 'email', 'password', 'agency_id', 'created_by_user_id', 'suspended_at', 'last_login_at'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -54,6 +55,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'last_login_at' => 'datetime',
         ];
     }
 
@@ -158,5 +160,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function auditLogs(): HasMany
     {
         return $this->hasMany(AuditLog::class, 'actor_user_id');
+    }
+
+    /** @return HasOne<StaffProfile, $this> */
+    public function staffProfile(): HasOne
+    {
+        return $this->hasOne(StaffProfile::class);
     }
 }

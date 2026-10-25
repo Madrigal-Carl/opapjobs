@@ -15,4 +15,5 @@ enum Permission: string
     case ManageApplications = 'manage applications';
     case ViewCandidates = 'view candidates';
     case ViewAccounts = 'view accounts';
+    case ManageAccounts = 'manage accounts';
 }

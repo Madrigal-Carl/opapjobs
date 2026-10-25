@@ -133,7 +133,7 @@ class DemoAgencySeeder extends Seeder
 
                 foreach ($data['staff'] as $staffIndex => $name) {
                     $staffCreated = $created->addDays(2 + $staffIndex);
-                    self::user($index === 0 && $staffIndex < 2
+                    $staffUser = self::user($index === 0 && $staffIndex < 2
                         ? 'agency'.($staffIndex + 1).'@example.test'
                         : 'coordinator'.($staffIndex + 1).'@'.self::SLUGS[$index].'.example.test', [
                             'name' => $name, 'agency_id' => $agency->id, 'created_by_user_id' => $admin->id,
@@ -142,6 +142,12 @@ class DemoAgencySeeder extends Seeder
                             'suspended_at' => $index === 1 && $staffIndex === 0 ? $today->subDays(3)->setHour(12) : null,
                             'deleted_at' => $index === 2 && $staffIndex === 3 ? $today->subDays(3)->setHour(12) : null,
                         ], Role::Agency, $password);
+
+                    $staffUser->staffProfile()->firstOrCreate([], [
+                        'employee_id' => sprintf('OPAP-%04d', 100 + $index * 10 + $staffIndex + 1),
+                        'phone' => '+63 9'.sprintf('%02d', 10 + $index).sprintf('%03d', 100 + $staffIndex).' '.sprintf('%04d', 1000 + $staffIndex),
+                        'notes' => null,
+                    ]);
                 }
 
                 foreach ($data['employers'] as $employerIndex => [$name, $location]) {

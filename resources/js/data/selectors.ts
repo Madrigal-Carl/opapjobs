@@ -1,4 +1,3 @@
-import { accounts } from '@/data/accounts';
 import { applicants } from '@/data/applicant';
 import { applications } from '@/data/applications';
 import { agencies } from '@/data/agencies';
@@ -10,7 +9,6 @@ import {
 } from '@/data/job-attributes';
 import { getJobList } from '@/data/job-store';
 import { overviewDays } from '@/data/overview';
-import type { Account, AccountStatus } from '@/types/account';
 import type { Agency, Pathway } from '@/types/agency';
 import type { Application, ApplicationStage } from '@/types/application';
 import type { Applicant, Availability } from '@/types/applicant';
@@ -21,7 +19,6 @@ export const AGENCIES_PER_PAGE = 12;
 export const JOBS_PER_PAGE = 10;
 export const APPLICATIONS_PER_PAGE = 10;
 export const APPLICANTS_PER_PAGE = 10;
-export const ACCOUNTS_PER_PAGE = 10;
 
 export function getAgencies(): Agency[] {
     return agencies;
@@ -661,36 +658,6 @@ export function getApplicantSectors(): ApplicantSector[] {
         .map((role) => ({ label: role, value: role.toLowerCase() }));
 
     return [{ label: 'All roles', value: 'all' }, ...roles];
-}
-
-export type AccountPageQuery = ListPageQuery & {
-    status?: AccountStatus | 'all' | null;
-};
-
-/**
- * Filters and paginates the staff accounts list.
- */
-export function getAccountPage(
-    query: AccountPageQuery = {},
-): PageResult<Account> {
-    const keyword = normalizeKeyword(query.q);
-    const status = query.status ?? 'all';
-
-    const matches = accounts.filter((account) => {
-        if (status !== 'all' && account.status !== status) {
-            return false;
-        }
-
-        if (!keyword) {
-            return true;
-        }
-
-        return [account.fullName, account.email].some((value) =>
-            value.toLowerCase().includes(keyword),
-        );
-    });
-
-    return paginate(matches, query.page, query.perPage ?? ACCOUNTS_PER_PAGE);
 }
 
 export type AvailabilityOption = {

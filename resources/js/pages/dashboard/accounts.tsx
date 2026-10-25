@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     MoreHorizontal,
@@ -8,8 +8,7 @@ import {
     Users,
     UserX,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { useRef, useState } from 'react';
 import { AccountStatusBadge } from '@/components/dashboard/badges';
 import { DashboardEmptyState } from '@/components/dashboard/empty-state';
 import { KpiCard, KpiGrid } from '@/components/dashboard/kpi-card';
@@ -42,18 +41,26 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
-import { paginate, ACCOUNTS_PER_PAGE } from '@/data/selectors';
-import { accounts as initialAccounts } from '@/data/accounts';
+import { useServerTable } from '@/hooks/use-server-table';
 import { accounts as accountsRoute } from '@/routes/dashboard';
-import type { Account, AccountStatus } from '@/types/account';
+import { status as accountStatusRoute } from '@/routes/dashboard/accounts';
+import type { Account, AccountRow } from '@/types/account';
+import type { Paginated } from '@/types/pagination';
 
 const statusOptions = [
     { value: 'all', label: 'All status' },
-    { value: 'Active', label: 'Active' },
-    { value: 'Suspended', label: 'Suspended' },
+    { value: 'active', label: 'Active' },
+    { value: 'suspended', label: 'Suspended' },
 ];
 
-const accountColumns: Column<Account>[] = [
+const DEFAULT_FILTERS = {
+    q: null as string | null,
+    status: null as string | null,
+    per_page: 10,
+};
+const TABLE_PROPS = ['staff', 'filters'];
+
+const accountColumns: Column<AccountRow>[] = [
     {
         key: 'staff',
         header: 'Staff member',
@@ -62,9 +69,9 @@ const accountColumns: Column<Account>[] = [
             <div className="min-w-0">
                 <span
                     className="block max-w-[22rem] truncate font-bold text-[var(--navy-deep)]"
-                    title={account.fullName}
+                    title={account.name}
                 >
-                    {account.fullName}
+                    {account.name}
                 </span>
                 <span
                     className="block max-w-[22rem] truncate text-xs text-[var(--slate)]"
@@ -81,7 +88,7 @@ const accountColumns: Column<Account>[] = [
         width: '20%',
         cell: (account) => (
             <span className="text-[var(--navy-deep)]">
-                {account.employeeId}
+                {account.employee_id}
             </span>
         ),
     },
@@ -92,7 +99,7 @@ const accountColumns: Column<Account>[] = [
         align: 'center',
         className: 'text-center',
         cell: (account) => (
-            <span className="tabular-nums">{account.jobsCreated}</span>
+            <span className="tabular-nums">{account.jobs_created}</span>
         ),
     },
     {
@@ -103,22 +110,47 @@ const accountColumns: Column<Account>[] = [
         className: 'text-center',
         cell: (account) => (
             <div className="flex items-center justify-center gap-2">
-                <AccountStatusBadge status={account.status} />
+                <AccountStatusBadge
+                    status={
+                        account.status === 'active' ? 'Active' : 'Suspended'
+                    }
+                />
             </div>
         ),
     },
 ];
 
+function mapAccountRow(row: AccountRow): Account {
+    return {
+        id: String(row.id),
+        fullName: row.name,
+        email: row.email,
+        phone: row.phone,
+        employeeId: row.employee_id,
+        notes: row.notes,
+        status: row.status === 'active' ? 'Active' : 'Suspended',
+        jobsCreated: row.jobs_created,
+        lastActive: row.last_login_at,
+        dateAdded: row.created_at,
+    };
+}
+
 function AccountRowMenu({
     account,
+    canManage,
     onView,
     onEdit,
 }: {
     account: Account;
+    canManage: boolean;
     onView: (account: Account) => void;
     onEdit: (account: Account) => void;
 }) {
     const trigger = useRef<HTMLButtonElement>(null);
+
+    if (!canManage) {
+        return null;
+    }
 
     return (
         <DropdownMenu>
@@ -151,13 +183,38 @@ function AccountRowMenu({
     );
 }
 
-export default function DashboardAccounts() {
-    const [staff, setStaff] = useState<Account[]>(initialAccounts);
-    const [keyword, setKeyword] = useState('');
-    const [statusFilter, setStatusFilter] = useState<AccountStatus | 'all'>(
-        'all',
-    );
-    const [page, setPage] = useState(1);
+export default function DashboardAccounts({
+    staff,
+    filters,
+    kpis,
+    seats,
+    canManageAccounts,
+}: {
+    staff: Paginated<AccountRow>;
+    filters: { q?: string | null; status?: string | null; per_page?: number };
+    kpis?: {
+        total_staff: number;
+        active: number;
+        suspended: number;
+        jobs_created: number;
+    };
+    seats: { used: number; limit: number };
+    canManageAccounts: boolean;
+}) {
+    const currentPage = staff.meta?.current_page ?? 1;
+
+    const table = useServerTable({
+        url: accountsRoute().url,
+        filters: {
+            q: filters.q ?? null,
+            status: filters.status ?? null,
+            per_page: filters.per_page ?? 10,
+        },
+        page: currentPage,
+        defaults: DEFAULT_FILTERS,
+        only: TABLE_PROPS,
+    });
+
     const [formOpen, setFormOpen] = useState(false);
     const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
     const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -166,48 +223,11 @@ export default function DashboardAccounts() {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingStatusAccount, setPendingStatusAccount] =
         useState<Account | null>(null);
-    const [targetStatus, setTargetStatus] =
-        useState<AccountStatus>('Suspended');
+    const [pendingToggleId, setPendingToggleId] = useState<string | null>(null);
 
-    const isFiltered = Boolean(keyword.trim()) || statusFilter !== 'all';
-
-    const filtered = useMemo(() => {
-        const query = keyword.trim().toLowerCase();
-
-        return staff.filter((account) => {
-            if (statusFilter !== 'all' && account.status !== statusFilter) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return [account.fullName, account.email].some((value) =>
-                value.toLowerCase().includes(query),
-            );
-        });
-    }, [keyword, staff, statusFilter]);
-
-    const results = useMemo(
-        () => paginate(filtered, page, ACCOUNTS_PER_PAGE),
-        [filtered, page],
-    );
-
-    const activeCount = staff.filter(
-        (account) => account.status === 'Active',
-    ).length;
-    const suspendedCount = staff.length - activeCount;
-    const jobsCreatedTotal = staff.reduce(
-        (sum, account) => sum + account.jobsCreated,
-        0,
-    );
-
-    const resetFilters = () => {
-        setKeyword('');
-        setStatusFilter('all');
-        setPage(1);
-    };
+    const isFiltered =
+        Boolean((table.values.q ?? '').trim()) ||
+        (table.values.status ?? null) !== null;
 
     const beginAdd = () => {
         setFormMode('add');
@@ -227,20 +247,24 @@ export default function DashboardAccounts() {
     };
 
     const handleStatusToggle = (account: Account, checked: boolean) => {
+        if (!canManageAccounts) {
+            return;
+        }
+
         if (checked) {
-            setStaff((current) =>
-                current.map((item) =>
-                    item.id === account.id
-                        ? { ...item, status: 'Active' }
-                        : item,
-                ),
+            setPendingToggleId(account.id);
+            router.patch(
+                accountStatusRoute(account.id).url,
+                { status: 'active' },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setPendingToggleId(null),
+                },
             );
-            toast.success(`${account.fullName}'s account is now active.`);
             return;
         }
 
         setPendingStatusAccount(account);
-        setTargetStatus('Suspended');
         setConfirmOpen(true);
     };
 
@@ -252,23 +276,24 @@ export default function DashboardAccounts() {
             return;
         }
 
-        const newStatus = targetStatus;
-
-        setStaff((current) =>
-            current.map((item) =>
-                item.id === account.id ? { ...item, status: newStatus } : item,
-            ),
+        setPendingToggleId(account.id);
+        router.patch(
+            accountStatusRoute(account.id).url,
+            { status: 'suspended' },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setPendingToggleId(null);
+                    setConfirmOpen(false);
+                    setPendingStatusAccount(null);
+                },
+            },
         );
-
-        if (newStatus === 'Suspended') {
-            toast.success(`${account.fullName}'s account is now suspended.`);
-        } else {
-            toast.success(`${account.fullName}'s account is now active.`);
-        }
-
-        setConfirmOpen(false);
-        setPendingStatusAccount(null);
     };
+
+    const seatsFull =
+        (seats.limit ?? 0) > 0 && (seats.used ?? 0) >= (seats.limit ?? 0);
+    const addDisabled = !canManageAccounts || seatsFull;
 
     return (
         <>
@@ -281,6 +306,12 @@ export default function DashboardAccounts() {
                         <Button
                             onClick={beginAdd}
                             data-testid="button-add-staff"
+                            disabled={addDisabled}
+                            title={
+                                seatsFull && canManageAccounts
+                                    ? `${seats.used} of ${seats.limit} seats used`
+                                    : undefined
+                            }
                         >
                             <UserRoundPlus aria-hidden="true" />
                             Add staff
@@ -290,57 +321,70 @@ export default function DashboardAccounts() {
                 <KpiGrid>
                     <KpiCard
                         label="Total Staff"
-                        value={staff.length}
-                        caption="All staff accounts"
+                        value={kpis ? kpis.total_staff : '—'}
+                        caption={
+                            seats.limit > 0
+                                ? `${seats.used} of ${seats.limit} seats used`
+                                : 'All staff accounts'
+                        }
                         icon={Users}
                         tone="blue"
                     />
                     <KpiCard
                         label="Active"
-                        value={activeCount}
+                        value={kpis ? kpis.active : '—'}
                         caption="Can sign in to the workspace"
                         icon={UserCheck}
                         tone="emerald"
                     />
                     <KpiCard
                         label="Suspended"
-                        value={suspendedCount}
+                        value={kpis ? kpis.suspended : '—'}
                         caption="Access temporarily disabled"
                         icon={UserX}
                         tone="red"
                     />
                     <KpiCard
                         label="Jobs Created"
-                        value={jobsCreatedTotal}
+                        value={kpis ? kpis.jobs_created : '—'}
                         caption="Posted by all staff"
                         icon={BriefcaseBusiness}
                         tone="violet"
                     />
                 </KpiGrid>
-                <DataTable<Account>
+                <DataTable<AccountRow>
                     columns={accountColumns}
-                    data={results.items}
-                    getRowId={(account) => account.id}
+                    data={staff.data ?? []}
+                    getRowId={(account) => String(account.id)}
                     getRowTestId={(account) => `row-staff-${account.id}`}
                     getRowAccent={(account) =>
-                        account.status === 'Active' ? 'amber' : 'red'
+                        account.status === 'active' ? 'amber' : 'red'
                     }
                     renderRowActions={(account) => (
                         <div className="flex items-center gap-2">
-                            <Switch
-                                checked={account.status === 'Active'}
-                                aria-label={
-                                    account.status === 'Active'
-                                        ? `Suspend ${account.fullName}`
-                                        : `Reactivate ${account.fullName}`
-                                }
-                                data-testid={`toggle-staff-status-${account.id}`}
-                                onCheckedChange={(checked) =>
-                                    handleStatusToggle(account, checked)
-                                }
-                            />
+                            {canManageAccounts ? (
+                                <Switch
+                                    checked={account.status === 'active'}
+                                    aria-label={
+                                        account.status === 'active'
+                                            ? `Suspend ${account.name}`
+                                            : `Reactivate ${account.name}`
+                                    }
+                                    data-testid={`toggle-staff-status-${account.id}`}
+                                    disabled={
+                                        pendingToggleId === String(account.id)
+                                    }
+                                    onCheckedChange={(checked) =>
+                                        handleStatusToggle(
+                                            mapAccountRow(account),
+                                            checked,
+                                        )
+                                    }
+                                />
+                            ) : null}
                             <AccountRowMenu
-                                account={account}
+                                account={mapAccountRow(account)}
+                                canManage={canManageAccounts}
                                 onView={beginView}
                                 onEdit={beginEdit}
                             />
@@ -355,11 +399,13 @@ export default function DashboardAccounts() {
                             >
                                 <DataTableSearch
                                     id="filter-search-accounts"
-                                    value={keyword}
-                                    onChange={(value) => {
-                                        setKeyword(value);
-                                        setPage(1);
-                                    }}
+                                    value={table.values.q ?? ''}
+                                    onChange={(value) =>
+                                        table.setFilter(
+                                            'q',
+                                            value === '' ? null : value,
+                                        )
+                                    }
                                     placeholder="Search by name or email"
                                     className="w-full"
                                     data-testid="input-search-accounts"
@@ -369,28 +415,32 @@ export default function DashboardAccounts() {
                                 label="Status"
                                 htmlFor="filter-status-accounts"
                             >
-                                <DataTableSelect<AccountStatus | 'all'>
+                                <DataTableSelect<string>
                                     id="filter-status-accounts"
-                                    value={statusFilter}
-                                    onValueChange={(value) => {
-                                        setStatusFilter(value);
-                                        setPage(1);
-                                    }}
+                                    value={
+                                        (table.values.status ?? 'all') as string
+                                    }
+                                    onValueChange={(value) =>
+                                        table.setFilter(
+                                            'status',
+                                            value === 'all' ? null : value,
+                                        )
+                                    }
                                     options={statusOptions}
                                     ariaLabel="Filter by status"
                                     data-testid="select-staff-status-filter"
                                 />
                             </DataTableField>
                             <DataTableRefreshButton
-                                onClick={resetFilters}
+                                onClick={() => table.reset()}
                                 data-testid="button-refresh-accounts"
                             />
                         </DataTableToolbar>
                     }
                     pagination={{
-                        page: results.page,
-                        totalPages: results.totalPages,
-                        onPageChange: setPage,
+                        page: staff.meta?.current_page ?? 1,
+                        totalPages: staff.meta?.last_page ?? 1,
+                        onPageChange: table.setPage,
                         alwaysShow: true,
                         label: 'Staff accounts pagination',
                         testIdPrefix: 'accounts-pagination',
@@ -400,86 +450,55 @@ export default function DashboardAccounts() {
                             icon={isFiltered ? SearchX : Users}
                             title={
                                 isFiltered
-                                    ? 'No staff accounts found'
-                                    : 'No staff accounts yet'
+                                    ? 'No staff match your filters'
+                                    : 'No staff yet'
                             }
                             message={
                                 isFiltered
-                                    ? 'No accounts match your search.'
-                                    : 'Add a staff member to get started.'
+                                    ? 'Try adjusting your search or status filter.'
+                                    : 'Add your first staff member to get started.'
                             }
-                            onReset={isFiltered ? resetFilters : undefined}
+                            onReset={isFiltered ? table.reset : undefined}
                         />
                     }
-                    data-testid="table-accounts"
                 />
             </DashboardPage>
-
             <StaffFormDialog
                 open={formOpen}
                 mode={formMode}
                 account={editingAccount}
-                staff={staff}
                 onOpenChange={setFormOpen}
-                onAdd={(account) => {
-                    setStaff((current) => [account, ...current]);
-                }}
-                onEdit={(account) => {
-                    setStaff((current) =>
-                        current.map((item) =>
-                            item.id === account.id ? account : item,
-                        ),
-                    );
-                }}
             />
-
             <StaffViewDialog
                 open={viewOpen}
                 account={viewingAccount}
                 onOpenChange={setViewOpen}
-                onEdit={(account) => {
-                    setViewOpen(false);
-                    beginEdit(account);
-                }}
             />
-
-            <Dialog
-                open={confirmOpen}
-                onOpenChange={(open) => {
-                    setConfirmOpen(open);
-                    if (!open) {
-                        setPendingStatusAccount(null);
-                    }
-                }}
-            >
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>
-                            {pendingStatusAccount
-                                ? `Suspend ${pendingStatusAccount.fullName}?`
-                                : 'Suspend staff account?'}
-                        </DialogTitle>
+                        <DialogTitle>Suspend staff account</DialogTitle>
                         <DialogDescription>
-                            The staff member will lose access to this workspace
-                            until the account is reactivated.
+                            Are you sure you want to suspend{' '}
+                            <span className="font-medium text-[var(--navy-deep)]">
+                                {pendingStatusAccount?.fullName}
+                            </span>
+                            ? They will be signed out and lose access to the
+                            dashboard.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button
                             variant="secondary"
-                            onClick={() => {
-                                setConfirmOpen(false);
-                                setPendingStatusAccount(null);
-                            }}
+                            onClick={() => setConfirmOpen(false)}
                         >
                             Cancel
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={confirmStatusChange}
-                            data-testid="button-confirm-status-change"
                         >
-                            Suspend account
+                            Suspend
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -489,10 +508,5 @@ export default function DashboardAccounts() {
 }
 
 DashboardAccounts.layout = {
-    breadcrumbs: [
-        {
-            title: 'Accounts',
-            href: accountsRoute(),
-        },
-    ],
+    breadcrumbs: [{ title: 'Accounts', href: accountsRoute() }],
 };

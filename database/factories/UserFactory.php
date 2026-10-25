@@ -95,6 +95,11 @@ class UserFactory extends Factory
         return $this->state(['agency_id' => $agency->id]);
     }
 
+    public function suspended(): static
+    {
+        return $this->state(fn () => ['suspended_at' => now()]);
+    }
+
     /**
      * Indicate that the user is a superadmin.
      */

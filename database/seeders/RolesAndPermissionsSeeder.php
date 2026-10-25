@@ -54,6 +54,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::ManageApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,
+                Permission::ManageAccounts,
             ],
             Role::Superadmin->value => [
                 Permission::AccessDashboard,
@@ -64,6 +65,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 Permission::ManageApplications,
                 Permission::ViewCandidates,
                 Permission::ViewAccounts,
+                Permission::ManageAccounts,
             ],
         ];
 

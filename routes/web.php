@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
@@ -100,9 +101,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 ->middleware('can:'.Permission::ViewCandidates->value)
                 ->name('dashboard.candidates');
 
-            Route::get('accounts', [ViewController::class, 'dashboardAccounts'])
+            Route::get('accounts', [AccountController::class, 'index'])
                 ->middleware('can:'.Permission::ViewAccounts->value)
                 ->name('dashboard.accounts');
+
+            Route::post('accounts', [AccountController::class, 'store'])
+                ->middleware('can:'.Permission::ManageAccounts->value)
+                ->name('dashboard.accounts.store');
+
+            Route::put('accounts/{account}', [AccountController::class, 'update'])
+                ->whereNumber('account')
+                ->middleware('can:'.Permission::ManageAccounts->value)
+                ->name('dashboard.accounts.update');
+
+            Route::patch('accounts/{account}/status', [AccountController::class, 'status'])
+                ->whereNumber('account')
+                ->middleware('can:'.Permission::ManageAccounts->value)
+                ->name('dashboard.accounts.status');
 
             /**
              * Super Admin console. Every screen is gated on the one

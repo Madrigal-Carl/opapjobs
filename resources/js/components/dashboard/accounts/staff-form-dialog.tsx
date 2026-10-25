@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
+import { useForm } from '@inertiajs/react';
+import { useEffect } from 'react';
 import { FormInput } from '@/components/form/form-input';
 import { PhoneField } from '@/components/ui/phone-field';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,153 +12,87 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    store as storeAccount,
+    update as updateAccount,
+} from '@/routes/dashboard/accounts';
 import type { Account } from '@/types/account';
 
 type StaffFormDialogProps = {
     open: boolean;
     mode: 'add' | 'edit';
     account?: Account | null;
-    staff: Account[];
     onOpenChange: (open: boolean) => void;
-    onAdd: (account: Account) => void;
-    onEdit: (account: Account) => void;
 };
 
 type FormState = {
-    fullName: string;
+    name: string;
     email: string;
     phone: string;
-    employeeId: string;
+    employee_id: string;
     notes: string;
 };
 
-type Errors = Partial<Record<keyof FormState, string>>;
-
 const EMPTY_FORM: FormState = {
-    fullName: '',
+    name: '',
     email: '',
     phone: '',
-    employeeId: '',
+    employee_id: '',
     notes: '',
 };
-
-function isValidEmail(value: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
 
 export function StaffFormDialog({
     open,
     mode,
     account,
-    staff,
     onOpenChange,
-    onAdd,
-    onEdit,
 }: StaffFormDialogProps) {
-    const [form, setForm] = useState<FormState>(EMPTY_FORM);
-    const [errors, setErrors] = useState<Errors>({});
+    const form = useForm<FormState>(EMPTY_FORM);
 
     useEffect(() => {
         if (!open) {
-            setErrors({});
+            form.clearErrors();
+            form.reset();
             return;
         }
 
         if (mode === 'edit' && account) {
-            setForm({
-                fullName: account.fullName,
+            form.setData({
+                name: account.fullName,
                 email: account.email,
                 phone: account.phone ?? '',
-                employeeId: account.employeeId,
+                employee_id: account.employeeId,
                 notes: account.notes ?? '',
             });
-            setErrors({});
+            form.clearErrors();
             return;
         }
 
-        setForm(EMPTY_FORM);
-        setErrors({});
+        form.setData(EMPTY_FORM);
+        form.clearErrors();
     }, [account, mode, open]);
-
-    const validate = () => {
-        const nextErrors: Errors = {};
-        const fullName = form.fullName.trim();
-        const email = form.email.trim().toLowerCase();
-        const employeeId = form.employeeId.trim();
-
-        if (!fullName) {
-            nextErrors.fullName = 'Full name is required.';
-        }
-
-        if (!email) {
-            nextErrors.email = 'Work email is required.';
-        } else if (!isValidEmail(email)) {
-            nextErrors.email = 'Enter a valid work email address.';
-        } else if (
-            staff.some(
-                (item) =>
-                    item.email.toLowerCase() === email &&
-                    item.id !== account?.id,
-            )
-        ) {
-            nextErrors.email =
-                'A staff account with this email already exists.';
-        }
-
-        if (!employeeId) {
-            nextErrors.employeeId = 'Employee ID is required.';
-        }
-
-        setErrors(nextErrors);
-        return Object.keys(nextErrors).length === 0;
-    };
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
 
-        if (!validate()) {
-            return;
-        }
-
-        const fullName = form.fullName.trim();
-        const email = form.email.trim().toLowerCase();
-        const phone = form.phone.trim() || null;
-        const employeeId = form.employeeId.trim();
-        const notes = form.notes.trim() || null;
-
         if (mode === 'edit' && account) {
-            const updated: Account = {
-                ...account,
-                fullName,
-                email,
-                phone,
-                employeeId,
-                notes,
-            };
-            onEdit(updated);
-            toast.success('Staff account updated.');
-            onOpenChange(false);
+            form.put(updateAccount(account.id).url, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    onOpenChange(false);
+                    form.reset();
+                },
+            });
             return;
         }
 
-        const created: Account = {
-            id: `staff-${Date.now()}`,
-            fullName,
-            email,
-            phone,
-            employeeId,
-            jobTitle: null,
-            department: null,
-            staffRole: null,
-            dateHired: null,
-            notes,
-            status: 'Active',
-            jobsCreated: 0,
-            lastActive: null,
-        };
-        onAdd(created);
-        toast.success('Staff account added.');
-        onOpenChange(false);
+        form.post(storeAccount().url, {
+            preserveScroll: true,
+            onSuccess: () => {
+                onOpenChange(false);
+                form.reset();
+            },
+        });
     };
 
     return (
@@ -186,18 +120,11 @@ export function StaffFormDialog({
                             id="staff-employee-id"
                             label="Employee ID"
                             required
-                            value={form.employeeId}
+                            value={form.data.employee_id}
                             onChange={(event) => {
-                                setForm((current) => ({
-                                    ...current,
-                                    employeeId: event.target.value,
-                                }));
-                                setErrors((current) => ({
-                                    ...current,
-                                    employeeId: undefined,
-                                }));
+                                form.setData('employee_id', event.target.value);
                             }}
-                            error={errors.employeeId}
+                            error={form.errors.employee_id}
                             data-testid="input-staff-employee-id"
                             className="sm:col-span-2"
                         />
@@ -205,18 +132,11 @@ export function StaffFormDialog({
                             id="staff-full-name"
                             label="Full name"
                             required
-                            value={form.fullName}
+                            value={form.data.name}
                             onChange={(event) => {
-                                setForm((current) => ({
-                                    ...current,
-                                    fullName: event.target.value,
-                                }));
-                                setErrors((current) => ({
-                                    ...current,
-                                    fullName: undefined,
-                                }));
+                                form.setData('name', event.target.value);
                             }}
-                            error={errors.fullName}
+                            error={form.errors.name}
                             data-testid="input-staff-name"
                         />
                         <div className="flex flex-col gap-1.5">
@@ -224,34 +144,29 @@ export function StaffFormDialog({
                                 Mobile number
                             </span>
                             <PhoneField
-                                value={form.phone}
+                                value={form.data.phone}
                                 onChange={(value) => {
-                                    setForm((current) => ({
-                                        ...current,
-                                        phone: value,
-                                    }));
+                                    form.setData('phone', value);
                                 }}
                                 id="staff-mobile-number"
                                 data-testid="input-staff-phone"
                             />
+                            {form.errors.phone ? (
+                                <p className="text-xs text-destructive">
+                                    {form.errors.phone}
+                                </p>
+                            ) : null}
                         </div>
                         <FormInput
                             id="staff-email"
                             label="Work email"
                             type="email"
                             required
-                            value={form.email}
+                            value={form.data.email}
                             onChange={(event) => {
-                                setForm((current) => ({
-                                    ...current,
-                                    email: event.target.value,
-                                }));
-                                setErrors((current) => ({
-                                    ...current,
-                                    email: undefined,
-                                }));
+                                form.setData('email', event.target.value);
                             }}
-                            error={errors.email}
+                            error={form.errors.email}
                             data-testid="input-staff-email"
                             className="sm:col-span-2"
                         />
@@ -265,16 +180,18 @@ export function StaffFormDialog({
                         </label>
                         <Textarea
                             id="staff-notes"
-                            value={form.notes}
+                            value={form.data.notes}
                             onChange={(event) => {
-                                setForm((current) => ({
-                                    ...current,
-                                    notes: event.target.value,
-                                }));
+                                form.setData('notes', event.target.value);
                             }}
                             placeholder="Optional notes about this staff member"
                             data-testid="input-staff-notes"
                         />
+                        {form.errors.notes ? (
+                            <p className="text-xs text-destructive">
+                                {form.errors.notes}
+                            </p>
+                        ) : null}
                     </div>
                     <DialogFooter>
                         <Button
@@ -284,10 +201,16 @@ export function StaffFormDialog({
                         >
                             Cancel
                         </Button>
-                        <Button type="submit" data-testid="button-save-staff">
-                            {mode === 'edit'
-                                ? 'Save changes'
-                                : 'Add staff account'}
+                        <Button
+                            type="submit"
+                            data-testid="button-save-staff"
+                            disabled={form.processing}
+                        >
+                            {form.processing
+                                ? 'Saving...'
+                                : mode === 'edit'
+                                  ? 'Save changes'
+                                  : 'Add staff account'}
                         </Button>
                     </DialogFooter>
                 </form>

@@ -93,6 +93,7 @@ test('admin dashboard permissions match the matrix', function () {
     expect($role->hasPermissionTo(Permission::ManageApplications->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewCandidates->value))->toBeTrue();
     expect($role->hasPermissionTo(Permission::ViewAccounts->value))->toBeTrue();
+    expect($role->hasPermissionTo(Permission::ManageAccounts->value))->toBeTrue();
 
     expect($role->hasPermissionTo(Permission::ViewHiringOverview->value))->toBeFalse();
     expect($role->hasPermissionTo(Permission::ViewSystemOverview->value))->toBeFalse();
@@ -110,6 +111,7 @@ test('superadmins have system overview dashboard permissions assigned directly',
         Permission::ManageApplications,
         Permission::ViewCandidates,
         Permission::ViewAccounts,
+        Permission::ManageAccounts,
     ];
 
     foreach ($dashboardPermissions as $permission) {
@@ -133,6 +135,7 @@ test('superadmins pass every dashboard ability through the superuser gate', func
     Permission::ManageApplications,
     Permission::ViewCandidates,
     Permission::ViewAccounts,
+    Permission::ManageAccounts,
 ]);
 
 test('the shared auth props include the superadmin dashboard permissions', function () {

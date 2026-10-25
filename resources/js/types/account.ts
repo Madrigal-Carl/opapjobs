@@ -1,17 +1,17 @@
 export type AccountStatus = 'Active' | 'Suspended';
 
-export type AccountStaffRole =
-    | 'Recruiter'
-    | 'Coordinator'
-    | 'Encoder'
-    | 'Supervisor';
-
-export type AccountDepartment =
-    | 'Recruitment'
-    | 'Placement'
-    | 'Documentation'
-    | 'Operations'
-    | 'Administration';
+export type AccountRow = {
+    id: number;
+    name: string;
+    email: string;
+    phone?: string | null;
+    employee_id: string;
+    notes?: string | null;
+    status: 'active' | 'suspended';
+    jobs_created: number;
+    last_login_at?: string | null;
+    created_at?: string | null;
+};
 
 export type Account = {
     id: string;
@@ -19,12 +19,9 @@ export type Account = {
     email: string;
     phone?: string | null;
     employeeId: string;
-    jobTitle?: string | null;
-    department?: AccountDepartment | null;
-    staffRole?: AccountStaffRole | null;
-    dateHired?: string | null;
     notes?: string | null;
     status: AccountStatus;
     jobsCreated: number;
     lastActive?: string | null;
+    dateAdded?: string | null;
 };

@@ -1,6 +1,8 @@
 <?php
 
+use App\Exceptions\Account\AccountException;
 use App\Exceptions\JobPost\JobPostException;
+use App\Http\Middleware\CheckUserSuspended;
 use App\Http\Middleware\EnsureCanAccessDashboard;
 use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -34,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleAppearance::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            CheckUserSuspended::class,
         ]);
 
         $middleware->alias([
@@ -53,6 +56,35 @@ return Application::configure(basePath: dirname(__DIR__))
             'dashboard.jobs.create', 'dashboard.jobs.store', 'dashboard.jobs.edit', 'dashboard.jobs.update',
             'dashboard.jobs.status', 'dashboard.jobs.archive', 'dashboard.jobs.duplicates', 'dashboard.employers.store',
         );
+
+        $isAccountForm = fn (Request $request): bool => str_starts_with($request->route()?->getName() ?? '', 'dashboard.accounts');
+
+        $exceptions->render(function (AccountException $exception, Request $request) use ($isAccountForm) {
+            if (! $isAccountForm($request)) {
+                return null;
+            }
+
+            Toast::error($exception->status === 422 && $exception->field ? __('Please fix the highlighted fields.') : $exception->getMessage());
+
+            if ($exception->status === 403) {
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => $exception->getMessage()], 403);
+                }
+
+                return back()->withErrors(['error' => $exception->getMessage()])->setStatusCode(403);
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => $exception->getMessage(),
+                    'errors' => $exception->field ? [$exception->field => [$exception->getMessage()]] : [],
+                ], $exception->status);
+            }
+
+            return back()
+                ->withErrors($exception->field ? [$exception->field => $exception->getMessage()] : [])
+                ->withInput();
+        });
 
         $exceptions->render(function (JobPostException $exception, Request $request) use ($isJobForm) {
             if (! $isJobForm($request)) {
@@ -78,7 +110,31 @@ return Application::configure(basePath: dirname(__DIR__))
             return back()->withErrors([$exception->field ?? 'job_post' => $exception->getMessage()])->withInput();
         });
 
-        $exceptions->render(function (Throwable $exception, Request $request) use ($isJobForm) {
+        $exceptions->render(function (Throwable $exception, Request $request) use ($isJobForm, $isAccountForm) {
+            if ($isAccountForm($request) && ! ($exception instanceof ValidationException
+                || $exception instanceof AuthenticationException || $exception instanceof AccountException)) {
+                if ($exception instanceof HttpExceptionInterface || $exception instanceof AuthorizationException) {
+                    $status = $exception instanceof AuthorizationException ? 403 : $exception->getStatusCode();
+                    if ($status === 403) {
+                        Toast::error(__('Something went wrong. The staff account was not saved.'));
+
+                        if ($request->expectsJson()) {
+                            return response()->json(['message' => __('Something went wrong. The staff account was not saved.')], 403);
+                        }
+
+                        return back()->with('toast', ['type' => 'error', 'title' => __('Error'), 'message' => __('Something went wrong. The staff account was not saved.')])->setStatusCode(403);
+                    }
+
+                    return null;
+                }
+                Toast::error(__('Something went wrong. The staff account was not saved.'));
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => __('Something went wrong. The staff account was not saved.')], 500);
+                }
+
+                return back()->with('toast', ['type' => 'error', 'title' => __('Error'), 'message' => __('Something went wrong. The staff account was not saved.')]);
+            }
+
             if (! $isJobForm($request) || $exception instanceof ValidationException
                 || $exception instanceof AuthenticationException || $exception instanceof JobPostException) {
                 return null;

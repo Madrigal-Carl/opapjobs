@@ -39,4 +39,20 @@ class AuditLogRepository
             'created_at' => now(),
         ]);
     }
+
+    /**
+     * @param  array<int, string>  $changed
+     */
+    public function log(User $actor, string $action, User $subject, array $changed = [], ?string $ipAddress = null): void
+    {
+        AuditLog::query()->create([
+            'actor_user_id' => $actor->id,
+            'action' => $action,
+            'subject_type' => User::class,
+            'subject_id' => $subject->id,
+            'changes' => ['changed' => $changed],
+            'ip_address' => $ipAddress,
+            'created_at' => now(),
+        ]);
+    }
 }

@@ -76,11 +76,6 @@ class ViewController extends Controller
         return Inertia::render('dashboard/candidates');
     }
 
-    public function dashboardAccounts(): Response
-    {
-        return Inertia::render('dashboard/accounts');
-    }
-
     /**
      * Super Admin console. Each screen reads and writes mock data held in
      * the browser, so these methods only pick the component and pass the

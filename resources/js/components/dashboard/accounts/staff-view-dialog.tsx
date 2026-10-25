@@ -1,12 +1,14 @@
-import { BriefcaseBusiness, IdCard, Mail, Phone } from 'lucide-react';
+import { Mail, Phone } from 'lucide-react';
 import { AccountStatusBadge } from '@/components/dashboard/badges';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
+    DialogTitle,
 } from '@/components/ui/dialog';
 import { getNameInitials } from '@/lib/name-initials';
 import type { Account } from '@/types/account';
@@ -15,7 +17,6 @@ type StaffViewDialogProps = {
     open: boolean;
     account: Account | null;
     onOpenChange: (open: boolean) => void;
-    onEdit: (account: Account) => void;
 };
 
 function formatDate(value?: string | null) {
@@ -39,7 +40,6 @@ export function StaffViewDialog({
     open,
     account,
     onOpenChange,
-    onEdit,
 }: StaffViewDialogProps) {
     if (!account) {
         return null;
@@ -47,133 +47,144 @@ export function StaffViewDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
-                <DialogHeader className="space-y-4">
+            <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden border-[var(--line)] bg-card p-0 sm:max-w-xl">
+                <DialogHeader className="shrink-0 border-b border-[var(--line)] px-6 py-5 pr-12 text-left">
+                    <DialogTitle className="font-serif text-lg font-bold text-[var(--navy-deep)]">
+                        Account details
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">
+                        Profile, contact information, and account activity for{' '}
+                        {account.fullName}.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex min-h-0 flex-col gap-6 overflow-y-auto overscroll-contain p-6">
                     <div className="flex items-start gap-4">
-                        <Avatar className="size-14">
-                            <AvatarFallback className="bg-[var(--surface-soft)] text-base font-semibold text-[var(--navy-deep)]">
+                        <Avatar className="size-14 shrink-0" aria-hidden="true">
+                            <AvatarFallback className="bg-[var(--navy-deep)] font-serif text-lg font-bold text-white">
                                 {getNameInitials(account.fullName)}
                             </AvatarFallback>
                         </Avatar>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                    <h2 className="font-serif text-2xl font-bold tracking-[-0.02em] text-[var(--navy-deep)]">
-                                        {account.fullName}
-                                    </h2>
-                                    <p className="mt-1 text-sm text-[var(--slate)]">
-                                        {account.email}
-                                    </p>
-                                </div>
+                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                            <h3 className="font-serif text-xl leading-snug font-bold [overflow-wrap:anywhere] text-[var(--navy-deep)] sm:text-2xl">
+                                {account.fullName}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                                 <AccountStatusBadge status={account.status} />
+                                <dl className="flex min-w-0 flex-wrap gap-x-1.5 text-xs leading-5">
+                                    <dt className="text-[var(--slate)]">
+                                        Employee ID
+                                    </dt>
+                                    <dd className="font-medium [overflow-wrap:anywhere] text-[var(--navy-deep)]">
+                                        {account.employeeId || '—'}
+                                    </dd>
+                                </dl>
                             </div>
                         </div>
                     </div>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
-                    <div className="rounded-lg border border-[var(--line)] bg-white">
-                        <div className="flex items-center gap-3 px-4 py-3">
-                            <IdCard
-                                className="size-4 shrink-0 text-[var(--slate)]"
-                                aria-hidden="true"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-[var(--slate)]">
-                                    Employee ID
-                                </p>
-                                <p className="text-sm font-semibold text-[var(--navy-deep)]">
-                                    {account.employeeId || '—'}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="border-t border-[var(--line)]" />
-                        <div className="flex items-center gap-3 px-4 py-3">
-                            <Mail
-                                className="size-4 shrink-0 text-[var(--slate)]"
-                                aria-hidden="true"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-[var(--slate)]">
+
+                    <section
+                        className="flex flex-col gap-3"
+                        aria-labelledby="staff-contact-heading"
+                    >
+                        <h3
+                            id="staff-contact-heading"
+                            className="text-sm font-semibold text-[var(--navy-deep)]"
+                        >
+                            Contact information
+                        </h3>
+                        <dl className="grid gap-5 sm:grid-cols-2">
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <dt className="flex items-center gap-2 text-xs text-[var(--slate)]">
+                                    <Mail
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
                                     Work email
-                                </p>
-                                <a
-                                    href={`mailto:${account.email}`}
-                                    className="block truncate text-sm font-semibold text-[var(--teal)] hover:underline"
-                                    title={account.email}
-                                >
-                                    {account.email}
-                                </a>
+                                </dt>
+                                <dd className="text-sm leading-6 font-medium [overflow-wrap:anywhere]">
+                                    <a
+                                        href={`mailto:${account.email}`}
+                                        className="rounded-sm text-[var(--navy-deep)] underline decoration-[var(--line)] underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                                    >
+                                        {account.email}
+                                    </a>
+                                </dd>
                             </div>
-                        </div>
-                        <div className="border-t border-[var(--line)]" />
-                        <div className="flex items-center gap-3 px-4 py-3">
-                            <Phone
-                                className="size-4 shrink-0 text-[var(--slate)]"
-                                aria-hidden="true"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-[var(--slate)]">
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <dt className="flex items-center gap-2 text-xs text-[var(--slate)]">
+                                    <Phone
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
                                     Mobile number
-                                </p>
-                                <p className="text-sm font-semibold text-[var(--navy-deep)]">
+                                </dt>
+                                <dd className="text-sm leading-6 font-medium [overflow-wrap:anywhere] text-[var(--navy-deep)]">
                                     {account.phone || '—'}
-                                </p>
+                                </dd>
                             </div>
-                        </div>
-                        <div className="border-t border-[var(--line)]" />
-                        <div className="flex items-center gap-3 px-4 py-3">
-                            <BriefcaseBusiness
-                                className="size-4 shrink-0 text-[var(--slate)]"
-                                aria-hidden="true"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-[var(--slate)]">
+                        </dl>
+                    </section>
+
+                    <section
+                        className="flex flex-col gap-3"
+                        aria-labelledby="staff-activity-heading"
+                    >
+                        <h3
+                            id="staff-activity-heading"
+                            className="text-sm font-semibold text-[var(--navy-deep)]"
+                        >
+                            Account activity
+                        </h3>
+                        <dl className="grid gap-4 rounded-lg bg-[var(--surface-soft)] p-4 sm:grid-cols-3">
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <dt className="text-xs text-[var(--slate)]">
                                     Jobs created
-                                </p>
-                                <p className="text-sm font-semibold text-[var(--navy-deep)] tabular-nums">
+                                </dt>
+                                <dd className="text-sm font-semibold text-[var(--navy-deep)] tabular-nums">
                                     {account.jobsCreated}
-                                </p>
+                                </dd>
                             </div>
-                        </div>
-                        <div className="border-t border-[var(--line)]" />
-                        <div className="flex items-center gap-3 px-4 py-3">
-                            <div
-                                className="size-4 shrink-0"
-                                aria-hidden="true"
-                            />
-                            <div className="min-w-0 flex-1">
-                                <p className="text-xs text-[var(--slate)]">
-                                    Last active
-                                </p>
-                                <p className="text-sm font-semibold text-[var(--navy-deep)]">
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <dt className="text-xs text-[var(--slate)]">
+                                    Last sign-in
+                                </dt>
+                                <dd className="text-sm font-medium text-[var(--navy-deep)]">
                                     {formatDate(account.lastActive)}
-                                </p>
+                                </dd>
                             </div>
-                        </div>
-                    </div>
-                    {account.notes ? (
-                        <div className="rounded-lg border border-[var(--line)] bg-white px-4 py-3">
-                            <p className="text-xs text-[var(--slate)]">Notes</p>
-                            <p className="mt-1 text-sm whitespace-pre-wrap text-[var(--navy-deep)]">
-                                {account.notes}
-                            </p>
-                        </div>
-                    ) : null}
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <dt className="text-xs text-[var(--slate)]">
+                                    Date added
+                                </dt>
+                                <dd className="text-sm font-medium text-[var(--navy-deep)]">
+                                    {formatDate(account.dateAdded)}
+                                </dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    <section
+                        className="flex flex-col gap-2 border-t border-[var(--line)] pt-5"
+                        aria-labelledby="staff-notes-heading"
+                    >
+                        <h3
+                            id="staff-notes-heading"
+                            className="text-sm font-semibold text-[var(--navy-deep)]"
+                        >
+                            Notes
+                        </h3>
+                        <p className="text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap text-[var(--slate)]">
+                            {account.notes || '—'}
+                        </p>
+                    </section>
                 </div>
-                <DialogFooter className="gap-2 sm:gap-2">
+                <DialogFooter className="shrink-0 border-t border-[var(--line)] px-6 py-4">
                     <Button
                         variant="secondary"
+                        className="w-full sm:w-auto"
                         onClick={() => onOpenChange(false)}
                     >
                         Close
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            onOpenChange(false);
-                            onEdit(account);
-                        }}
-                    >
-                        Edit staff
                     </Button>
                 </DialogFooter>
             </DialogContent>
