@@ -6,7 +6,7 @@ use App\Enums\Role;
 use App\Models\Agency;
 use App\Models\User;
 use App\Support\AccountIndexFilters;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class AccountRepository

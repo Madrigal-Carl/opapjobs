@@ -3,6 +3,7 @@
 namespace App\Actions\Fortify;
 
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Actions\AttemptToAuthenticate as FortifyAttemptToAuthenticate;
 use Laravel\Fortify\Fortify;
@@ -31,7 +32,7 @@ class AttemptToAuthenticate extends FortifyAttemptToAuthenticate
         if (! $user) {
             $this->fireFailedEvent($request);
 
-            return $this->throwFailedAuthenticationException($request);
+            $this->throwFailedAuthenticationException($request);
         }
 
         $this->guard->login($user, $request->boolean('remember'));
@@ -42,7 +43,7 @@ class AttemptToAuthenticate extends FortifyAttemptToAuthenticate
     /**
      * @throws ValidationException
      */
-    protected function rejectSuspended($request): void
+    protected function rejectSuspended(Request $request): void
     {
         $user = $this->guard->user();
 
