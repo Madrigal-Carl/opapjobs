@@ -132,8 +132,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::prefix('system')
                 ->middleware('can:'.Permission::ViewSystemOverview->value)
                 ->group(function () {
-                    Route::get('overview', [ViewController::class, 'systemOverview'])->name('dashboard.system.overview');
-
                     Route::get('agencies/new', [ViewController::class, 'systemAgenciesCreate'])->name('dashboard.system.agencies.create');
                     Route::get('agencies/{agency}', [ViewController::class, 'systemAgenciesShow'])->name('dashboard.system.agencies.show');
                     Route::get('agencies', [ViewController::class, 'systemAgencies'])->name('dashboard.system.agencies');
@@ -158,8 +156,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('content', [ViewController::class, 'systemContent'])->name('dashboard.system.content');
 
                     Route::get('audit-log', [ViewController::class, 'systemAuditLog'])->name('dashboard.system.audit-log');
-
-                    Route::get('settings', [ViewController::class, 'systemSettings'])->name('dashboard.system.settings');
                 });
         });
 });

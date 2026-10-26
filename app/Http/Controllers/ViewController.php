@@ -81,11 +81,6 @@ class ViewController extends Controller
      * the browser, so these methods only pick the component and pass the
      * route id through — there is no query, service or policy behind them.
      */
-    public function systemOverview(): Response
-    {
-        return Inertia::render('dashboard/system/overview');
-    }
-
     public function systemAgencies(): Response
     {
         return Inertia::render('dashboard/system/agencies/index');
@@ -165,10 +160,5 @@ class ViewController extends Controller
     public function systemAuditLog(): Response
     {
         return Inertia::render('dashboard/system/audit-log');
-    }
-
-    public function systemSettings(): Response
-    {
-        return Inertia::render('dashboard/system/settings');
     }
 }

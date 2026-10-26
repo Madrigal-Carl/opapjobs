@@ -233,6 +233,17 @@ type RenameableRowProps = {
     onEditChange: (value: string) => void;
     onCommitEdit: () => void;
     onCancelEdit: () => void;
+    /**
+     * Master/detail rows use the body to *select* rather than rename:
+     * clicking the middle of a row has to open that row's detail pane, so
+     * rename moves to the `…` menu where it already lives. Omit it and the
+     * body stays a rename trigger, which is what the subcategory and
+     * Fields rows want — they have no pane to open.
+     */
+    onActivate?: () => void;
+    /** Marks the row as the one the body has activated. */
+    active?: boolean;
+    activateTestId?: string;
 };
 
 /**
@@ -249,6 +260,9 @@ export function RenameableBody({
     onEditChange,
     onCommitEdit,
     onCancelEdit,
+    onActivate,
+    active,
+    activateTestId,
 }: RenameableRowProps) {
     if (editing) {
         return (
@@ -282,6 +296,37 @@ export function RenameableBody({
                     </p>
                 )}
             </div>
+        );
+    }
+
+    if (onActivate) {
+        return (
+            <button
+                type="button"
+                onClick={onActivate}
+                data-testid={activateTestId}
+                aria-pressed={active}
+                className="min-w-0 flex-1 truncate rounded text-left text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40 focus-visible:outline-none"
+            >
+                <span
+                    className={
+                        active
+                            ? 'text-[var(--teal-ink)]'
+                            : 'text-[var(--navy)] transition-colors group-hover:text-[var(--teal-ink)]'
+                    }
+                >
+                    {name}
+                </span>
+                <ChevronRight
+                    className={cn(
+                        'ml-1 inline size-3 text-[var(--slate)] transition-opacity motion-reduce:transition-none',
+                        active
+                            ? 'opacity-100'
+                            : 'opacity-0 group-hover:opacity-100',
+                    )}
+                    aria-hidden="true"
+                />
+            </button>
         );
     }
 
