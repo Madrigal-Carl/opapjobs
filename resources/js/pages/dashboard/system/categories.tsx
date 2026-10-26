@@ -571,22 +571,27 @@ export default function SystemCategories() {
                     data-testid="header-categories"
                 />
 
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <SegmentedControl<Pathway>
-                        value={pathway}
-                        onValueChange={(next) => {
-                            setPathway(next);
-                            setSelectedCategoryId(null);
-                            cancelAdd();
-                            cancelEdit();
-                        }}
-                        options={[
-                            { value: 'landbased', label: 'Land-based' },
-                            { value: 'seabased', label: 'Sea-based' },
-                        ]}
-                        aria-label="Pathway"
-                        data-testid="segmented-pathway"
-                    />
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-white px-4 py-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <span className="font-mono text-[10px] font-bold tracking-[0.12em] text-[var(--slate)] uppercase">
+                            Pathway
+                        </span>
+                        <SegmentedControl<Pathway>
+                            value={pathway}
+                            onValueChange={(next) => {
+                                setPathway(next);
+                                setSelectedCategoryId(null);
+                                cancelAdd();
+                                cancelEdit();
+                            }}
+                            options={[
+                                { value: 'landbased', label: 'Land-based' },
+                                { value: 'seabased', label: 'Sea-based' },
+                            ]}
+                            aria-label="Pathway"
+                            data-testid="segmented-pathway"
+                        />
+                    </div>
                     <p className="text-sm text-[var(--slate)]">
                         {labelForPathway(pathway)} · {activeCategories.length}{' '}
                         {activeCategories.length === 1
@@ -598,13 +603,18 @@ export default function SystemCategories() {
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                     {/* ---------- Left pane: categories ---------- */}
                     <section
-                        className="flex flex-col gap-3"
+                        className="flex flex-col overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-sm"
                         data-testid="pane-categories"
                     >
-                        <header className="flex items-center justify-between gap-3">
-                            <h2 className="font-serif text-lg font-bold tracking-[-0.02em] text-[var(--navy)]">
-                                Categories
-                            </h2>
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
+                            <div className="min-w-0">
+                                <h2 className="font-serif text-lg font-bold tracking-[-0.02em] text-[var(--navy)]">
+                                    Categories
+                                </h2>
+                                <p className="text-xs text-[var(--slate)]">
+                                    Pick a category to edit its subcategories.
+                                </p>
+                            </div>
                             <Button
                                 type="button"
                                 variant="secondary"
@@ -617,124 +627,129 @@ export default function SystemCategories() {
                             </Button>
                         </header>
 
-                        {addingTo === 'category' && (
-                            <InlineAddRow
-                                ref={draftInputRef}
-                                label="Category name"
-                                value={draftName}
-                                error={draftError}
-                                onChange={setDraftName}
-                                onSave={() => commitAdd('category')}
-                                onCancel={cancelAdd}
-                            />
-                        )}
+                        <div className="flex flex-col gap-3 p-4">
+                            {addingTo === 'category' && (
+                                <InlineAddRow
+                                    ref={draftInputRef}
+                                    label="Category name"
+                                    value={draftName}
+                                    error={draftError}
+                                    onChange={setDraftName}
+                                    onSave={() => commitAdd('category')}
+                                    onCancel={cancelAdd}
+                                />
+                            )}
 
-                        <ul className="flex flex-col gap-1.5">
-                            {activeCategories.map((category, index) => (
-                                <CategoryRow
-                                    key={category.id}
-                                    category={category}
-                                    index={index}
-                                    total={activeCategories.length}
-                                    usage={categoryUsage(state, category.id)}
-                                    subcategoryCount={
-                                        categorySubcategories(
+                            <ul className="flex flex-col gap-1.5">
+                                {activeCategories.map((category, index) => (
+                                    <CategoryRow
+                                        key={category.id}
+                                        category={category}
+                                        index={index}
+                                        total={activeCategories.length}
+                                        usage={categoryUsage(
                                             state,
                                             category.id,
-                                        ).length
-                                    }
-                                    selected={
-                                        selectedCategory?.id === category.id
-                                    }
-                                    editing={editingId === category.id}
-                                    editName={editName}
-                                    editError={editError}
-                                    onSelect={() =>
-                                        setSelectedCategoryId(category.id)
-                                    }
-                                    onStartEdit={() =>
-                                        startEdit(
-                                            category.id,
-                                            category.categoryName,
-                                        )
-                                    }
-                                    onEditChange={setEditName}
-                                    onCommitEdit={() =>
-                                        commitEdit(
-                                            'category',
-                                            category.id,
-                                            category.categoryName,
-                                        )
-                                    }
-                                    onCancelEdit={cancelEdit}
-                                    onMove={(targetIndex) =>
-                                        reorder(
-                                            'category',
-                                            activeCategories,
-                                            category.id,
-                                            targetIndex,
-                                        )
-                                    }
-                                    onArchive={() =>
-                                        setArchiving({
-                                            mode: 'category',
-                                            id: category.id,
-                                            name: category.categoryName,
-                                            usage: categoryUsage(
+                                        )}
+                                        subcategoryCount={
+                                            categorySubcategories(
                                                 state,
                                                 category.id,
-                                            ),
-                                        })
-                                    }
-                                />
-                            ))}
-                        </ul>
-
-                        {activeCategories.length === 0 && (
-                            <DashboardEmptyState
-                                icon={FolderTree}
-                                title={`No ${labelForPathway(pathway)} categories yet`}
-                                message="Add the first category to start grouping job posts."
-                            />
-                        )}
-
-                        {archivedCategories.length > 0 && (
-                            <ArchivedSection
-                                count={archivedCategories.length}
-                                open={showArchived}
-                                onToggle={() =>
-                                    setShowArchived((current) => !current)
-                                }
-                            >
-                                <ul className="flex flex-col gap-1.5">
-                                    {archivedCategories.map((category) => (
-                                        <ArchivedRow
-                                            key={category.id}
-                                            name={category.categoryName}
-                                            usage={categoryUsage(
-                                                state,
+                                            ).length
+                                        }
+                                        selected={
+                                            selectedCategory?.id === category.id
+                                        }
+                                        editing={editingId === category.id}
+                                        editName={editName}
+                                        editError={editError}
+                                        onSelect={() =>
+                                            setSelectedCategoryId(category.id)
+                                        }
+                                        onStartEdit={() =>
+                                            startEdit(
                                                 category.id,
-                                            )}
-                                            onRestore={() =>
-                                                restore(
-                                                    'category',
+                                                category.categoryName,
+                                            )
+                                        }
+                                        onEditChange={setEditName}
+                                        onCommitEdit={() =>
+                                            commitEdit(
+                                                'category',
+                                                category.id,
+                                                category.categoryName,
+                                            )
+                                        }
+                                        onCancelEdit={cancelEdit}
+                                        onMove={(targetIndex) =>
+                                            reorder(
+                                                'category',
+                                                activeCategories,
+                                                category.id,
+                                                targetIndex,
+                                            )
+                                        }
+                                        onArchive={() =>
+                                            setArchiving({
+                                                mode: 'category',
+                                                id: category.id,
+                                                name: category.categoryName,
+                                                usage: categoryUsage(
+                                                    state,
                                                     category.id,
-                                                    category.categoryName,
-                                                )
-                                            }
-                                        />
-                                    ))}
-                                </ul>
-                            </ArchivedSection>
-                        )}
+                                                ),
+                                            })
+                                        }
+                                    />
+                                ))}
+                            </ul>
+
+                            {activeCategories.length === 0 && (
+                                <DashboardEmptyState
+                                    icon={FolderTree}
+                                    title={`No ${labelForPathway(pathway)} categories yet`}
+                                    message="Add the first category to start grouping job posts."
+                                />
+                            )}
+
+                            {archivedCategories.length > 0 && (
+                                <ArchivedSection
+                                    count={archivedCategories.length}
+                                    open={showArchived}
+                                    onToggle={() =>
+                                        setShowArchived((current) => !current)
+                                    }
+                                >
+                                    <ul className="flex flex-col gap-1.5">
+                                        {archivedCategories.map((category) => (
+                                            <ArchivedRow
+                                                key={category.id}
+                                                name={category.categoryName}
+                                                usage={categoryUsage(
+                                                    state,
+                                                    category.id,
+                                                )}
+                                                onRestore={() =>
+                                                    restore(
+                                                        'category',
+                                                        category.id,
+                                                        category.categoryName,
+                                                    )
+                                                }
+                                            />
+                                        ))}
+                                    </ul>
+                                </ArchivedSection>
+                            )}
+                        </div>
                     </section>
 
                     {/* ---------- Right pane: subcategories ---------- */}
                     <section
-                        className="flex flex-col gap-3"
+                        className="flex flex-col overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-sm"
                         data-testid="pane-subcategories"
                     >
-                        <header className="flex flex-wrap items-center justify-between gap-3">
+                        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
                             <div className="min-w-0">
                                 <h2 className="font-serif text-lg font-bold tracking-[-0.02em] text-[var(--navy)]">
                                     {selectedCategory?.categoryName ??
@@ -770,151 +785,159 @@ export default function SystemCategories() {
                             </div>
                         </header>
 
-                        {addingTo === 'subcategory' && (
-                            <InlineAddRow
-                                ref={draftInputRef}
-                                label="Subcategory name"
-                                value={draftName}
-                                error={draftError}
-                                onChange={setDraftName}
-                                onSave={() => commitAdd('subcategory')}
-                                onCancel={cancelAdd}
-                            />
-                        )}
+                        <div className="flex flex-col gap-3 p-4">
+                            {addingTo === 'subcategory' && (
+                                <InlineAddRow
+                                    ref={draftInputRef}
+                                    label="Subcategory name"
+                                    value={draftName}
+                                    error={draftError}
+                                    onChange={setDraftName}
+                                    onSave={() => commitAdd('subcategory')}
+                                    onCancel={cancelAdd}
+                                />
+                            )}
 
-                        {selectedCategory ? (
-                            <>
-                                <ul className="flex flex-col gap-1.5">
-                                    {filteredActiveSubcategories.map(
-                                        (subcategory, index) => (
-                                            <SubcategoryRow
-                                                key={subcategory.id}
-                                                subcategory={subcategory}
-                                                index={index}
-                                                total={
-                                                    filteredActiveSubcategories.length
-                                                }
-                                                usage={subcategoryUsage(
-                                                    state,
-                                                    subcategory.id,
-                                                )}
-                                                editing={
-                                                    editingId === subcategory.id
-                                                }
-                                                editName={editName}
-                                                editError={editError}
-                                                moveTargets={otherCategories}
-                                                onStartEdit={() =>
-                                                    startEdit(
+                            {selectedCategory ? (
+                                <>
+                                    <ul className="flex flex-col gap-1.5">
+                                        {filteredActiveSubcategories.map(
+                                            (subcategory, index) => (
+                                                <SubcategoryRow
+                                                    key={subcategory.id}
+                                                    subcategory={subcategory}
+                                                    index={index}
+                                                    total={
+                                                        filteredActiveSubcategories.length
+                                                    }
+                                                    usage={subcategoryUsage(
+                                                        state,
                                                         subcategory.id,
-                                                        subcategory.subcategoryName,
-                                                    )
-                                                }
-                                                onEditChange={setEditName}
-                                                onCommitEdit={() =>
-                                                    commitEdit(
-                                                        'subcategory',
-                                                        subcategory.id,
-                                                        subcategory.subcategoryName,
-                                                    )
-                                                }
-                                                onCancelEdit={cancelEdit}
-                                                onMove={(targetIndex) =>
-                                                    reorder(
-                                                        'subcategory',
-                                                        filteredActiveSubcategories,
-                                                        subcategory.id,
-                                                        targetIndex,
-                                                    )
-                                                }
-                                                onMoveTo={(categoryId) =>
-                                                    moveSubcategory(
-                                                        subcategory,
-                                                        categoryId,
-                                                    )
-                                                }
-                                                onArchive={() =>
-                                                    setArchiving({
-                                                        mode: 'subcategory',
-                                                        id: subcategory.id,
-                                                        name: subcategory.subcategoryName,
-                                                        usage: subcategoryUsage(
-                                                            state,
+                                                    )}
+                                                    editing={
+                                                        editingId ===
+                                                        subcategory.id
+                                                    }
+                                                    editName={editName}
+                                                    editError={editError}
+                                                    moveTargets={
+                                                        otherCategories
+                                                    }
+                                                    onStartEdit={() =>
+                                                        startEdit(
                                                             subcategory.id,
-                                                        ),
-                                                    })
-                                                }
-                                            />
-                                        ),
-                                    )}
-                                </ul>
-
-                                {filteredActiveSubcategories.length === 0 && (
-                                    <DashboardEmptyState
-                                        icon={
-                                            search.trim() ? SearchX : FolderTree
-                                        }
-                                        title={
-                                            search.trim()
-                                                ? 'No matching subcategories'
-                                                : 'No subcategories yet'
-                                        }
-                                        message={
-                                            search.trim()
-                                                ? 'Clear the search to see every subcategory of this category.'
-                                                : 'Add the first subcategory applicants will pick from.'
-                                        }
-                                        onReset={
-                                            search.trim()
-                                                ? () => setSearch('')
-                                                : undefined
-                                        }
-                                    />
-                                )}
-
-                                {archivedSubcategories.length > 0 && (
-                                    <ArchivedSection
-                                        count={archivedSubcategories.length}
-                                        open={showArchived}
-                                        onToggle={() =>
-                                            setShowArchived(
-                                                (current) => !current,
-                                            )
-                                        }
-                                    >
-                                        <ul className="flex flex-col gap-1.5">
-                                            {archivedSubcategories.map(
-                                                (subcategory) => (
-                                                    <ArchivedRow
-                                                        key={subcategory.id}
-                                                        name={
-                                                            subcategory.subcategoryName
-                                                        }
-                                                        usage={subcategoryUsage(
-                                                            state,
+                                                            subcategory.subcategoryName,
+                                                        )
+                                                    }
+                                                    onEditChange={setEditName}
+                                                    onCommitEdit={() =>
+                                                        commitEdit(
+                                                            'subcategory',
                                                             subcategory.id,
-                                                        )}
-                                                        onRestore={() =>
-                                                            restore(
-                                                                'subcategory',
+                                                            subcategory.subcategoryName,
+                                                        )
+                                                    }
+                                                    onCancelEdit={cancelEdit}
+                                                    onMove={(targetIndex) =>
+                                                        reorder(
+                                                            'subcategory',
+                                                            filteredActiveSubcategories,
+                                                            subcategory.id,
+                                                            targetIndex,
+                                                        )
+                                                    }
+                                                    onMoveTo={(categoryId) =>
+                                                        moveSubcategory(
+                                                            subcategory,
+                                                            categoryId,
+                                                        )
+                                                    }
+                                                    onArchive={() =>
+                                                        setArchiving({
+                                                            mode: 'subcategory',
+                                                            id: subcategory.id,
+                                                            name: subcategory.subcategoryName,
+                                                            usage: subcategoryUsage(
+                                                                state,
                                                                 subcategory.id,
-                                                                subcategory.subcategoryName,
-                                                            )
-                                                        }
-                                                    />
-                                                ),
-                                            )}
-                                        </ul>
-                                    </ArchivedSection>
-                                )}
-                            </>
-                        ) : (
-                            <DashboardEmptyState
-                                icon={FolderTree}
-                                title="Pick a category"
-                                message="Choose a category on the left to see and edit its subcategories."
-                            />
-                        )}
+                                                            ),
+                                                        })
+                                                    }
+                                                />
+                                            ),
+                                        )}
+                                    </ul>
+
+                                    {filteredActiveSubcategories.length ===
+                                        0 && (
+                                        <DashboardEmptyState
+                                            icon={
+                                                search.trim()
+                                                    ? SearchX
+                                                    : FolderTree
+                                            }
+                                            title={
+                                                search.trim()
+                                                    ? 'No matching subcategories'
+                                                    : 'No subcategories yet'
+                                            }
+                                            message={
+                                                search.trim()
+                                                    ? 'Clear the search to see every subcategory of this category.'
+                                                    : 'Add the first subcategory applicants will pick from.'
+                                            }
+                                            onReset={
+                                                search.trim()
+                                                    ? () => setSearch('')
+                                                    : undefined
+                                            }
+                                        />
+                                    )}
+
+                                    {archivedSubcategories.length > 0 && (
+                                        <ArchivedSection
+                                            count={archivedSubcategories.length}
+                                            open={showArchived}
+                                            onToggle={() =>
+                                                setShowArchived(
+                                                    (current) => !current,
+                                                )
+                                            }
+                                        >
+                                            <ul className="flex flex-col gap-1.5">
+                                                {archivedSubcategories.map(
+                                                    (subcategory) => (
+                                                        <ArchivedRow
+                                                            key={subcategory.id}
+                                                            name={
+                                                                subcategory.subcategoryName
+                                                            }
+                                                            usage={subcategoryUsage(
+                                                                state,
+                                                                subcategory.id,
+                                                            )}
+                                                            onRestore={() =>
+                                                                restore(
+                                                                    'subcategory',
+                                                                    subcategory.id,
+                                                                    subcategory.subcategoryName,
+                                                                )
+                                                            }
+                                                        />
+                                                    ),
+                                                )}
+                                            </ul>
+                                        </ArchivedSection>
+                                    )}
+                                </>
+                            ) : (
+                                <DashboardEmptyState
+                                    icon={FolderTree}
+                                    title="Pick a category"
+                                    message="Choose a category on the left to see and edit its subcategories."
+                                />
+                            )}
+                        </div>
                     </section>
                 </div>
             </SystemPage>
