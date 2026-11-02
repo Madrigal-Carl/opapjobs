@@ -73,6 +73,15 @@ type JobsIndexProps = {
 
 type SearchState = JobsIndexProps['filters'];
 
+function sameSearch(a: SearchState, b: SearchState): boolean {
+    return (
+        a.q === b.q &&
+        a.country === b.country &&
+        a.filters.length === b.filters.length &&
+        a.filters.every((filter, index) => b.filters[index] === filter)
+    );
+}
+
 /** The query string for a search. `page` is never written: a reload starts at page 1. */
 function searchParams(search: SearchState): Record<string, string | string[]> {
     const params: Record<string, string | string[]> = {};
@@ -155,8 +164,31 @@ function JobsBrowser({
     const loadingMoreRef = useRef(false);
 
     const sentinelRef = useRef<HTMLDivElement | null>(null);
+    /** What the server last answered for; "load more" must ask for the same. */
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
+    /**
+     * The search the reader last asked for, which runs ahead of `filters`
+     * while a request is in flight. Every new request is built from this, so
+     * typing never drops a toggle that is still loading, a toggle never
+     * drops a keyword that is still loading, and two quick clicks both count.
+     */
+    const intendedRef = useRef<SearchState>(filters);
+    const isVisiting = useRef(false);
+
+    // Page props that change without a request from here (back / forward,
+    // a navbar link to the same page) become the new intent, and the inputs
+    // follow them so they never disagree with the pills.
+    useEffect(() => {
+        if (isVisiting.current || sameSearch(intendedRef.current, filters)) {
+            return;
+        }
+
+        intendedRef.current = filters;
+        setKeyword(filters.q);
+        setCountry(filters.country);
+        setPendingFilters(null);
+    }, [filters]);
 
     const searchInput = useMemo(
         () => ({ q: keyword, country }),
@@ -176,12 +208,13 @@ function JobsBrowser({
 
     /** A different search always starts again from the first page. */
     const update = useCallback((next: Partial<SearchState>) => {
-        const merged = { ...filtersRef.current, ...next };
+        const merged = { ...intendedRef.current, ...next };
         const visit = ++latestVisit.current;
+        let succeeded = false;
 
-        if (next.filters) {
-            setPendingFilters(next.filters);
-        }
+        intendedRef.current = merged;
+        isVisiting.current = true;
+        setPendingFilters(merged.filters);
 
         // A "load more" still in flight belongs to the previous search; left
         // running it would land after this visit and write its stale page
@@ -190,18 +223,33 @@ function JobsBrowser({
         loadingMoreRef.current = false;
         setIsLoadingMore(false);
 
+        // A full visit, not a partial one: `reset` (or `only`) would make
+        // Inertia ask for just those props, leaving `filters` and
+        // `jobPostsMeta` on the previous search. Merge props only merge on
+        // partial reloads, so `jobPosts` is replaced here, never appended.
         router.get(jobsIndex.url(), searchParams(merged), {
             preserveState: true,
             preserveScroll: true,
             replace: true,
-            reset: ['jobPosts'],
             onStart: () => setIsResolving(true),
+            onSuccess: () => {
+                succeeded = true;
+            },
             // A visit cancelled by a newer one must not clear the newer state.
             onFinish: () => {
-                if (visit === latestVisit.current) {
-                    setIsResolving(false);
-                    setPendingFilters(null);
+                if (visit !== latestVisit.current) {
+                    return;
                 }
+
+                // A failed or interrupted visit leaves the page on what the
+                // server last answered, so the intent falls back to it too.
+                if (!succeeded) {
+                    intendedRef.current = filtersRef.current;
+                }
+
+                isVisiting.current = false;
+                setIsResolving(false);
+                setPendingFilters(null);
             },
         });
     }, []);
@@ -210,7 +258,7 @@ function JobsBrowser({
     useEffect(() => {
         const q = search.q.trim();
         const place = search.country.trim();
-        const current = filtersRef.current;
+        const current = intendedRef.current;
 
         if (current.q !== q || current.country !== place) {
             update({ q, country: place });
@@ -304,9 +352,15 @@ function JobsBrowser({
 
     const activeFilters = pendingFilters ?? filters.filters;
 
-    /** On, off, and one pathway at a time — see `toggleJobFilter`. */
+    /**
+     * On, off, and one pathway at a time — see `toggleJobFilter`. Built from
+     * the latest intent rather than the rendered pills, so a second click
+     * before the first re-renders still sees the first.
+     */
     const toggleFilter = (filter: JobFilterId) => {
-        update({ filters: toggleJobFilter(activeFilters, filter) });
+        update({
+            filters: toggleJobFilter(intendedRef.current.filters, filter),
+        });
     };
 
     const clearFilters = () => {

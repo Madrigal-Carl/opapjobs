@@ -81,6 +81,123 @@ test('landbased and seabased exclude each other and the last one asked for wins'
         ->assertInertia(fn (Assert $page) => $page->where('filters.filters', ['seabased', 'recent']));
 });
 
+/**
+ * One job post per pathway × urgent × recent, titled e.g. "land urgent recent".
+ * The old ones are older than RECENT_DAYS.
+ */
+function filterMatrix(): void
+{
+    $agencies = ['land' => PublicCatalog::agency(Pathway::Landbased), 'sea' => PublicCatalog::agency(Pathway::Seabased)];
+
+    foreach ($agencies as $pathway => $agency) {
+        foreach ([true, false] as $isUrgent) {
+            foreach ([true, false] as $isRecent) {
+                PublicCatalog::post($agency, [
+                    'job_title' => $pathway.' '.($isUrgent ? 'urgent' : 'calm').' '.($isRecent ? 'recent' : 'old'),
+                    'is_urgent' => $isUrgent,
+                    'created_at' => $isRecent ? now()->subDay() : now()->subDays(PublicAgencyRules::RECENT_DAYS + 3),
+                ]);
+            }
+        }
+    }
+}
+
+/** @return list<string> */
+function sortedTitles(mixed $test, array $query = []): array
+{
+    return collect(browsedTitles($test, $query))->sort()->values()->all();
+}
+
+test('every filter combination returns exactly the matching job posts', function (array $filters, array $expected) {
+    filterMatrix();
+
+    $this->get(route('jobs.index', ['filters' => $filters]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('filters.filters', $filters));
+
+    expect(sortedTitles($this, ['filters' => $filters]))->toBe(collect($expected)->sort()->values()->all());
+})->with([
+    'none' => [[], ['land urgent recent', 'land urgent old', 'land calm recent', 'land calm old', 'sea urgent recent', 'sea urgent old', 'sea calm recent', 'sea calm old']],
+    'landbased' => [['landbased'], ['land urgent recent', 'land urgent old', 'land calm recent', 'land calm old']],
+    'seabased' => [['seabased'], ['sea urgent recent', 'sea urgent old', 'sea calm recent', 'sea calm old']],
+    'urgent' => [['urgent'], ['land urgent recent', 'land urgent old', 'sea urgent recent', 'sea urgent old']],
+    'recent' => [['recent'], ['land urgent recent', 'land calm recent', 'sea urgent recent', 'sea calm recent']],
+    'urgent, recent' => [['urgent', 'recent'], ['land urgent recent', 'sea urgent recent']],
+    'landbased, urgent' => [['landbased', 'urgent'], ['land urgent recent', 'land urgent old']],
+    'landbased, recent' => [['landbased', 'recent'], ['land urgent recent', 'land calm recent']],
+    'landbased, urgent, recent' => [['landbased', 'urgent', 'recent'], ['land urgent recent']],
+    'seabased, urgent' => [['seabased', 'urgent'], ['sea urgent recent', 'sea urgent old']],
+    'seabased, recent' => [['seabased', 'recent'], ['sea urgent recent', 'sea calm recent']],
+    'seabased, urgent, recent' => [['seabased', 'urgent', 'recent'], ['sea urgent recent']],
+]);
+
+test('the recent filter lists newest first', function () {
+    $agency = PublicCatalog::agency();
+    PublicCatalog::post($agency, ['job_title' => 'Two days', 'created_at' => now()->subDays(2)]);
+    PublicCatalog::post($agency, ['job_title' => 'One hour', 'created_at' => now()->subHour()]);
+    PublicCatalog::post($agency, ['job_title' => 'Too old', 'created_at' => now()->subDays(PublicAgencyRules::RECENT_DAYS + 1)]);
+
+    expect(browsedTitles($this, ['filters' => ['recent']]))->toBe(['One hour', 'Two days']);
+});
+
+test('the pathway filter follows the agency, not the job category', function () {
+    PublicCatalog::post(PublicCatalog::agency(Pathway::Seabased), [
+        'job_title' => 'Sea agency, land category', 'job_subcategory_id' => PublicCatalog::subcategory(Pathway::Landbased)->id,
+    ]);
+    PublicCatalog::post(PublicCatalog::agency(Pathway::Landbased), ['job_title' => 'Land agency']);
+
+    expect(browsedTitles($this, ['filters' => ['seabased']]))->toBe(['Sea agency, land category'])
+        ->and(browsedTitles($this, ['filters' => ['landbased']]))->toBe(['Land agency']);
+});
+
+test('asking for both pathways never returns both', function (array $filters) {
+    filterMatrix();
+
+    $titles = browsedTitles($this, ['filters' => $filters]);
+    $pathways = collect($titles)->map(fn (string $title) => explode(' ', $title)[0])->unique();
+
+    expect($titles)->not->toBeEmpty()->and($pathways)->toHaveCount(1);
+})->with([
+    [['landbased', 'seabased']],
+    [['seabased', 'landbased', 'urgent']],
+    [['urgent', 'landbased', 'recent', 'seabased']],
+]);
+
+test('removing a filter brings its job posts back', function () {
+    filterMatrix();
+
+    expect(browsedTitles($this, ['filters' => ['landbased', 'urgent', 'recent']]))->toHaveCount(1)
+        ->and(browsedTitles($this, ['filters' => ['landbased', 'urgent']]))->toHaveCount(2)
+        ->and(browsedTitles($this, ['filters' => ['landbased']]))->toHaveCount(4)
+        ->and(browsedTitles($this, ['filters' => []]))->toHaveCount(8)
+        ->and(browsedTitles($this))->toHaveCount(8);
+});
+
+test('the next page keeps the filters', function () {
+    $land = PublicCatalog::agency(Pathway::Landbased);
+    PublicCatalog::posts($land, PublicAgencyRules::JOBS_PER_BATCH + 3, ['is_urgent' => true]);
+    PublicCatalog::posts($land, 4, ['is_urgent' => false]);
+    PublicCatalog::posts(PublicCatalog::agency(Pathway::Seabased), 5, ['is_urgent' => true]);
+
+    $query = ['filters' => ['landbased', 'urgent']];
+    $first = $this->get(route('jobs.index', $query));
+    $second = $this->get(route('jobs.index', [...$query, 'page' => 2]));
+
+    $first->assertInertia(fn (Assert $page) => $page
+        ->has('jobPosts', PublicAgencyRules::JOBS_PER_BATCH)
+        ->where('jobPostsMeta.total', PublicAgencyRules::JOBS_PER_BATCH + 3)
+        ->where('jobPostsMeta.nextPage', 2));
+    $second->assertInertia(fn (Assert $page) => $page
+        ->has('jobPosts', 3)
+        ->where('jobPostsMeta.hasMore', false)
+        ->where('filters.filters', ['landbased', 'urgent']));
+
+    $rows = collect([...$first->inertiaProps('jobPosts'), ...$second->inertiaProps('jobPosts')]);
+
+    expect($rows->pluck('id')->unique())->toHaveCount(PublicAgencyRules::JOBS_PER_BATCH + 3)
+        ->and($rows->every(fn (array $row) => $row['pathway'] === 'landbased' && $row['urgent'] === true))->toBeTrue();
+});
+
 test('the keyword searches title, location, category and agency and is trimmed and capped', function () {
     $agency = PublicCatalog::agency(Pathway::Landbased, ['agency_name' => 'Northwind Manpower']);
     $post = PublicCatalog::post($agency, ['job_title' => 'Electrician', 'work_location' => 'Doha, Qatar']);
