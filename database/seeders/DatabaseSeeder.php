@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             $this->call([
                 DemoAgencySeeder::class,
                 DemoJobPostSeeder::class,
+                DemoPublicCatalogSeeder::class,
                 DemoApplicantSeeder::class,
                 DemoApplicationSeeder::class,
                 DemoReviewSeeder::class,

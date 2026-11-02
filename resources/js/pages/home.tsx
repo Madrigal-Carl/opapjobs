@@ -1,25 +1,49 @@
-import { Head } from '@inertiajs/react';
-import {
-    ArrowRight,
-    Building2,
-    Check,
-    MapPin,
-    Search,
-    Ship,
-} from 'lucide-react';
+import { Head, Link, router } from '@inertiajs/react';
+import { ArrowRight, Building2, MapPin, Search, Ship } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AgencyCard } from '@/components/site/agency-card';
 import { JobListingCard } from '@/components/site/job-listing-card';
 import { countryOptions } from '@/data/countries';
+import { homeResources } from '@/data/home-resources';
 import { index as agenciesIndex } from '@/routes/agencies';
-import {
-    homeAgencies,
-    homeJobs,
-    homeResources,
-    homeStats,
-    homeTopHirers,
-} from '@/data/home';
+import { index as jobsIndex } from '@/routes/jobs';
 import type { Pathway } from '@/types/agency';
+import type {
+    PublicAgencyCard,
+    PublicJobPostCard,
+} from '@/types/public-catalog';
+
+type PerPathway<T> = Record<Pathway, T>;
+
+type HomeProps = {
+    agencies: PerPathway<PublicAgencyCard[]>;
+    topHirers: PerPathway<PublicAgencyCard[]>;
+    jobs: PerPathway<PublicJobPostCard[]>;
+    stats: {
+        agencies: PerPathway<number>;
+        topHirers: PerPathway<number>;
+        jobs: PerPathway<number>;
+    };
+};
+
+function plural(count: number, singular: string, pluralForm: string): string {
+    return `${count} ${count === 1 ? singular : pluralForm}`;
+}
+
+/** Sends a search to the jobs page, which reads `q` and `country` on load. */
+function searchJobs(query: { q?: string; country?: string }): void {
+    const params: Record<string, string> = {};
+
+    if (query.q?.trim()) {
+        params.q = query.q.trim();
+    }
+
+    if (query.country?.trim()) {
+        params.country = query.country.trim();
+    }
+
+    router.visit(jobsIndex.url({ query: params }));
+}
 
 function ArrowUpRightIcon() {
     return (
@@ -27,19 +51,18 @@ function ArrowUpRightIcon() {
     );
 }
 
-export default function Home() {
+export default function Home({ agencies, topHirers, jobs, stats }: HomeProps) {
     const [search, setSearch] = useState({ keyword: '', location: '' });
     const [countryOpen, setCountryOpen] = useState(false);
-    const [searchNotice, setSearchNotice] = useState('');
     const [agencyPathway, setAgencyPathway] = useState<Pathway>('landbased');
     const [topHirerPathway, setTopHirerPathway] =
         useState<Pathway>('landbased');
     const [jobPathway, setJobPathway] = useState<Pathway>('landbased');
     const [saved, setSaved] = useState<string[]>([]);
 
-    const activeAgencies = homeAgencies[agencyPathway];
-    const activeTopHirers = homeTopHirers[topHirerPathway];
-    const activeJobs = homeJobs[jobPathway];
+    const activeAgencies = agencies[agencyPathway];
+    const activeTopHirers = topHirers[topHirerPathway];
+    const activeJobs = jobs[jobPathway];
 
     const matchingCountries = useMemo(() => {
         const query = search.location.trim().toLowerCase();
@@ -63,13 +86,7 @@ export default function Home() {
 
     const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const query = search.keyword.trim() || search.location.trim() || 'new';
-        setSearchNotice(
-            `Showing verified ${query.toLowerCase()} opportunities below.`,
-        );
-        document
-            .getElementById('jobs')
-            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        searchJobs({ q: search.keyword, country: search.location });
     };
 
     return (
@@ -195,59 +212,36 @@ export default function Home() {
                                 <span>Search jobs</span>
                             </button>
                         </form>
-                        {searchNotice && (
-                            <div
-                                className="search-notice"
-                                role="status"
-                                data-testid="status-search-feedback"
-                            >
-                                <Check size={15} /> {searchNotice}
-                            </div>
-                        )}
                         <div className="popular-searches">
                             <span>Popular searches</span>
-                            <a
-                                href="#landbased-jobs"
-                                onClick={() =>
-                                    setSearch({ ...search, keyword: 'Nurse' })
-                                }
+                            <Link
+                                href={jobsIndex.url({ query: { q: 'Nurse' } })}
                                 data-testid="link-popular-nurse"
                             >
                                 Nurse
-                            </a>
-                            <a
-                                href="#landbased-jobs"
-                                onClick={() =>
-                                    setSearch({ ...search, keyword: 'Driver' })
-                                }
+                            </Link>
+                            <Link
+                                href={jobsIndex.url({ query: { q: 'Driver' } })}
                                 data-testid="link-popular-driver"
                             >
                                 Driver
-                            </a>
-                            <a
-                                href="#seabased-jobs"
-                                onClick={() =>
-                                    setSearch({
-                                        ...search,
-                                        keyword: 'Seafarer',
-                                    })
-                                }
+                            </Link>
+                            <Link
+                                href={jobsIndex.url({
+                                    query: { filter: 'seabased' },
+                                })}
                                 data-testid="link-popular-seafarer"
                             >
                                 Seafarer
-                            </a>
-                            <a
-                                href="#landbased-jobs"
-                                onClick={() =>
-                                    setSearch({
-                                        ...search,
-                                        location: 'Saudi Arabia',
-                                    })
-                                }
+                            </Link>
+                            <Link
+                                href={jobsIndex.url({
+                                    query: { country: 'Saudi Arabia' },
+                                })}
                                 data-testid="link-popular-saudi"
                             >
                                 Saudi Arabia
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -286,7 +280,13 @@ export default function Home() {
                             data-testid="tab-agencies-landbased"
                         >
                             <Building2 size={18} /> Landbased{' '}
-                            <span>{homeStats.agencies.landbased}</span>
+                            <span>
+                                {plural(
+                                    stats.agencies.landbased,
+                                    'agency',
+                                    'agencies',
+                                )}
+                            </span>
                         </button>
                         <button
                             className={
@@ -300,17 +300,31 @@ export default function Home() {
                             data-testid="tab-agencies-seabased"
                         >
                             <Ship size={18} /> Seabased{' '}
-                            <span>{homeStats.agencies.seabased}</span>
+                            <span>
+                                {plural(
+                                    stats.agencies.seabased,
+                                    'agency',
+                                    'agencies',
+                                )}
+                            </span>
                         </button>
                     </div>
                     <div className="agency-grid" role="tabpanel">
                         {activeAgencies.map((agency) => (
                             <AgencyCard
                                 agency={agency}
-                                key={agency.name}
-                                testId={`card-agency-${agency.mark}`}
+                                key={agency.slug}
+                                testId={`card-agency-${agency.slug}`}
                             />
                         ))}
+                        {activeAgencies.length === 0 && (
+                            <p
+                                className="section-intro"
+                                data-testid="text-agencies-empty"
+                            >
+                                No accredited agencies on this pathway yet.
+                            </p>
+                        )}
                     </div>
                     <a
                         className="text-link centered-link"
@@ -355,7 +369,13 @@ export default function Home() {
                             data-testid="tab-top-hirers-landbased"
                         >
                             <Building2 size={18} /> Landbased{' '}
-                            <span>{homeStats.topHirers.landbased}</span>
+                            <span>
+                                {plural(
+                                    stats.topHirers.landbased,
+                                    'top hirer',
+                                    'top hirers',
+                                )}
+                            </span>
                         </button>
                         <button
                             className={
@@ -369,25 +389,42 @@ export default function Home() {
                             data-testid="tab-top-hirers-seabased"
                         >
                             <Ship size={18} /> Seabased{' '}
-                            <span>{homeStats.topHirers.seabased}</span>
+                            <span>
+                                {plural(
+                                    stats.topHirers.seabased,
+                                    'top hirer',
+                                    'top hirers',
+                                )}
+                            </span>
                         </button>
                     </div>
                     <div className="agency-grid" role="tabpanel">
                         {activeTopHirers.map((agency) => (
                             <AgencyCard
                                 agency={agency}
-                                key={agency.name}
-                                testId={`card-top-hirer-${agency.mark}`}
+                                key={agency.slug}
+                                testId={`card-top-hirer-${agency.slug}`}
                             />
                         ))}
+                        {activeTopHirers.length === 0 && (
+                            <p
+                                className="section-intro"
+                                data-testid="text-top-hirers-empty"
+                            >
+                                No agency on this pathway has recorded a hire
+                                yet.
+                            </p>
+                        )}
                     </div>
-                    <a
+                    <Link
                         className="text-link centered-link"
-                        href="#jobs"
+                        href={jobsIndex.url({
+                            query: { filter: topHirerPathway },
+                        })}
                         data-testid="link-top-hirers-jobs"
                     >
                         See roles from top hirers <ArrowRight size={17} />
-                    </a>
+                    </Link>
                 </div>
             </section>
 
@@ -401,13 +438,13 @@ export default function Home() {
                                 <em>Stay for the clarity.</em>
                             </h2>
                         </div>
-                        <a
+                        <Link
                             className="text-link"
-                            href="#jobs"
+                            href={jobsIndex.url()}
                             data-testid="link-view-all-jobs"
                         >
                             See all jobs <ArrowRight size={17} />
-                        </a>
+                        </Link>
                     </div>
                     <div className="job-switcher-row">
                         <div
@@ -443,7 +480,11 @@ export default function Home() {
                             </button>
                         </div>
                         <span className="results-count">
-                            {activeJobs.length * 412 + 23} verified results
+                            {plural(
+                                stats.jobs[jobPathway],
+                                'verified result',
+                                'verified results',
+                            )}
                         </span>
                     </div>
                     <div className="jobs-list">
@@ -451,19 +492,25 @@ export default function Home() {
                             <JobListingCard
                                 key={job.id}
                                 job={job}
-                                featured={index === 0}
+                                highlighted={index === 0}
                                 anchorId={
-                                    job.id === 'land-1'
-                                        ? 'landbased-jobs'
-                                        : job.id === 'sea-1'
-                                          ? 'seabased-jobs'
-                                          : undefined
+                                    index === 0
+                                        ? `${jobPathway}-jobs`
+                                        : undefined
                                 }
                                 isSaved={saved.includes(job.id)}
                                 onToggleSaved={() => toggleSaved(job.id)}
                                 testId={`card-job-${job.id}`}
                             />
                         ))}
+                        {activeJobs.length === 0 && (
+                            <p
+                                className="section-intro"
+                                data-testid="text-jobs-empty"
+                            >
+                                No open job posts on this pathway right now.
+                            </p>
+                        )}
                     </div>
                 </div>
             </section>

@@ -9,14 +9,13 @@ import {
 import { AppLogo } from '@/components/site/app-logo';
 import { StarRating } from '@/components/site/star-rating';
 import { show as agencyShow } from '@/routes/agencies';
-import type { Agency } from '@/types/agency';
-import type { Job } from '@/types/job';
+import type {
+    PublicAgencyListedBy,
+    PublicJobPostDetail,
+} from '@/types/public-catalog';
 
-/** The named person an agency nominated for this specific listing. */
-type ListingContact = Pick<
-    Job,
-    'contactName' | 'contactEmail' | 'contactPhone'
->;
+/** The named person an agency nominated for this specific job post. */
+type JobPostContact = PublicJobPostDetail['contact'];
 
 /**
  * Who posted this listing.
@@ -33,12 +32,11 @@ export function ListedBy({
     agency,
     contact,
 }: {
-    agency: Agency;
-    contact?: ListingContact;
+    agency: PublicAgencyListedBy;
+    contact?: JobPostContact;
 }) {
-    const rating = Number(agency.rating);
     const hasContact = Boolean(
-        contact?.contactName || contact?.contactEmail || contact?.contactPhone,
+        contact?.name || contact?.email || contact?.phone,
     );
 
     return (
@@ -62,16 +60,40 @@ export function ListedBy({
                         </h2>
                         <div className="job-listed-by-trust">
                             <span className="job-listed-by-rating">
-                                <StarRating
-                                    rating={rating}
-                                    testId="rating-listed-by"
-                                />
-                                <strong>{rating.toFixed(1)}</strong>
+                                {agency.rating === null ? (
+                                    <strong data-testid="rating-listed-by">
+                                        No reviews yet
+                                    </strong>
+                                ) : (
+                                    <>
+                                        <StarRating
+                                            rating={agency.rating}
+                                            testId="rating-listed-by"
+                                        />
+                                        <strong>
+                                            {agency.rating.toFixed(1)}
+                                        </strong>
+                                        <span>
+                                            ({agency.reviewCount}{' '}
+                                            {agency.reviewCount === 1
+                                                ? 'review'
+                                                : 'reviews'}
+                                            )
+                                        </span>
+                                    </>
+                                )}
                             </span>
-                            <span className="job-listed-by-verified">
-                                <BadgeCheck size={15} aria-hidden="true" />{' '}
-                                Verified agency
-                            </span>
+                            {agency.verified && (
+                                <span className="job-listed-by-verified">
+                                    <BadgeCheck size={15} aria-hidden="true" />{' '}
+                                    Verified agency
+                                </span>
+                            )}
+                            {agency.topHirer && (
+                                <span className="top-hirer-pill">
+                                    Top Hirer · {agency.hiredCount} hired
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -123,34 +145,34 @@ export function ListedBy({
                         Ask about this role
                     </p>
                     <ul className="job-listed-by-ask-links">
-                        {contact?.contactName && (
+                        {contact?.name && (
                             <li>
                                 <User size={14} aria-hidden="true" />
-                                {contact.contactName}
+                                {contact.name}
                             </li>
                         )}
-                        {contact?.contactEmail && (
+                        {contact?.email && (
                             <li>
                                 <Mail size={14} aria-hidden="true" />
                                 <a
-                                    href={`mailto:${contact.contactEmail}`}
+                                    href={`mailto:${contact.email}`}
                                     data-testid="link-job-contact-email"
                                 >
-                                    {contact.contactEmail}
+                                    {contact.email}
                                 </a>
                             </li>
                         )}
-                        {contact?.contactPhone && (
+                        {contact?.phone && (
                             <li>
                                 <Phone size={14} aria-hidden="true" />
                                 <a
-                                    href={`tel:${contact.contactPhone.replaceAll(
+                                    href={`tel:${contact.phone.replaceAll(
                                         ' ',
                                         '',
                                     )}`}
                                     data-testid="link-job-contact-phone"
                                 >
-                                    {contact.contactPhone}
+                                    {contact.phone}
                                 </a>
                             </li>
                         )}

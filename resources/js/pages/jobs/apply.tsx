@@ -44,13 +44,9 @@ import {
     type ApplicationDraftRecord,
 } from '@/data/application-draft-store';
 import { countLabel, formatFileSize } from '@/data/applicant-profile';
-import {
-    isAcceptingApplications,
-    getPublicLocation,
-} from '@/data/job-attributes';
-import { getJobList } from '@/data/job-store';
 import { generateMatchAnalysis, overallMatchMeta } from '@/data/match-analysis';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { toApplyJob } from '@/lib/public-catalog';
 import { applications } from '@/routes';
 import { index as jobsIndex } from '@/routes/jobs';
 import {
@@ -62,12 +58,16 @@ import {
 } from '@/types/application-draft';
 import type { ResumeDocument } from '@/types/applicant-profile';
 import type { Job, JobQuestion } from '@/types/job';
+import type { PublicJobPostDetail } from '@/types/public-catalog';
 
 /** How long typing settles before the draft is written to storage. */
 const DRAFT_DEBOUNCE_MS = 400;
 
 type JobApplyProps = {
     jobId: string;
+    /** `null` when the applicant may not see the job post. */
+    jobPost: PublicJobPostDetail | null;
+    questions?: JobQuestion[];
 };
 
 /**
@@ -82,21 +82,25 @@ type JobApplyProps = {
  * closed tab costs a few seconds rather than the whole application. The
  * draft is cleared the moment a submission is recorded.
  */
-export default function JobApply({ jobId }: JobApplyProps) {
+export default function JobApply(props: JobApplyProps) {
     return (
         <ApplicantScope>
-            <JobApplyBody jobId={jobId} />
+            <JobApplyBody {...props} />
         </ApplicantScope>
     );
 }
 
-function JobApplyBody({ jobId }: JobApplyProps) {
+function JobApplyBody({
+    jobId,
+    jobPost,
+    questions: jobQuestions,
+}: JobApplyProps) {
     const { markApplied } = useApplications();
     const { profile } = useApplicantProfile();
 
     const job = useMemo(
-        () => getJobList().find((item) => item.id === jobId),
-        [jobId],
+        () => (jobPost ? toApplyJob(jobPost, jobQuestions ?? []) : undefined),
+        [jobPost, jobQuestions],
     );
 
     // Seeded empty so the server and the client agree on the first frame;
@@ -253,7 +257,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
         return <JobNotFound title="This job is no longer available" />;
     }
 
-    const isClosed = !isAcceptingApplications(job);
+    const isClosed = !jobPost?.isAcceptingApplications;
 
     const startApplication = () => goToStep(2);
 
@@ -303,7 +307,7 @@ function JobApplyBody({ jobId }: JobApplyProps) {
                     </div>
                     <h1>{job.title}</h1>
                     <p>
-                        {job.agency} · {getPublicLocation(job)} · {job.salary}
+                        {job.agency} · {job.location} · {job.salary}
                     </p>
 
                     <ol
@@ -530,11 +534,12 @@ function SubmittedCard({ job, contact }: { job: Job; contact: string }) {
                 className="text-[var(--teal)]"
                 aria-hidden="true"
             />
-            <h2 tabIndex={-1}>Your application is with the agency</h2>
+            <h2 tabIndex={-1}>Application ready</h2>
             <p className="apply-card-lede">
-                <strong>{job.agency}</strong> has your application for{' '}
-                {job.title}. They will contact you on {contact} when there is an
-                update.
+                Your application for {job.title} with{' '}
+                <strong>{job.agency}</strong> is complete. Sending it to the
+                agency is not connected yet, so it has not been submitted — the
+                agency will contact you on {contact} once it is.
             </p>
             <div className="apply-actions">
                 <Button asChild>

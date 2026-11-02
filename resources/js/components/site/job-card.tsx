@@ -1,17 +1,12 @@
 import { BadgeCheck, Bookmark, Clock3, Landmark, MapPin } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
-import {
-    CONFIDENTIAL_EMPLOYER_LABEL,
-    getPublicEmployer,
-    getPublicLocation,
-    isManpooling,
-} from '@/data/job-attributes';
+import { CONFIDENTIAL_EMPLOYER_LABEL } from '@/lib/public-catalog';
 import { cn } from '@/lib/utils';
 import { show as jobShow } from '@/routes/jobs';
-import type { Job } from '@/types/job';
+import type { PublicJobPostCard } from '@/types/public-catalog';
 
 type JobCardProps = {
-    job: Job;
+    job: PublicJobPostCard;
     isSelected: boolean;
     isSaved: boolean;
     onSelect: () => void;
@@ -30,10 +25,6 @@ export function JobCard({
     onToggleSaved,
     testId,
 }: JobCardProps) {
-    // Manpooling listings keep the company to themselves, exactly as the
-    // agency-side preview shows.
-    const publicEmployer = getPublicEmployer(job);
-
     return (
         // The card is a plain container: it is not focusable and carries no
         // role, because the title link and the bookmark are already controls
@@ -53,18 +44,12 @@ export function JobCard({
                                 ? 'Landbased'
                                 : 'Seabased'}
                         </span>
-                        {job.featured && (
-                            <span className="jobs-card-label">Featured</span>
-                        )}
                         {job.urgent && (
                             <span className="jobs-card-label urgent">
                                 Urgent
                             </span>
                         )}
-                        {job.recent && (
-                            <span className="jobs-card-label">New</span>
-                        )}
-                        {isManpooling(job) && (
+                        {job.employerHidden && (
                             <span
                                 className="jobs-card-label"
                                 data-testid={`badge-manpooling-${job.id}`}
@@ -92,17 +77,19 @@ export function JobCard({
                     <p className="jobs-card-agency">
                         <BadgeCheck size={13} aria-hidden="true" /> {job.agency}
                     </p>
-                    <p
-                        className={cn(
-                            'jobs-card-employer',
-                            !publicEmployer && 'is-hidden',
-                        )}
-                        data-testid={`card-employer-${job.id}`}
-                    >
-                        {publicEmployer
-                            ? publicEmployer.name
-                            : CONFIDENTIAL_EMPLOYER_LABEL}
-                    </p>
+                    {(job.employerHidden || job.employer) && (
+                        <p
+                            className={cn(
+                                'jobs-card-employer',
+                                job.employerHidden && 'is-hidden',
+                            )}
+                            data-testid={`card-employer-${job.id}`}
+                        >
+                            {job.employerHidden
+                                ? CONFIDENTIAL_EMPLOYER_LABEL
+                                : job.employer}
+                        </p>
+                    )}
                 </div>
             </div>
             <div className="jobs-list-card-meta">
@@ -110,8 +97,7 @@ export function JobCard({
                     <Landmark size={14} aria-hidden="true" /> {job.salary}
                 </span>
                 <span>
-                    <MapPin size={14} aria-hidden="true" />{' '}
-                    {getPublicLocation(job)}
+                    <MapPin size={14} aria-hidden="true" /> {job.location}
                 </span>
                 <span>
                     <Clock3 size={14} aria-hidden="true" /> {job.posted}

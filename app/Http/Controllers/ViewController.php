@@ -2,6 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Site\ListPublicAgenciesAction;
+use App\Actions\Site\ListPublicJobPostsAction;
+use App\Actions\Site\ShowApplicantResumeAction;
+use App\Actions\Site\ShowHomeAction;
+use App\Actions\Site\ShowJobApplicationAction;
+use App\Actions\Site\ShowMyJobsAction;
+use App\Actions\Site\ShowPublicAgencyAction;
+use App\Actions\Site\ShowPublicJobPostAction;
+use App\Http\Requests\Site\PublicAgencyIndexRequest;
+use App\Http\Requests\Site\PublicAgencyShowRequest;
+use App\Http\Requests\Site\PublicJobPostIndexRequest;
+use App\Http\Resources\Site\ApplicantJobPostResource;
+use App\Http\Resources\Site\ApplicantResumeResource;
+use App\Http\Resources\Site\PublicAgencyCardResource;
+use App\Http\Resources\Site\PublicAgencyListedByResource;
+use App\Http\Resources\Site\PublicAgencyProfileResource;
+use App\Http\Resources\Site\PublicAgencyReviewResource;
+use App\Http\Resources\Site\PublicJobPostCardResource;
+use App\Http\Resources\Site\PublicJobPostDetailResource;
+use App\Http\Resources\Site\PublicJobPostPreviewResource;
+use App\Http\Resources\Site\PublicJobPostQuestionResource;
 use App\Support\DashboardOverview;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -9,50 +30,126 @@ use Inertia\Response;
 
 class ViewController extends Controller
 {
-    public function home(): Response
+    public function home(Request $request, ShowHomeAction $action): Response
     {
-        return Inertia::render('home');
+        $home = $action->execute();
+        $byPathway = fn (array $groups, string $resource): array => array_map(
+            fn (iterable $items): array => $resource::collection($items)->resolve($request), $groups,
+        );
+
+        return Inertia::render('home', [
+            'agencies' => $byPathway($home['agencies'], PublicAgencyCardResource::class),
+            'topHirers' => $byPathway($home['topHirers'], PublicAgencyCardResource::class),
+            'jobs' => $byPathway($home['jobs'], PublicJobPostCardResource::class),
+            'stats' => $home['stats'],
+        ]);
     }
 
-    public function agencies(): Response
+    public function agencies(PublicAgencyIndexRequest $request, ListPublicAgenciesAction $action): Response
     {
-        return Inertia::render('agencies/index');
+        $filters = $request->filters();
+        $result = $action->execute($filters);
+        $page = $result['agencies'];
+
+        return Inertia::render('agencies/index', [
+            'agencies' => [
+                'items' => PublicAgencyCardResource::collection($page->getCollection())->resolve($request),
+                'total' => $page->total(), 'totalPages' => $page->lastPage(), 'page' => $page->currentPage(),
+            ],
+            'pathwayCounts' => $result['counts'],
+            'filters' => [...$filters->toArray(), 'page' => $page->currentPage()],
+        ]);
     }
 
-    public function agency(string $slug): Response
+    public function agency(PublicAgencyShowRequest $request, string $slug, ShowPublicAgencyAction $action): Response
     {
+        $profile = $action->execute($slug, $request->reviewsPage());
+
+        if ($profile === null) {
+            return Inertia::render('agencies/show', ['agency' => null]);
+        }
+
+        $reviews = $profile['reviews'];
+
         return Inertia::render('agencies/show', [
-            'slug' => $slug,
+            'agency' => PublicAgencyProfileResource::make($profile['agency'])->resolve($request),
+            'jobs' => PublicJobPostCardResource::collection($profile['jobs'])->resolve($request),
+            'ratingSummary' => $profile['ratingSummary'],
+            'reviews' => [
+                'data' => PublicAgencyReviewResource::collection($reviews->getCollection())->resolve($request),
+                'page' => $reviews->currentPage(), 'totalPages' => $reviews->lastPage(), 'total' => $reviews->total(),
+            ],
         ]);
     }
 
-    public function jobs(): Response
+    public function jobs(PublicJobPostIndexRequest $request, ListPublicJobPostsAction $action): Response
     {
-        return Inertia::render('jobs/index');
+        $filters = $request->filters();
+        $result = $action->execute($filters);
+        $page = $result['posts'];
+
+        return Inertia::render('jobs/index', [
+            // Appended on "load more" partial reloads, matched on id so a batch can never repeat a job post;
+            // the client resets it when the search changes.
+            'jobPosts' => Inertia::merge(PublicJobPostPreviewResource::collection($page->getCollection())->resolve($request))->matchOn('id'),
+            'jobPostsMeta' => [
+                'page' => $page->currentPage(), 'hasMore' => $page->hasMorePages(),
+                'nextPage' => $page->hasMorePages() ? $page->currentPage() + 1 : null, 'total' => $page->total(),
+            ],
+            'filters' => $filters->toArray(),
+        ]);
     }
 
-    public function job(string $job): Response
+    public function job(Request $request, string $job, ShowPublicJobPostAction $action): Response
     {
+        $result = $action->execute($job, $request->user());
+
+        if ($result === null) {
+            return Inertia::render('jobs/show', ['jobPost' => null]);
+        }
+
         return Inertia::render('jobs/show', [
-            'jobId' => $job,
+            'jobPost' => PublicJobPostDetailResource::make($result['post'])->resolve($request),
+            'agency' => PublicAgencyListedByResource::make($result['agency'])->resolve($request),
+            'otherJobsFromAgency' => PublicJobPostCardResource::collection($result['otherJobs'])->resolve($request),
+            'relatedJobs' => PublicJobPostCardResource::collection($result['relatedJobs'])->resolve($request),
         ]);
     }
 
-    public function jobApply(string $job): Response
+    public function jobApply(Request $request, string $job, ShowJobApplicationAction $action): Response
     {
+        $result = $action->execute($job, $request->user());
+
+        if ($result === null) {
+            return Inertia::render('jobs/apply', ['jobId' => $job, 'jobPost' => null]);
+        }
+
         return Inertia::render('jobs/apply', [
             'jobId' => $job,
+            'jobPost' => PublicJobPostDetailResource::make($result['post'])->resolve($request),
+            'questions' => PublicJobPostQuestionResource::collection($result['questions'])->resolve($request),
+            'resume' => $result['applicant'] === null ? null : ApplicantResumeResource::make($result['applicant'])->resolve($request),
         ]);
     }
 
-    public function resume(): Response
+    public function resume(Request $request, ShowApplicantResumeAction $action): Response
     {
-        return Inertia::render('applicant/resume');
+        $applicant = $action->execute($request->user());
+
+        return Inertia::render('applicant/resume', [
+            'resume' => $applicant === null ? null : ApplicantResumeResource::make($applicant)->resolve($request),
+        ]);
     }
 
-    public function applications(): Response
+    public function applications(Request $request, ShowMyJobsAction $action): Response
     {
-        return Inertia::render('applicant/applications');
+        $myJobs = $action->execute($request->user());
+
+        return Inertia::render('applicant/applications', [
+            'applied' => ApplicantJobPostResource::collection($myJobs['applied'])->resolve($request),
+            'saved' => ApplicantJobPostResource::collection($myJobs['saved'])->resolve($request),
+            'archived' => ApplicantJobPostResource::collection($myJobs['archived'])->resolve($request),
+        ]);
     }
 
     public function contact(): Response

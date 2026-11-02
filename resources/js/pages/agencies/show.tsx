@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     ArrowRight,
     BadgeCheck,
@@ -18,13 +18,16 @@ import {
     Star,
     UsersRound,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Pagination } from '@/components/pagination';
 import { AppLogo } from '@/components/site/app-logo';
 import { JobCard } from '@/components/site/job-card';
 import { NotFound } from '@/components/site/not-found';
-import { getAgencyBySlug, getJobsByAgency } from '@/data/selectors';
-import type { AgencySocial } from '@/types/agency';
+import type {
+    PublicAgencyProfile,
+    PublicAgencyReview,
+    PublicJobPostCard,
+} from '@/types/public-catalog';
 
 type ProfileTab = 'overview' | 'jobs' | 'reviews';
 
@@ -70,24 +73,24 @@ function SocialLinks({
     social,
     compact = false,
 }: {
-    social?: AgencySocial;
+    social: PublicAgencyProfile['social'];
     compact?: boolean;
 }) {
     const links = [
         {
-            href: social?.facebook,
+            href: social.facebook,
             label: 'Facebook',
             testId: 'link-agency-facebook',
             icon: <Facebook size={compact ? 16 : 17} aria-hidden="true" />,
         },
         {
-            href: social?.instagram,
+            href: social.instagram,
             label: 'Instagram',
             testId: 'link-agency-instagram',
             icon: <Instagram size={compact ? 16 : 17} aria-hidden="true" />,
         },
         {
-            href: social?.x,
+            href: social.x,
             label: 'X',
             testId: 'link-agency-x',
             icon: <XIcon size={compact ? 16 : 17} />,
@@ -127,76 +130,91 @@ function PathwayBadge({ pathway }: { pathway: 'landbased' | 'seabased' }) {
     );
 }
 
-type AgencyProfileProps = {
-    slug: string;
+type RatingSummary = {
+    average: number | null;
+    total: number;
+    /** Star (1–5) → number of reviews. */
+    distribution: Record<string, number>;
 };
 
-export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
-    const agency = getAgencyBySlug(slug);
+type ReviewPage = {
+    data: PublicAgencyReview[];
+    page: number;
+    totalPages: number;
+    total: number;
+};
+
+type AgencyProfileProps =
+    | { agency: null }
+    | {
+          agency: PublicAgencyProfile;
+          jobs: PublicJobPostCard[];
+          ratingSummary: RatingSummary;
+          reviews: ReviewPage;
+      };
+
+/** A review written on this page. It lives in local state only until reload. */
+type LocalReview = {
+    reviewer: string;
+    rating: number;
+    date: string;
+    comment: string;
+};
+
+export default function AgencyProfilePage(props: AgencyProfileProps) {
+    if (props.agency === null) {
+        return <NotFound />;
+    }
+
+    return <AgencyProfile {...props} />;
+}
+
+function AgencyProfile({
+    agency,
+    jobs: agencyJobs,
+    ratingSummary,
+    reviews: reviewPage,
+}: Exclude<AgencyProfileProps, { agency: null }>) {
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
     const [selectedJobId, setSelectedJobId] = useState('');
     const [savedJobs, setSavedJobs] = useState<Record<string, boolean>>({});
     const [currentPage, setCurrentPage] = useState(1);
-    const [currentReviewPage, setCurrentReviewPage] = useState(1);
-    const [submittedReviews, setSubmittedReviews] = useState<
-        { reviewer: string; rating: number; date: string; comment: string }[]
-    >([]);
+    const [submittedReviews, setSubmittedReviews] = useState<LocalReview[]>([]);
     const [selectedRating, setSelectedRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [reviewComment, setReviewComment] = useState('');
     const [reviewError, setReviewError] = useState('');
     const [reviewSuccess, setReviewSuccess] = useState('');
 
-    const agencyJobs = useMemo(
-        () => (agency ? getJobsByAgency(agency.name) : []),
-        [agency],
-    );
-    const reviews = useMemo(
-        () => [...submittedReviews, ...(agency?.reviews ?? [])],
-        [agency, submittedReviews],
-    );
-
-    if (!agency) {
-        return <NotFound />;
-    }
-
     const jobsPerPage = 5;
-    const reviewsPerPage = 5;
     const totalPages = Math.max(1, Math.ceil(agencyJobs.length / jobsPerPage));
-    const reviewTotalPages = Math.max(
-        1,
-        Math.ceil(reviews.length / reviewsPerPage),
-    );
     const paginatedJobs = agencyJobs.slice(
         (currentPage - 1) * jobsPerPage,
         currentPage * jobsPerPage,
     );
     const overviewJobs = agencyJobs.slice(0, 3);
-    const overviewReviews = reviews.slice(0, 3);
-    const paginatedReviews = reviews.slice(
-        (currentReviewPage - 1) * reviewsPerPage,
-        currentReviewPage * reviewsPerPage,
-    );
-    const averageRating = reviews.length
-        ? reviews.reduce((total, review) => total + review.rating, 0) /
-          reviews.length
-        : Number(agency.rating);
-    const ratingDisplay = averageRating.toFixed(1);
+    const storedReviews = reviewPage.data;
+    const overviewReviews = storedReviews.slice(0, 3);
+    const reviewCount = ratingSummary.total;
+    const averageRating = ratingSummary.average ?? 0;
+    const ratingDisplay =
+        ratingSummary.average === null
+            ? 'New'
+            : ratingSummary.average.toFixed(1);
     const ratingBreakdown = [5, 4, 3, 2, 1].map((star) => {
-        const count = reviews.filter((review) => review.rating === star).length;
+        const count = ratingSummary.distribution[String(star)] ?? 0;
 
         return {
             star,
-            percentage: reviews.length
-                ? Math.round((count / reviews.length) * 100)
+            percentage: reviewCount
+                ? Math.round((count / reviewCount) * 100)
                 : 0,
         };
     });
-    const contact = agency.contact ?? {
-        phone: '',
-        email: '',
-        address: agency.location,
-    };
+    const contact = agency.contact;
+    const primaryHref =
+        agency.social.website ??
+        (contact.email ? `mailto:${contact.email}` : null);
 
     const toggleSavedJob = (jobId: string) => {
         setSavedJobs((current) => ({ ...current, [jobId]: !current[jobId] }));
@@ -207,8 +225,20 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
         setSelectedJobId('');
     };
 
+    /**
+     * Reviews page through the server as a partial reload, which keeps
+     * component state (the active tab) and the scroll position.
+     */
     const changeReviewPage = (page: number) => {
-        setCurrentReviewPage(Math.min(Math.max(page, 1), reviewTotalPages));
+        router.reload({
+            data: {
+                reviews_page: Math.min(
+                    Math.max(page, 1),
+                    reviewPage.totalPages,
+                ),
+            },
+            only: ['reviews'],
+        });
     };
 
     const handleReviewSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -228,8 +258,8 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
             year: 'numeric',
         }).format(new Date());
 
-        // TODO: persist through the backend once the `submit agency review`
-        // permission and endpoint exist. Local state only for now.
+        // Not persisted: the review Action (with the "applied first" rule)
+        // does not exist yet, so this stays in local state until reload.
         setSubmittedReviews((current) => [
             {
                 reviewer: 'Anonymous',
@@ -239,12 +269,47 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
             },
             ...current,
         ]);
-        setCurrentReviewPage(1);
         setReviewComment('');
         setSelectedRating(0);
         setHoverRating(0);
         setReviewSuccess(
             'Thanks for sharing your experience with this agency.',
+        );
+    };
+
+    const reviewCard = (
+        review: PublicAgencyReview | LocalReview,
+        heading: 'h3' | 'h4',
+        isLocal = false,
+    ) => {
+        const Heading = heading;
+
+        return (
+            <article
+                className="rounded-md border border-[var(--line)] bg-white p-6 shadow-sm"
+                key={
+                    'id' in review
+                        ? review.id
+                        : `local-${review.date}-${review.comment}`
+                }
+            >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <Heading className="font-semibold text-[var(--navy)]">
+                            {review.reviewer}
+                        </Heading>
+                        <p className="mt-1 text-xs text-[var(--slate)]">
+                            {review.date}
+                            {isLocal &&
+                                ' · Not saved yet — visible only to you'}
+                        </p>
+                    </div>
+                    <StarRating rating={review.rating} />
+                </div>
+                <p className="mt-4 text-sm leading-7 text-[var(--slate)]">
+                    {review.comment}
+                </p>
+            </article>
         );
     };
 
@@ -265,13 +330,15 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                     {agency.name}
                                 </h1>
                                 <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-white/70 sm:justify-start">
-                                    <span className="verified-pill text-[var(--teal-light)]">
-                                        <BadgeCheck
-                                            size={13}
-                                            aria-hidden="true"
-                                        />{' '}
-                                        Verified
-                                    </span>
+                                    {agency.verified && (
+                                        <span className="verified-pill text-[var(--teal-light)]">
+                                            <BadgeCheck
+                                                size={13}
+                                                aria-hidden="true"
+                                            />{' '}
+                                            Verified
+                                        </span>
+                                    )}
                                     <PathwayBadge pathway={agency.pathway} />
                                     <span className="inline-flex items-center gap-2">
                                         <MapPin
@@ -292,52 +359,53 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                             aria-hidden="true"
                                         />
                                         <span>
-                                            {ratingDisplay} ({reviews.length}{' '}
-                                            reviews)
+                                            {ratingSummary.average === null
+                                                ? 'No reviews yet'
+                                                : `${ratingDisplay} (${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'})`}
                                         </span>
                                     </span>
                                     {agency.topHirer && (
                                         <span className="top-hirer-pill">
-                                            Top Hirer
+                                            Top Hirer · {agency.hiredCount}{' '}
+                                            hired
                                         </span>
                                     )}
                                 </div>
                             </div>
                         </div>
-                        <div className="flex shrink-0 flex-wrap justify-center gap-3 lg:justify-start">
-                            <a
-                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 text-sm font-bold text-[var(--ink)] transition outline-none hover:brightness-105 focus:ring-2 focus:ring-[var(--amber)] focus:ring-offset-2 focus:ring-offset-[var(--navy-deep)]"
-                                href={
-                                    agency.social?.website ??
-                                    `mailto:${contact.email}`
-                                }
-                                target={
-                                    agency.social?.website
-                                        ? '_blank'
-                                        : undefined
-                                }
-                                rel={
-                                    agency.social?.website
-                                        ? 'noreferrer'
-                                        : undefined
-                                }
-                            >
-                                {agency.social?.website
-                                    ? 'Visit Website'
-                                    : 'Message Agency'}
-                                {agency.social?.website ? (
-                                    <ExternalLink
-                                        size={15}
-                                        aria-hidden="true"
-                                    />
-                                ) : (
-                                    <MessageCircle
-                                        size={16}
-                                        aria-hidden="true"
-                                    />
-                                )}
-                            </a>
-                        </div>
+                        {primaryHref && (
+                            <div className="flex shrink-0 flex-wrap justify-center gap-3 lg:justify-start">
+                                <a
+                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--amber)] px-5 text-sm font-bold text-[var(--ink)] transition outline-none hover:brightness-105 focus:ring-2 focus:ring-[var(--amber)] focus:ring-offset-2 focus:ring-offset-[var(--navy-deep)]"
+                                    href={primaryHref}
+                                    target={
+                                        agency.social.website
+                                            ? '_blank'
+                                            : undefined
+                                    }
+                                    rel={
+                                        agency.social.website
+                                            ? 'noreferrer'
+                                            : undefined
+                                    }
+                                >
+                                    {agency.social.website
+                                        ? 'Visit Website'
+                                        : 'Message Agency'}
+                                    {agency.social.website ? (
+                                        <ExternalLink
+                                            size={15}
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <MessageCircle
+                                            size={16}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -357,11 +425,11 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                 { id: 'overview' as const, label: 'Overview' },
                                 {
                                     id: 'jobs' as const,
-                                    label: `Jobs (${agencyJobs.length})`,
+                                    label: `Jobs (${agency.jobs})`,
                                 },
                                 {
                                     id: 'reviews' as const,
-                                    label: `Reviews (${reviews.length})`,
+                                    label: `Reviews (${reviewCount})`,
                                 },
                             ].map((tab) => (
                                 <button
@@ -407,7 +475,8 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                             A clearer way to move forward.
                                         </h2>
                                         <p className="mt-6 max-w-3xl text-base leading-8 text-[var(--slate)]">
-                                            {agency.description}
+                                            {agency.about ??
+                                                'This agency has not published a description yet.'}
                                         </p>
 
                                         <div className="mt-9 overflow-hidden rounded-md border border-[var(--line)] bg-white shadow-sm">
@@ -452,32 +521,36 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                     />
                                                 </div>
                                                 <div className="mt-7 grid gap-5 sm:grid-cols-3">
-                                                    <a
-                                                        className="flex items-start gap-3 text-sm leading-6 text-[var(--slate)] outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
-                                                        href={`tel:${contact.phone}`}
-                                                    >
-                                                        <Phone
-                                                            size={18}
-                                                            className="mt-1 shrink-0 text-[var(--teal)]"
-                                                            aria-hidden="true"
-                                                        />
-                                                        <span>
-                                                            {contact.phone}
-                                                        </span>
-                                                    </a>
-                                                    <a
-                                                        className="flex items-start gap-3 text-sm leading-6 text-[var(--slate)] outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
-                                                        href={`mailto:${contact.email}`}
-                                                    >
-                                                        <Mail
-                                                            size={18}
-                                                            className="mt-1 shrink-0 text-[var(--teal)]"
-                                                            aria-hidden="true"
-                                                        />
-                                                        <span className="break-all">
-                                                            {contact.email}
-                                                        </span>
-                                                    </a>
+                                                    {contact.phone && (
+                                                        <a
+                                                            className="flex items-start gap-3 text-sm leading-6 text-[var(--slate)] outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
+                                                            href={`tel:${contact.phone.replaceAll(' ', '')}`}
+                                                        >
+                                                            <Phone
+                                                                size={18}
+                                                                className="mt-1 shrink-0 text-[var(--teal)]"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span>
+                                                                {contact.phone}
+                                                            </span>
+                                                        </a>
+                                                    )}
+                                                    {contact.email && (
+                                                        <a
+                                                            className="flex items-start gap-3 text-sm leading-6 text-[var(--slate)] outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
+                                                            href={`mailto:${contact.email}`}
+                                                        >
+                                                            <Mail
+                                                                size={18}
+                                                                className="mt-1 shrink-0 text-[var(--teal)]"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="break-all">
+                                                                {contact.email}
+                                                            </span>
+                                                        </a>
+                                                    )}
                                                     <div className="flex items-start gap-3 text-sm leading-6 text-[var(--slate)]">
                                                         <MapPin
                                                             size={18}
@@ -485,7 +558,8 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                             aria-hidden="true"
                                                         />
                                                         <span>
-                                                            {contact.address}
+                                                            {contact.address ??
+                                                                agency.location}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -512,8 +586,7 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                     </h3>
                                                 </div>
                                                 <span className="font-mono text-xs tracking-[0.1em] text-[var(--slate)] uppercase">
-                                                    {agencyJobs.length} verified
-                                                    roles
+                                                    {agency.jobs} verified roles
                                                 </span>
                                             </div>
                                             <div className="mt-7 space-y-3">
@@ -600,43 +673,15 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                     </h3>
                                                 </div>
                                                 <span className="font-mono text-xs tracking-[0.1em] text-[var(--slate)] uppercase">
-                                                    {reviews.length} candidate{' '}
-                                                    {reviews.length === 1
+                                                    {reviewCount} candidate{' '}
+                                                    {reviewCount === 1
                                                         ? 'review'
                                                         : 'reviews'}
                                                 </span>
                                             </div>
                                             <div className="mt-7 space-y-4">
-                                                {overviewReviews.map(
-                                                    (review) => (
-                                                        <article
-                                                            className="rounded-md border border-[var(--line)] bg-white p-6 shadow-sm"
-                                                            key={`${review.reviewer}-${review.date}`}
-                                                        >
-                                                            <div className="flex flex-wrap items-start justify-between gap-3">
-                                                                <div>
-                                                                    <h4 className="font-semibold text-[var(--navy)]">
-                                                                        {
-                                                                            review.reviewer
-                                                                        }
-                                                                    </h4>
-                                                                    <p className="mt-1 text-xs text-[var(--slate)]">
-                                                                        {
-                                                                            review.date
-                                                                        }
-                                                                    </p>
-                                                                </div>
-                                                                <StarRating
-                                                                    rating={
-                                                                        review.rating
-                                                                    }
-                                                                />
-                                                            </div>
-                                                            <p className="mt-4 text-sm leading-7 text-[var(--slate)]">
-                                                                {review.comment}
-                                                            </p>
-                                                        </article>
-                                                    ),
+                                                {overviewReviews.map((review) =>
+                                                    reviewCard(review, 'h4'),
                                                 )}
                                                 {overviewReviews.length ===
                                                     0 && (
@@ -646,7 +691,7 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                     </div>
                                                 )}
                                             </div>
-                                            {reviews.length > 3 && (
+                                            {reviewCount > 3 && (
                                                 <div className="mt-6 flex justify-center">
                                                     <button
                                                         className="inline-flex items-center gap-2 rounded-md border border-[var(--line)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--navy)] transition outline-none hover:border-[var(--teal)] hover:text-[var(--teal)] focus:ring-2 focus:ring-[var(--teal)] focus:ring-offset-2 focus:ring-offset-[var(--cream)]"
@@ -700,8 +745,7 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                 </h2>
                                             </div>
                                             <span className="font-mono text-xs tracking-[0.1em] text-[var(--slate)] uppercase">
-                                                {agencyJobs.length} verified
-                                                roles
+                                                {agency.jobs} verified roles
                                             </span>
                                         </div>
                                         <div className="mt-7 space-y-3">
@@ -972,37 +1016,24 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                             </button>
                                         </form>
                                         <div className="mt-7 space-y-4">
-                                            {paginatedReviews.map((review) => (
-                                                <article
-                                                    className="rounded-md border border-[var(--line)] bg-white p-6 shadow-sm"
-                                                    key={`${review.reviewer}-${review.date}`}
-                                                >
-                                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                                        <div>
-                                                            <h3 className="font-semibold text-[var(--navy)]">
-                                                                {
-                                                                    review.reviewer
-                                                                }
-                                                            </h3>
-                                                            <p className="mt-1 text-xs text-[var(--slate)]">
-                                                                {review.date}
-                                                            </p>
-                                                        </div>
-                                                        <StarRating
-                                                            rating={
-                                                                review.rating
-                                                            }
-                                                        />
+                                            {submittedReviews.map((review) =>
+                                                reviewCard(review, 'h3', true),
+                                            )}
+                                            {storedReviews.map((review) =>
+                                                reviewCard(review, 'h3'),
+                                            )}
+                                            {storedReviews.length === 0 &&
+                                                submittedReviews.length ===
+                                                    0 && (
+                                                    <div className="rounded-md border border-[var(--line)] bg-white p-6 text-sm leading-7 text-[var(--slate)] shadow-sm">
+                                                        No candidate reviews
+                                                        yet.
                                                     </div>
-                                                    <p className="mt-4 text-sm leading-7 text-[var(--slate)]">
-                                                        {review.comment}
-                                                    </p>
-                                                </article>
-                                            ))}
+                                                )}
                                         </div>
                                         <Pagination
-                                            page={currentReviewPage}
-                                            totalPages={reviewTotalPages}
+                                            page={reviewPage.page}
+                                            totalPages={reviewPage.totalPages}
                                             label="Agency reviews pagination"
                                             testIdPrefix="reviews-page"
                                             onPageChange={changeReviewPage}
@@ -1090,8 +1121,7 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                                 Open jobs
                                             </p>
                                             <p className="mt-1 text-sm font-semibold text-[var(--navy)]">
-                                                {agencyJobs.length} verified
-                                                roles
+                                                {agency.jobs} verified roles
                                             </p>
                                         </div>
                                     </div>
@@ -1127,7 +1157,10 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                     <div className="pb-1">
                                         <StarRating rating={averageRating} />
                                         <p className="mt-1 text-xs text-[var(--slate)]">
-                                            {reviews.length} candidate reviews
+                                            {reviewCount} candidate{' '}
+                                            {reviewCount === 1
+                                                ? 'review'
+                                                : 'reviews'}
                                         </p>
                                     </div>
                                 </div>
@@ -1169,30 +1202,37 @@ export default function AgencyProfilePage({ slug }: AgencyProfileProps) {
                                     Follow / Contact
                                 </h2>
                                 <div className="mt-5 space-y-3 text-sm text-[var(--slate)]">
-                                    <a
-                                        className="flex items-center gap-3 outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
-                                        href={`tel:${contact.phone}`}
-                                    >
-                                        <Phone
-                                            size={16}
-                                            className="text-[var(--teal)]"
-                                            aria-hidden="true"
-                                        />{' '}
-                                        {contact.phone}
-                                    </a>
-                                    <a
-                                        className="flex items-center gap-3 outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
-                                        href={`mailto:${contact.email}`}
-                                    >
-                                        <Mail
-                                            size={16}
-                                            className="text-[var(--teal)]"
-                                            aria-hidden="true"
-                                        />{' '}
-                                        <span className="break-all">
-                                            {contact.email}
-                                        </span>
-                                    </a>
+                                    {contact.phone && (
+                                        <a
+                                            className="flex items-center gap-3 outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
+                                            href={`tel:${contact.phone.replaceAll(' ', '')}`}
+                                        >
+                                            <Phone
+                                                size={16}
+                                                className="text-[var(--teal)]"
+                                                aria-hidden="true"
+                                            />{' '}
+                                            {contact.phone}
+                                        </a>
+                                    )}
+                                    {contact.email && (
+                                        <a
+                                            className="flex items-center gap-3 outline-none hover:text-[var(--navy)] focus:ring-2 focus:ring-[var(--teal)]"
+                                            href={`mailto:${contact.email}`}
+                                        >
+                                            <Mail
+                                                size={16}
+                                                className="text-[var(--teal)]"
+                                                aria-hidden="true"
+                                            />{' '}
+                                            <span className="break-all">
+                                                {contact.email}
+                                            </span>
+                                        </a>
+                                    )}
+                                    {!contact.phone && !contact.email && (
+                                        <p>No public contact details yet.</p>
+                                    )}
                                 </div>
                                 <SocialLinks social={agency.social} compact />
                             </div>

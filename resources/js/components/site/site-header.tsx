@@ -1,4 +1,4 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     BriefcaseBusiness,
@@ -49,11 +49,6 @@ const jobLinks = [
         href: jobsIndex.url({ query: { filter: 'seabased' } }),
     },
     {
-        label: 'Featured Jobs',
-        icon: Star,
-        href: jobsIndex.url({ query: { filter: 'featured' } }),
-    },
-    {
         label: 'Urgent Jobs',
         icon: Zap,
         href: jobsIndex.url({ query: { filter: 'urgent' } }),
@@ -76,11 +71,16 @@ export function SiteHeader() {
     >(null);
     const [mobileOpen, setMobileOpen] = useState(false);
     const [mobileGroup, setMobileGroup] = useState<string | null>(null);
-    const isHome = url === '/';
-    const isAgencies = url === '/agencies' || url.startsWith('/agency/');
-    const isJobs = url === '/jobs' || url.startsWith('/job/');
-    const isMyJobs = url === '/applications' || url === '/resume';
-    const isContact = url === '/contact';
+    // Match on the path alone so a query string (filters, page) or hash
+    // keeps the section highlighted: `/jobs?filter=urgent` is still Jobs.
+    const path = url.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+    const isUnder = (prefix: string) =>
+        path === prefix || path.startsWith(`${prefix}/`);
+    const isHome = path === '/';
+    const isAgencies = isUnder('/agencies') || isUnder('/agency');
+    const isJobs = isUnder('/jobs') || isUnder('/job');
+    const isMyJobs = isUnder('/applications') || isUnder('/resume');
+    const isContact = isUnder('/contact');
     const showScrolledHeader = isScrolled || isContact;
 
     useEffect(() => {
@@ -158,7 +158,7 @@ export function SiteHeader() {
                                 >
                                     {jobLinks.map(
                                         ({ label, icon: Icon, href }) => (
-                                            <a
+                                            <Link
                                                 key={label}
                                                 href={href}
                                                 role="menuitem"
@@ -172,7 +172,7 @@ export function SiteHeader() {
                                                     aria-hidden="true"
                                                 />
                                                 {label} <span>→</span>
-                                            </a>
+                                            </Link>
                                         ),
                                     )}
                                 </div>
@@ -369,13 +369,13 @@ export function SiteHeader() {
                         {mobileGroup === 'jobs' && (
                             <div className="mobile-subgroup">
                                 {jobLinks.map(({ label, href }) => (
-                                    <a
+                                    <Link
                                         key={label}
                                         href={href}
                                         onClick={closeMobile}
                                     >
                                         {label}
-                                    </a>
+                                    </Link>
                                 ))}
                             </div>
                         )}

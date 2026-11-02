@@ -6,86 +6,61 @@ import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { JobNotFound } from '@/components/applicant/job-not-found';
 import { ListedBy } from '@/components/applicant/listed-by';
 import { useApplications } from '@/contexts/applications-context';
-import { findAgency } from '@/data/agency-lookup';
-import { isAcceptingApplications, isManpooling } from '@/data/job-attributes';
-import { getOtherJobsFromAgency } from '@/data/job-browse';
-import { getJobList } from '@/data/job-store';
 import { applications, login } from '@/routes';
 import { apply as jobApply, index as jobsIndex } from '@/routes/jobs';
-import type { Job } from '@/types/job';
+import type {
+    PublicAgencyListedBy,
+    PublicJobPostCard,
+    PublicJobPostDetail,
+} from '@/types/public-catalog';
 
-type JobShowProps = {
-    jobId: string;
-};
+type JobShowProps =
+    | { jobPost: null }
+    | {
+          jobPost: PublicJobPostDetail;
+          agency: PublicAgencyListedBy;
+          otherJobsFromAgency: PublicJobPostCard[];
+          relatedJobs: PublicJobPostCard[];
+      };
 
 /**
- * The full listing.
+ * The full job post.
  *
  * The browse page previews a job in a sticky column; this page is the same
  * panel given room to breathe, plus the agency behind it and the rest of
  * that agency's openings. It is the page a shared link resolves to, so it
  * has to be readable on its own with no list in view.
  *
- * The marketing footer is dropped here — see the layout mapping in
- * `app.tsx`. Everything below the last row is dead space on a page people
- * read once and leave.
+ * The server decides visibility: `jobPost` is `null` when the public may not
+ * see it, and a closed or expired job post only arrives for an applicant who
+ * applied to it.
  */
-export default function JobShow({ jobId }: JobShowProps) {
+export default function JobShow(props: JobShowProps) {
     return (
         <ApplicantScope>
-            <JobShowBody jobId={jobId} />
+            {props.jobPost === null ? (
+                <JobNotFound />
+            ) : (
+                <JobShowContent {...props} />
+            )}
         </ApplicantScope>
     );
 }
 
-function JobShowBody({ jobId }: JobShowProps) {
+function JobShowContent({
+    jobPost: job,
+    agency,
+    otherJobsFromAgency,
+    relatedJobs,
+}: Exclude<JobShowProps, { jobPost: null }>) {
     const { props } = usePage();
     const user = props.auth.user;
     const { isApplied, isSaved, toggleSaved } = useApplications();
 
-    const job = getJobList().find((item) => item.id === jobId);
-
-    if (!job) {
-        return <JobNotFound />;
-    }
-
-    const isClosed = !isAcceptingApplications(job);
-
-    // Guests are sent to sign in and returned to this listing afterwards.
-    const applyHref = user ? jobApply.url(jobId) : login.url();
-
-    return (
-        <JobShowContent
-            job={job}
-            isClosed={isClosed}
-            applyHref={applyHref}
-            isApplied={isApplied(job.id)}
-            saved={isSaved(job.id)}
-            onToggleSaved={() => toggleSaved(job.id)}
-        />
-    );
-}
-
-function JobShowContent({
-    job,
-    isClosed,
-    applyHref,
-    isApplied,
-    saved,
-    onToggleSaved,
-}: {
-    job: Job;
-    isClosed: boolean;
-    applyHref: string;
-    isApplied: boolean;
-    saved: boolean;
-    onToggleSaved: () => void;
-}) {
-    const { isSaved, toggleSaved } = useApplications();
-
-    const agency = findAgency(job.agency);
-    // Same agency only, because the heading below says "from this agency".
-    const alsoFromAgency = getOtherJobsFromAgency(job);
+    const isClosed = !job.isAcceptingApplications;
+    // Guests are sent to sign in and returned to this job post afterwards.
+    const applyHref = user ? jobApply.url(job.id) : login.url();
+    const applied = isApplied(job.id);
 
     return (
         <>
@@ -93,7 +68,7 @@ function JobShowContent({
                 <title>{`${job.title} — ${job.agency} | OPAP Job Abroad`}</title>
                 <meta
                     name="description"
-                    content={`${job.title} with ${job.agency}. ${job.description ?? ''}`.slice(
+                    content={`${job.title} with ${job.agency} in ${job.location}. ${job.salary}.`.slice(
                         0,
                         180,
                     )}
@@ -114,15 +89,16 @@ function JobShowContent({
                     <div className="job-detail-page-content">
                         <JobDetailPanel
                             job={job}
-                            isSaved={saved}
-                            onToggleSaved={onToggleSaved}
+                            isSaved={isSaved(job.id)}
+                            onToggleSaved={() => toggleSaved(job.id)}
                             applyHref={applyHref}
-                            isApplied={isApplied}
+                            isApplied={applied}
                             isClosed={isClosed}
                             listedBy={
-                                agency ? (
-                                    <ListedBy agency={agency} contact={job} />
-                                ) : null
+                                <ListedBy
+                                    agency={agency}
+                                    contact={job.contact}
+                                />
                             }
                         />
 
@@ -133,13 +109,13 @@ function JobShowContent({
                                 data-testid="status-job-closed"
                             >
                                 <Info size={15} aria-hidden="true" />
-                                This listing has closed and is no longer
-                                accepting applications. Saved and archived
-                                copies stay in your My Jobs list.
+                                This job post has closed and is no longer
+                                accepting applications. Your application stays
+                                in your My Jobs list.
                             </p>
                         )}
 
-                        {!isClosed && isApplied && (
+                        {!isClosed && applied && (
                             <p
                                 className="job-applied-notice"
                                 role="status"
@@ -151,7 +127,7 @@ function JobShowContent({
                             </p>
                         )}
 
-                        {isManpooling(job) && (
+                        {job.employerHidden && (
                             <p
                                 className="job-manpooling-note"
                                 data-testid="job-manpooling-note"
@@ -170,42 +146,78 @@ function JobShowContent({
                 </div>
             </section>
 
-            {alsoFromAgency.length >= 2 && (
-                <section
-                    className="job-related-section"
-                    aria-labelledby="job-related-title"
-                >
-                    <div className="shell">
-                        <div className="job-related-head">
-                            <div>
-                                <div className="eyebrow">
-                                    <span className="eyebrow-rule" /> KEEP
-                                    EXPLORING
-                                </div>
-                                <h2 id="job-related-title">
-                                    More jobs from this agency.
-                                </h2>
-                            </div>
-                            <span className="job-related-count">
-                                {alsoFromAgency.length} more verified role
-                                {alsoFromAgency.length === 1 ? '' : 's'}
-                            </span>
-                        </div>
+            <RelatedSection
+                id="job-related-title"
+                eyebrow="KEEP EXPLORING"
+                title="More jobs from this agency."
+                jobs={otherJobsFromAgency}
+                testIdPrefix="card-related"
+                isSaved={isSaved}
+                toggleSaved={toggleSaved}
+            />
 
-                        <div className="job-related-grid">
-                            {alsoFromAgency.map((item) => (
-                                <JobListingCard
-                                    key={item.id}
-                                    job={item}
-                                    isSaved={isSaved(item.id)}
-                                    onToggleSaved={() => toggleSaved(item.id)}
-                                    testId={`card-related-${item.id}`}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </section>
-            )}
+            <RelatedSection
+                id="job-similar-title"
+                eyebrow="YOU MIGHT ALSO CONSIDER"
+                title="Similar roles from other agencies."
+                jobs={relatedJobs}
+                testIdPrefix="card-similar"
+                isSaved={isSaved}
+                toggleSaved={toggleSaved}
+            />
         </>
+    );
+}
+
+function RelatedSection({
+    id,
+    eyebrow,
+    title,
+    jobs,
+    testIdPrefix,
+    isSaved,
+    toggleSaved,
+}: {
+    id: string;
+    eyebrow: string;
+    title: string;
+    jobs: PublicJobPostCard[];
+    testIdPrefix: string;
+    isSaved: (jobId: string) => boolean;
+    toggleSaved: (jobId: string) => void;
+}) {
+    if (jobs.length === 0) {
+        return null;
+    }
+
+    return (
+        <section className="job-related-section" aria-labelledby={id}>
+            <div className="shell">
+                <div className="job-related-head">
+                    <div>
+                        <div className="eyebrow">
+                            <span className="eyebrow-rule" /> {eyebrow}
+                        </div>
+                        <h2 id={id}>{title}</h2>
+                    </div>
+                    <span className="job-related-count">
+                        {jobs.length} more verified role
+                        {jobs.length === 1 ? '' : 's'}
+                    </span>
+                </div>
+
+                <div className="job-related-grid">
+                    {jobs.map((item) => (
+                        <JobListingCard
+                            key={item.id}
+                            job={item}
+                            isSaved={isSaved(item.id)}
+                            onToggleSaved={() => toggleSaved(item.id)}
+                            testId={`${testIdPrefix}-${item.id}`}
+                        />
+                    ))}
+                </div>
+            </div>
+        </section>
     );
 }

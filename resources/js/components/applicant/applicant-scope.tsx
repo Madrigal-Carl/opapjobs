@@ -12,9 +12,9 @@ import type { ProfileOwner } from '@/types/applicant-profile';
  * the dashboard side free of applicant state entirely, which is the same
  * separation the routes already enforce.
  *
- * A guest gets a placeholder profile to score a match against and empty
- * applied / saved lists, so no page ever claims they sent an application
- * they did not.
+ * Both read the database: the applied / saved lists come from the shared
+ * `applicantActivity` prop and the resume from the page's `resume` prop.
+ * A guest gets an empty profile and empty lists.
  */
 export function ApplicantScope({ children }: { children: ReactNode }) {
     const { props } = usePage();
@@ -30,9 +30,7 @@ export function ApplicantScope({ children }: { children: ReactNode }) {
 
     return (
         <ApplicantProfileProvider owner={owner}>
-            <ApplicationsProvider isGuest={owner === null}>
-                {children}
-            </ApplicationsProvider>
+            <ApplicationsProvider>{children}</ApplicationsProvider>
         </ApplicantProfileProvider>
     );
 }

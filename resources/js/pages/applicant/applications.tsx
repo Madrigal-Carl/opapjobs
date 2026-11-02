@@ -1,36 +1,27 @@
-import { Head } from '@inertiajs/react';
-import {
-    ArchiveRestore,
-    Bookmark,
-    Check,
-    Clock3,
-    MapPin,
-    Trash2,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { ArchiveRestore, Bookmark, Check, Clock3, MapPin } from 'lucide-react';
+import { useState } from 'react';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
-import { useApplications } from '@/contexts/applications-context';
-import {
-    closingUrgencyLabel,
-    isAcceptingApplications,
-} from '@/data/job-attributes';
-import { getJobList } from '@/data/job-store';
+import { closingUrgencyLabel } from '@/data/job-attributes';
 import {
     index as jobsIndex,
     show as jobShow,
     apply as jobApply,
 } from '@/routes/jobs';
 import type { ApplicationTab } from '@/types/application-draft';
-import type { Job } from '@/types/job';
+import {
+    APPLICATION_STAGE_LABELS,
+    type ApplicationStageValue,
+} from '@/types/dashboard-application';
+import type { ApplicantJobPost } from '@/types/public-catalog';
+
+type MyJobsProps = Record<ApplicationTab, ApplicantJobPost[]>;
 
 /**
- * The three states an application can be in from the applicant's side.
- *
- * "Saved" and "archived" are both a decision not to apply right now; the
- * difference is intent. Archived is the drawer you put something in and
- * forget, so it is kept out of the way until you ask for it.
+ * The three tabs, in the database's terms: Applied and Archived are the
+ * applicant's applications (Archived = `applicant_archived_at` set), Saved
+ * is `saved_job_posts`.
  */
 const TABS: { id: ApplicationTab; label: string; empty: string }[] = [
     {
@@ -41,86 +32,31 @@ const TABS: { id: ApplicationTab; label: string; empty: string }[] = [
     {
         id: 'saved',
         label: 'Saved',
-        empty: 'No roles bookmarked yet. Use the bookmark on any listing to keep it here.',
+        empty: 'No roles bookmarked yet. Saved job posts show up here.',
     },
     {
         id: 'archived',
         label: 'Archived',
-        empty: 'Nothing archived. Archiving removes a saved role from your main list without deleting it.',
+        empty: 'Nothing archived. Applications you archive are kept here, out of your main list.',
     },
 ];
 
-/**
- * My Jobs.
- *
- * The three tabs are three views of one local list rather than three
- * pages, so moving a role between them is instant and the counts always
- * agree with what is on screen.
- */
-export default function MyJobs() {
+/** My Jobs: the applicant's applications and saved job posts, from the database. */
+export default function MyJobs(props: MyJobsProps) {
     return (
         <ApplicantScope>
-            <MyJobsBody />
+            <MyJobsBody {...props} />
         </ApplicantScope>
     );
 }
 
-function MyJobsBody() {
-    const { applied, saved, archived, toggleSaved, setArchived } =
-        useApplications();
-
+function MyJobsBody(rows: MyJobsProps) {
     const [tab, setTab] = useState<ApplicationTab>('applied');
-
-    const all = useMemo(() => getJobList(), []);
-
-    const rows: Record<ApplicationTab, Job[]> = useMemo(() => {
-        const byId = (ids: string[]) =>
-            ids
-                .map((id) => all.find((job) => job.id === id))
-                .filter((job): job is Job => Boolean(job));
-
-        return {
-            applied: byId(applied),
-            saved: byId(saved),
-            archived: byId(archived),
-        };
-    }, [all, applied, archived, saved]);
 
     const counts: Record<ApplicationTab, number> = {
         applied: rows.applied.length,
         saved: rows.saved.length,
         archived: rows.archived.length,
-    };
-
-    /**
-     * Archiving is the one action here with a destructive flavour, so it
-     * says what happened and offers the way back rather than asking first.
-     */
-    const archive = (job: Job) => {
-        setArchived(job.id, true);
-        toast('Moved to archived', {
-            description: job.title,
-            action: {
-                label: 'Undo',
-                onClick: () => setArchived(job.id, false),
-            },
-        });
-    };
-
-    const removeSaved = (job: Job) => {
-        toggleSaved(job.id);
-        toast('Removed from saved', {
-            description: job.title,
-            action: {
-                label: 'Undo',
-                onClick: () => toggleSaved(job.id),
-            },
-        });
-    };
-
-    const restore = (job: Job) => {
-        setArchived(job.id, false);
-        toast('Moved back to saved', { description: job.title });
     };
 
     const current = rows[tab];
@@ -143,9 +79,8 @@ function MyJobsBody() {
                         <h1>Everything you have set in motion.</h1>
                     </div>
                     <p>
-                        Applications you have sent, roles you bookmarked, and
-                        the ones you parked. Nothing here is shared with an
-                        agency until you press submit.
+                        Applications you have sent, job posts you saved, and the
+                        applications you archived.
                     </p>
                 </div>
             </section>
@@ -177,7 +112,7 @@ function MyJobsBody() {
                         </div>
 
                         <Button asChild variant="secondary" size="sm">
-                            <a href={jobsIndex.url()}>Browse jobs</a>
+                            <Link href={jobsIndex.url()}>Browse jobs</Link>
                         </Button>
                     </div>
 
@@ -196,9 +131,9 @@ function MyJobsBody() {
                             <h2>{tabCopy?.label} is empty</h2>
                             <p>{tabCopy?.empty}</p>
                             <Button asChild>
-                                <a href={jobsIndex.url()}>
+                                <Link href={jobsIndex.url()}>
                                     Browse verified jobs
-                                </a>
+                                </Link>
                             </Button>
                         </div>
                     ) : (
@@ -208,9 +143,6 @@ function MyJobsBody() {
                                     key={job.id}
                                     job={job}
                                     tab={tab}
-                                    onArchive={() => archive(job)}
-                                    onRestore={() => restore(job)}
-                                    onRemove={() => removeSaved(job)}
                                 />
                             ))}
                         </div>
@@ -218,9 +150,8 @@ function MyJobsBody() {
 
                     <p className="applications-end">
                         <Clock3 size={13} aria-hidden="true" />
-                        Applications you send are recorded for the agency. Saved
-                        and archived roles stay on this device only — sign in on
-                        another device to see your saved jobs there too.
+                        Your applications and saved job posts are kept with your
+                        account, so they show on every device you sign in on.
                     </p>
                 </div>
             </section>
@@ -228,21 +159,23 @@ function MyJobsBody() {
     );
 }
 
+function stageLabel(stage: string | null): string {
+    return stage && stage in APPLICATION_STAGE_LABELS
+        ? APPLICATION_STAGE_LABELS[stage as ApplicationStageValue]
+        : 'Sent';
+}
+
 function ApplicationRow({
     job,
     tab,
-    onArchive,
-    onRestore,
-    onRemove,
 }: {
-    job: Job;
+    job: ApplicantJobPost;
     tab: ApplicationTab;
-    onArchive: () => void;
-    onRestore: () => void;
-    onRemove: () => void;
 }) {
-    const isClosed = !isAcceptingApplications(job);
-    const urgency = closingUrgencyLabel(job.closingDate);
+    const isClosed = !job.isAcceptingApplications;
+    const urgency = isClosed
+        ? ''
+        : closingUrgencyLabel(job.closingDate ?? undefined);
 
     return (
         <div
@@ -254,7 +187,7 @@ function ApplicationRow({
                     <span className="job-type">
                         {job.pathway === 'landbased' ? 'Landbased' : 'Seabased'}
                     </span>
-                    {job.urgent && (
+                    {job.urgent && !isClosed && (
                         <span className="jobs-card-label urgent">Urgent</span>
                     )}
                     {isClosed && (
@@ -263,12 +196,12 @@ function ApplicationRow({
                 </div>
 
                 <h3>
-                    <a
+                    <Link
                         href={jobShow.url(job.id)}
                         data-testid={`link-application-${job.id}`}
                     >
                         {job.title}
-                    </a>
+                    </Link>
                 </h3>
 
                 <p className="jobs-card-agency">{job.agency}</p>
@@ -285,61 +218,32 @@ function ApplicationRow({
             </div>
 
             <div className="application-row-actions">
-                <a
+                <Link
                     className="job-view-link"
                     href={jobShow.url(job.id)}
                     data-testid={`link-application-view-${job.id}`}
                 >
-                    View listing
-                </a>
+                    View job post
+                </Link>
 
-                {tab === 'applied' ? (
-                    <p className="application-row-status">
-                        <Check size={14} aria-hidden="true" />
-                        Sent to {job.agency}
-                    </p>
-                ) : tab === 'saved' ? (
-                    <>
-                        <a
+                {tab === 'saved' ? (
+                    !isClosed && (
+                        <Link
                             className="job-view-link"
                             href={jobApply.url(job.id)}
                             data-testid={`link-application-apply-${job.id}`}
                         >
                             Apply now
-                        </a>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onArchive}
-                            data-testid={`button-archive-${job.id}`}
-                        >
-                            <ArchiveRestore size={14} aria-hidden="true" />{' '}
-                            Archive
-                        </Button>
-                    </>
+                        </Link>
+                    )
                 ) : (
-                    <>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={onRestore}
-                            data-testid={`button-restore-${job.id}`}
-                        >
-                            <ArchiveRestore size={14} aria-hidden="true" /> Move
-                            back to saved
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onRemove}
-                            data-testid={`button-remove-${job.id}`}
-                        >
-                            <Trash2 size={14} aria-hidden="true" /> Delete
-                        </Button>
-                    </>
+                    <p
+                        className="application-row-status"
+                        data-testid={`status-application-${job.id}`}
+                    >
+                        <Check size={14} aria-hidden="true" />
+                        {stageLabel(job.applicationStage)} · {job.agency}
+                    </p>
                 )}
             </div>
         </div>
