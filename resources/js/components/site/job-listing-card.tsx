@@ -6,45 +6,36 @@ import {
     MapPin,
 } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
-import {
-    CONFIDENTIAL_EMPLOYER_LABEL,
-    getPublicEmployer,
-    getPublicLocation,
-    isManpooling,
-} from '@/data/job-attributes';
+import { CONFIDENTIAL_EMPLOYER_LABEL } from '@/lib/public-catalog';
 import { cn } from '@/lib/utils';
 import { show as jobShow } from '@/routes/jobs';
-import type { Job } from '@/types/job';
+import type { PublicJobPostCard } from '@/types/public-catalog';
 
 type JobListingCardProps = {
-    job: Job;
+    job: PublicJobPostCard;
     isSaved: boolean;
     onToggleSaved: () => void;
-    /** Adds the amber left rule used for the lead card on the home page. */
-    featured?: boolean;
+    /** Adds the amber left rule used for the lead card on the home page (positional only). */
+    highlighted?: boolean;
     /** Anchor target so the home page can deep-link into its job sections. */
     anchorId?: string;
     testId?: string;
 };
 
 /**
- * The listing card used on the home page.
+ * The job post card used on the home page and the job profile.
  */
 export function JobListingCard({
     job,
     isSaved,
     onToggleSaved,
-    featured = false,
+    highlighted = false,
     anchorId,
     testId,
 }: JobListingCardProps) {
-    // Manpooling listings keep the company to themselves, exactly as the
-    // agency-side preview shows.
-    const publicEmployer = getPublicEmployer(job);
-
     return (
         <article
-            className={cn('job-card', featured && 'job-card-featured')}
+            className={cn('job-card', highlighted && 'job-card-featured')}
             id={anchorId}
             data-testid={testId}
         >
@@ -61,7 +52,7 @@ export function JobListingCard({
                             <BadgeCheck size={13} aria-hidden="true" /> Verified
                             opening
                         </span>
-                        {isManpooling(job) && (
+                        {job.employerHidden && (
                             <span
                                 className="job-verified job-verified-manpooling"
                                 data-testid={`badge-manpooling-${job.id}`}
@@ -76,21 +67,22 @@ export function JobListingCard({
                         data-testid={`card-employer-${job.id}`}
                     >
                         <BadgeCheck size={13} aria-hidden="true" />{' '}
-                        {publicEmployer ? (
-                            <>DMW-accredited agency · {publicEmployer.name}</>
-                        ) : (
+                        {!job.employerHidden && job.employer ? (
+                            <>DMW-accredited agency · {job.employer}</>
+                        ) : job.employerHidden ? (
                             <>
                                 Posted by {job.agency} ·{' '}
                                 {CONFIDENTIAL_EMPLOYER_LABEL.toLowerCase()}
                             </>
+                        ) : (
+                            <>Posted by {job.agency}</>
                         )}
                     </p>
                 </div>
             </div>
             <div className="job-details">
                 <span>
-                    <MapPin size={15} aria-hidden="true" />{' '}
-                    {getPublicLocation(job)}
+                    <MapPin size={15} aria-hidden="true" /> {job.location}
                 </span>
                 <span>
                     <Landmark size={15} aria-hidden="true" /> {job.salary}

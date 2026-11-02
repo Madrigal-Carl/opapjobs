@@ -10,24 +10,25 @@ import {
     Landmark,
     MapPin,
     Ship,
-    Star,
     Zap,
 } from 'lucide-react';
-import { findAgency } from '@/data/agency-lookup';
+import { FormattedText } from '@/components/formatted-text';
 import {
-    CONFIDENTIAL_EMPLOYER_LABEL,
     POSTING_TYPE_LABELS,
     closingLabel,
     closingUrgencyLabel,
-    getPublicEmployer,
-    getPublicLocation,
 } from '@/data/job-attributes';
+import { CONFIDENTIAL_EMPLOYER_LABEL } from '@/lib/public-catalog';
 import { show as agencyShow } from '@/routes/agencies';
-import type { Job } from '@/types/job';
+import type {
+    PublicJobPostDetail,
+    PublicJobPostPreview,
+} from '@/types/public-catalog';
 import { JOB_FACT_OVERVIEW, JobFacts } from './job-facts';
 
 export type JobDetailPanelProps = {
-    job: Job;
+    /** The browse preview sends a preview; the job profile sends the full detail. */
+    job: PublicJobPostPreview | PublicJobPostDetail;
     isSaved: boolean;
     onToggleSaved: () => void;
     /** Where Apply points. Guests are sent to sign in first. */
@@ -66,10 +67,8 @@ export function JobDetailPanel({
     viewAllHref,
     listedBy,
 }: JobDetailPanelProps) {
-    const agency = findAgency(job.agency);
-    const publicEmployer = getPublicEmployer(job);
     // Only worth saying when the window is short enough to change a plan.
-    const urgency = closingUrgencyLabel(job.closingDate);
+    const urgency = closingUrgencyLabel(job.closingDate ?? undefined);
     /**
      * The preview sits inside a page that already has a heading, so it stays
      * an `h2`. On the listing page the panel *is* the page, so it takes the
@@ -98,12 +97,6 @@ export function JobDetailPanel({
                                 ? 'Landbased'
                                 : 'Seabased'}
                         </span>
-
-                        {job.featured && (
-                            <span className="job-flag-pill is-featured">
-                                Featured
-                            </span>
-                        )}
 
                         {job.urgent && (
                             <span
@@ -137,16 +130,18 @@ export function JobDetailPanel({
                             <Heading className="job-detail-title">
                                 {job.title}
                             </Heading>
-                            <p
-                                className={`job-detail-employer ${
-                                    publicEmployer ? '' : 'is-hidden'
-                                }`}
-                                data-testid={`detail-employer-${job.id}`}
-                            >
-                                {publicEmployer
-                                    ? publicEmployer.name
-                                    : CONFIDENTIAL_EMPLOYER_LABEL}
-                            </p>
+                            {(job.employerHidden || job.employer) && (
+                                <p
+                                    className={`job-detail-employer ${
+                                        job.employerHidden ? 'is-hidden' : ''
+                                    }`}
+                                    data-testid={`detail-employer-${job.id}`}
+                                >
+                                    {job.employerHidden
+                                        ? CONFIDENTIAL_EMPLOYER_LABEL
+                                        : job.employer}
+                                </p>
+                            )}
 
                             {/* The agency is named in the "Listed by" band on
                                 the full listing. The preview has no such
@@ -154,19 +149,9 @@ export function JobDetailPanel({
                             {!listedBy && (
                                 <p className="job-detail-agency">
                                     <BadgeCheck size={15} aria-hidden="true" />{' '}
-                                    <a href={agencyShow.url(job.agency)}>
+                                    <a href={agencyShow.url(job.agencySlug)}>
                                         {job.agency}
                                     </a>
-                                    {agency && (
-                                        <span className="job-detail-agency-rating">
-                                            <Star
-                                                size={13}
-                                                fill="currentColor"
-                                                aria-hidden="true"
-                                            />{' '}
-                                            {agency.rating}
-                                        </span>
-                                    )}
                                 </p>
                             )}
                         </div>
@@ -237,7 +222,7 @@ export function JobDetailPanel({
                             <MapPin size={18} aria-hidden="true" />
                             <span>
                                 <strong>Location</strong>
-                                {getPublicLocation(job)}
+                                {job.location}
                             </span>
                         </span>
                         <span>
@@ -258,7 +243,7 @@ export function JobDetailPanel({
                             <CalendarClock size={18} aria-hidden="true" />
                             <span>
                                 <strong>Apply by</strong>
-                                {closingLabel(job.closingDate)}
+                                {closingLabel(job.closingDate ?? undefined)}
                                 {urgency && (
                                     <em
                                         className="job-closing-soon"
@@ -276,10 +261,10 @@ export function JobDetailPanel({
             {listedBy}
 
             <div className="job-detail-scroll-body">
-                {job.description && (
+                {job.jobDescription && (
                     <section className="job-detail-section">
                         <h3>Job description</h3>
-                        <p>{job.description}</p>
+                        <FormattedText value={job.jobDescription} />
                     </section>
                 )}
                 <section className="job-detail-section">
@@ -288,25 +273,21 @@ export function JobDetailPanel({
                         strip above, so they are dropped here rather than
                         repeated on one screen. This grid carries what the
                         agency captured as requirements — education, the
-                        experience band, age, languages — because a listing
+                        experience band, languages — because a listing
                         with no stated criteria is one an applicant cannot
                         measure themselves against. */}
                     <JobFacts job={job} omit={JOB_FACT_OVERVIEW} />
                 </section>
-                {job.benefits && job.benefits.length > 0 && (
+                {job.otherRequirements && (
                     <section className="job-detail-section">
-                        <h3>Benefits</h3>
-                        <ul>
-                            {job.benefits.map((benefit) => (
-                                <li key={benefit}>{benefit}</li>
-                            ))}
-                        </ul>
+                        <h3>Other requirements</h3>
+                        <FormattedText value={job.otherRequirements} />
                     </section>
                 )}
-                {job.applyInstructions && (
+                {job.applicationInstructions && (
                     <section className="job-detail-section">
                         <h3>How to apply</h3>
-                        <p>{job.applyInstructions}</p>
+                        <FormattedText value={job.applicationInstructions} />
                     </section>
                 )}
             </div>

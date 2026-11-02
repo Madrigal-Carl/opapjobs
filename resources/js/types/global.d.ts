@@ -1,3 +1,4 @@
+import type { ApplicationActivity } from '@/types/application-draft';
 import type { Auth } from '@/types/auth';
 
 declare module 'react' {
@@ -12,6 +13,8 @@ declare module '@inertiajs/core' {
             name: string;
             auth: Auth;
             sidebarOpen: boolean;
+            /** The signed-in applicant's job post ids per My Jobs tab; `null` for everyone else. */
+            applicantActivity?: ApplicationActivity | null;
             [key: string]: unknown;
         };
     }

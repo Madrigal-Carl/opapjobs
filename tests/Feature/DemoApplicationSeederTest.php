@@ -13,6 +13,8 @@ test('the demo seeder fills every stage for every agency without exceeding hired
     $pairs = DB::table('applications')
         ->join('job_posts', 'job_posts.id', '=', 'applications.job_post_id')
         ->join('agencies', 'agencies.id', '=', 'job_posts.agency_id')
+        // DemoPublicCatalogSeeder adds its own agencies with hires; this test covers the dashboard demo agencies.
+        ->whereIn('agencies.slug', DemoAgencySeeder::SLUGS)
         ->select('agencies.slug', 'applications.stage')->distinct()->get();
 
     expect($pairs->pluck('slug')->unique()->sort()->values()->all())->toBe(collect(DemoAgencySeeder::SLUGS)->sort()->values()->all());

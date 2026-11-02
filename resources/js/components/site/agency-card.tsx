@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { AppLogo } from '@/components/site/app-logo';
 import { show as agencyShow } from '@/routes/agencies';
-import type { Agency } from '@/types/agency';
+import type { PublicAgencyCard } from '@/types/public-catalog';
 
 export function slugifyAgencyName(name: string): string {
     return name
@@ -20,7 +20,7 @@ export function slugifyAgencyName(name: string): string {
 }
 
 type AgencyCardProps = {
-    agency: Agency;
+    agency: PublicAgencyCard;
     testId: string;
     linkHref?: string;
     linkLabel?: string;
@@ -53,9 +53,11 @@ export function AgencyCard({
                             <Sparkles size={12} aria-hidden="true" /> Top Hirer
                         </span>
                     )}
-                    <span className="verified-pill">
-                        <BadgeCheck size={13} aria-hidden="true" /> Verified
-                    </span>
+                    {agency.verified && (
+                        <span className="verified-pill">
+                            <BadgeCheck size={13} aria-hidden="true" /> Verified
+                        </span>
+                    )}
                 </div>
             </div>
             <div className="agency-license">
@@ -67,17 +69,24 @@ export function AgencyCard({
                     {agency.pathway === 'landbased' ? 'Landbased' : 'Seabased'}
                 </span>
                 {agency.topHirer && (
-                    <span className="actively-hiring-tag">Actively hiring</span>
+                    <span
+                        className="actively-hiring-tag"
+                        data-testid={`text-hired-count-${agency.mark}`}
+                    >
+                        {agency.hiredCount} hired
+                    </span>
                 )}
             </div>
             <div className="agency-card-divider" />
             <div className="agency-card-foot">
                 <span className="agency-rating">
                     <Star size={13} fill="currentColor" aria-hidden="true" />{' '}
-                    {agency.rating}
+                    {agency.rating === null
+                        ? 'No reviews yet'
+                        : agency.rating.toFixed(1)}
                 </span>
                 <span className="agency-open-jobs">
-                    {agency.jobs} open jobs
+                    {agency.jobs} open {agency.jobs === 1 ? 'job' : 'jobs'}
                 </span>
                 <a
                     href={linkHref}

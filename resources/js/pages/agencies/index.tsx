@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import {
     ArrowRight,
     Building2,
@@ -7,55 +7,37 @@ import {
     SearchX,
     Ship,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pagination } from '@/components/pagination';
 import { AgencyCard } from '@/components/site/agency-card';
 import { countryOptions } from '@/data/countries';
-import { AGENCIES_PER_PAGE, getAgencyPage } from '@/data/selectors';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { index as agenciesIndex } from '@/routes/agencies';
 import type { Pathway } from '@/types/agency';
+import type { PublicAgencyCard } from '@/types/public-catalog';
 
 const RESULTS_ANCHOR = 'agency-results';
 
+/** How long typing settles before the directory is requested again. */
+const SEARCH_DEBOUNCE_MS = 300;
+
 type AgencyFilters = {
     pathway: Pathway;
-    page: number;
     q: string;
+    country: string;
+    page: number;
 };
 
-function readFilters(): AgencyFilters {
-    if (typeof window === 'undefined') {
-        return { pathway: 'landbased', page: 1, q: '' };
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const parsedPage = Number(params.get('page'));
-
-    return {
-        pathway:
-            params.get('pathway') === 'seabased' ? 'seabased' : 'landbased',
-        page:
-            Number.isFinite(parsedPage) && parsedPage > 0
-                ? Math.trunc(parsedPage)
-                : 1,
-        q: (params.get('q') ?? '').slice(0, 100),
+type AgenciesIndexProps = {
+    agencies: {
+        items: PublicAgencyCard[];
+        total: number;
+        totalPages: number;
+        page: number;
     };
-}
-
-function writeUrl(filters: AgencyFilters): void {
-    const params = new URLSearchParams();
-    params.set('pathway', filters.pathway);
-
-    if (filters.page > 1) {
-        params.set('page', String(filters.page));
-    }
-
-    if (filters.q) {
-        params.set('q', filters.q);
-    }
-
-    const url = `${window.location.pathname}?${params.toString()}#${RESULTS_ANCHOR}`;
-    window.history.replaceState(window.history.state, '', url);
-}
+    pathwayCounts: Record<Pathway, number>;
+    filters: AgencyFilters;
+};
 
 function scrollToResults(): void {
     window.requestAnimationFrame(() => {
@@ -65,60 +47,65 @@ function scrollToResults(): void {
     });
 }
 
-function useAgencyFilters() {
-    const [filters, setFilters] = useState<AgencyFilters>(readFilters);
+/**
+ * Asks the server for another directory page. The URL carries every
+ * filter, so a reload or a shared link lands on exactly the same results.
+ */
+function visit(filters: AgencyFilters): void {
+    const query: Record<string, string | number> = { pathway: filters.pathway };
 
-    useEffect(() => {
-        const onPopState = () => setFilters(readFilters());
-        window.addEventListener('popstate', onPopState);
-        return () => window.removeEventListener('popstate', onPopState);
-    }, []);
+    if (filters.q) {
+        query.q = filters.q;
+    }
 
-    useEffect(() => {
-        writeUrl(filters);
-    }, [filters]);
+    if (filters.country) {
+        query.country = filters.country;
+    }
 
-    const update = useCallback((next: Partial<AgencyFilters>) => {
-        setFilters((current) => {
-            const resetPage =
-                (next.pathway !== undefined &&
-                    next.pathway !== current.pathway) ||
-                (next.q !== undefined && next.q !== current.q);
+    if (filters.page > 1) {
+        query.page = filters.page;
+    }
 
-            return {
-                ...current,
-                ...next,
-                page: resetPage ? 1 : (next.page ?? current.page),
-            };
-        });
-        scrollToResults();
-    }, []);
-
-    return { filters, update };
+    router.get(agenciesIndex.url(), query, {
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        onSuccess: scrollToResults,
+    });
 }
 
-export default function AgenciesIndex() {
-    const { filters, update } = useAgencyFilters();
+export default function AgenciesIndex({
+    agencies: results,
+    pathwayCounts,
+    filters,
+}: AgenciesIndexProps) {
     const [keyword, setKeyword] = useState(filters.q);
-    const [countryQuery, setCountryQuery] = useState('');
+    const [countryQuery, setCountryQuery] = useState(filters.country);
     const [countryOpen, setCountryOpen] = useState(false);
+    const debouncedKeyword = useDebouncedValue(keyword, SEARCH_DEBOUNCE_MS);
+    const filtersRef = useRef(filters);
+    filtersRef.current = filters;
 
-    const results = getAgencyPage({
-        pathway: filters.pathway,
-        q: filters.q,
-        page: filters.page,
-        perPage: AGENCIES_PER_PAGE,
-    });
+    const update = (next: Partial<AgencyFilters>) => {
+        const current = filtersRef.current;
+        const merged = { ...current, ...next };
+        const resetPage =
+            merged.pathway !== current.pathway ||
+            merged.q !== current.q ||
+            merged.country !== current.country;
 
+        visit({ ...merged, page: resetPage ? 1 : (next.page ?? current.page) });
+    };
+
+    // Typing settles, then the directory follows it.
     useEffect(() => {
-        setKeyword(filters.q);
-    }, [filters.q]);
+        const q = debouncedKeyword.trim();
 
-    useEffect(() => {
-        if (filters.page !== results.page) {
-            update({ page: results.page });
+        if (q !== filtersRef.current.q) {
+            update({ q });
         }
-    }, [filters.page, results.page, update]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debouncedKeyword]);
 
     const matchingCountries = useMemo(() => {
         const query = countryQuery.trim().toLowerCase();
@@ -134,7 +121,7 @@ export default function AgenciesIndex() {
 
     const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        update({ q: keyword.trim() });
+        update({ q: keyword.trim(), country: countryQuery.trim() });
     };
 
     return (
@@ -254,6 +241,7 @@ export default function AgenciesIndex() {
                                                             country,
                                                         );
                                                         setCountryOpen(false);
+                                                        update({ country });
                                                     }}
                                                 >
                                                     {country}
@@ -298,7 +286,10 @@ export default function AgenciesIndex() {
                             aria-pressed={filters.pathway === 'landbased'}
                             onClick={() => update({ pathway: 'landbased' })}
                         >
-                            <Building2 size={15} aria-hidden="true" /> Landbased
+                            <Building2 size={15} aria-hidden="true" /> Landbased{' '}
+                            <span data-testid="count-agencies-landbased">
+                                {pathwayCounts.landbased}
+                            </span>
                         </button>
                         <button
                             type="button"
@@ -308,7 +299,10 @@ export default function AgenciesIndex() {
                             aria-pressed={filters.pathway === 'seabased'}
                             onClick={() => update({ pathway: 'seabased' })}
                         >
-                            <Ship size={15} aria-hidden="true" /> Seabased
+                            <Ship size={15} aria-hidden="true" /> Seabased{' '}
+                            <span data-testid="count-agencies-seabased">
+                                {pathwayCounts.seabased}
+                            </span>
                         </button>
                     </div>
 
@@ -318,7 +312,7 @@ export default function AgenciesIndex() {
                                 <AgencyCard
                                     agency={agency}
                                     key={agency.slug}
-                                    testId={`card-directory-agency-${agency.mark}`}
+                                    testId={`card-directory-agency-${agency.slug}`}
                                 />
                             ))}
                         </div>
@@ -332,7 +326,8 @@ export default function AgenciesIndex() {
                                 onClick={(event) => {
                                     event.preventDefault();
                                     setKeyword('');
-                                    update({ q: '', page: 1 });
+                                    setCountryQuery('');
+                                    update({ q: '', country: '', page: 1 });
                                 }}
                             >
                                 Clear filters

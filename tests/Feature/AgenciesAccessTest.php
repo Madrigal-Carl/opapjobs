@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Agency;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -21,13 +22,25 @@ test('applicants can visit the agencies directory', function () {
         ->assertInertia(fn (Assert $page) => $page->component('agencies/index'));
 });
 
-test('applicants can visit an agency profile with the slug prop', function () {
+test('applicants can visit an agency profile', function () {
+    $agency = Agency::factory()->create(['agency_name' => 'Kalinaw Overseas Staffing']);
+
+    $this->actingAs(User::factory()->applicant()->create())
+        ->get(route('agencies.show', $agency->slug))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('agencies/show')
+            ->where('agency.slug', $agency->slug)
+            ->where('agency.name', 'Kalinaw Overseas Staffing'));
+});
+
+test('applicants see the not found state for an unknown agency slug', function () {
     $this->actingAs(User::factory()->applicant()->create())
         ->get(route('agencies.show', 'some-slug'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('agencies/show')
-            ->where('slug', 'some-slug'));
+            ->where('agency', null));
 });
 
 test('staff are redirected from the agencies directory to their own home', function (string $state, string $home) {

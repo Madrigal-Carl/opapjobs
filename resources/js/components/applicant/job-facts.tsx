@@ -1,7 +1,10 @@
 import {
+    BadgeCheck,
     Briefcase,
     BriefcaseBusiness,
+    Building2,
     CalendarClock,
+    FileText,
     GraduationCap,
     Hash,
     Landmark,
@@ -14,14 +17,15 @@ import {
     EDUCATION_LABELS,
     GENDER_LABELS,
     PROFICIENCY_LABELS,
-    ageRangeLabel,
     categoryLabel,
     closingLabel,
     experienceRangeLabel,
-    getPublicLocation,
 } from '@/data/job-attributes';
 import type { LucideIcon } from 'lucide-react';
-import type { Job } from '@/types/job';
+import type {
+    PublicJobPostDetail,
+    PublicJobPostPreview,
+} from '@/types/public-catalog';
 
 /** Stable identifiers so a caller can drop facts it already shows. */
 export type JobFactKey =
@@ -34,8 +38,10 @@ export type JobFactKey =
     | 'education'
     | 'experience'
     | 'gender'
-    | 'age'
-    | 'languages';
+    | 'languages'
+    | 'jobOrder'
+    | 'employerLocation'
+    | 'employerLicense';
 
 /**
  * The facts the sticky header strip already puts above the fold. The browse
@@ -66,72 +72,72 @@ export function JobFacts({
     job,
     omit = [],
 }: {
-    job: Job;
+    job: PublicJobPostPreview | PublicJobPostDetail;
     omit?: JobFactKey[];
 }) {
-    const age = ageRangeLabel(job);
+    // Present only on the full job profile, and only for job orders.
+    const jobOrderNumber = 'jobOrderNumber' in job ? job.jobOrderNumber : null;
+    const employer = 'employerDetails' in job ? job.employerDetails : null;
 
     const facts: FactEntry[] = [
         {
             key: 'location',
             icon: MapPin,
             label: 'Location',
-            value: getPublicLocation(job),
+            value: job.location,
         },
         { key: 'salary', icon: Landmark, label: 'Salary', value: job.salary },
         {
             key: 'category',
             icon: Hash,
             label: 'Category',
-            value: categoryLabel(job) || 'Not specified',
+            value:
+                categoryLabel({
+                    category: job.category ?? undefined,
+                    subCategory: job.subCategory ?? undefined,
+                }) || 'Not specified',
         },
         {
             key: 'contract',
             icon: Briefcase,
             label: 'Contract',
-            value: job.contractDuration
-                ? CONTRACT_LABELS[job.contractDuration]
-                : 'Not specified',
+            value: CONTRACT_LABELS[job.contractType] ?? 'Not specified',
         },
         {
             key: 'applyBy',
             icon: CalendarClock,
             label: 'Apply by',
-            value: closingLabel(job.closingDate),
+            value: closingLabel(job.closingDate ?? undefined),
         },
         {
             key: 'slots',
             icon: UsersRound,
             label: 'Slots',
-            value: `${job.quantity} ${
-                job.quantity === 1 ? 'position' : 'positions'
+            value: `${job.vacantPositions} ${
+                job.vacantPositions === 1 ? 'position' : 'positions'
             }`,
         },
         {
             key: 'education',
             icon: GraduationCap,
             label: 'Education',
-            value: job.education
-                ? EDUCATION_LABELS[job.education]
-                : 'Not specified',
+            value: EDUCATION_LABELS[job.educationLevel] ?? 'Not specified',
         },
         {
             key: 'experience',
             icon: BriefcaseBusiness,
             label: 'Experience',
-            value: experienceRangeLabel(job) || 'Not specified',
+            value:
+                experienceRangeLabel({
+                    minExperienceYears: job.minExperienceYears ?? undefined,
+                    maxExperienceYears: job.maxExperienceYears ?? undefined,
+                }) || 'Not specified',
         },
         {
             key: 'gender',
             icon: UsersRound,
             label: 'Gender',
-            value: GENDER_LABELS[job.gender],
-        },
-        {
-            key: 'age',
-            icon: CalendarClock,
-            label: 'Age',
-            value: age ? `${age} years old` : 'No age preference',
+            value: GENDER_LABELS[job.genderRequirement],
         },
         {
             key: 'languages',
@@ -146,6 +152,32 @@ export function JobFacts({
                       .join(', ')
                 : 'Not specified',
         },
+        ...(jobOrderNumber
+            ? [
+                  {
+                      key: 'jobOrder' as const,
+                      icon: FileText,
+                      label: 'Job order',
+                      value: jobOrderNumber,
+                  },
+              ]
+            : []),
+        ...(employer
+            ? [
+                  {
+                      key: 'employerLocation' as const,
+                      icon: Building2,
+                      label: 'Employer location',
+                      value: employer.location,
+                  },
+                  {
+                      key: 'employerLicense' as const,
+                      icon: BadgeCheck,
+                      label: 'Employer licence',
+                      value: employer.licenseNumber,
+                  },
+              ]
+            : []),
     ];
 
     const skip = new Set(omit);

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /** @property Pathway $pathway */
@@ -71,5 +72,16 @@ class Agency extends Model
     public function jobPosts(): HasMany
     {
         return $this->hasMany(JobPost::class);
+    }
+
+    /**
+     * Applications on any of this Agency's job posts, whatever the job
+     * post's status. Drives the derived hired count (never stored).
+     *
+     * @return HasManyThrough<Application, JobPost, $this>
+     */
+    public function applications(): HasManyThrough
+    {
+        return $this->hasManyThrough(Application::class, JobPost::class);
     }
 }
