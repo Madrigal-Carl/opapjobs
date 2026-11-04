@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
+use App\Http\Controllers\Dashboard\OverviewController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
@@ -46,7 +47,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('dashboard.access')
         ->prefix('dashboard')
         ->group(function () {
-            Route::get('overview', [ViewController::class, 'dashboardOverview'])->name('dashboard.overview');
+            Route::get('overview', [OverviewController::class, 'index'])->name('dashboard.overview');
 
             Route::get('jobs/new', [JobPostController::class, 'create'])
                 ->middleware('can:'.Permission::ManageJob->value)
