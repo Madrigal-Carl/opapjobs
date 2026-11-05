@@ -21,7 +21,7 @@ test('the jobs page lists active public job posts newest first in batches', func
         ->component('jobs/index')
         ->has('jobPosts', PublicAgencyRules::JOBS_PER_BATCH)
         ->where('jobPostsMeta', ['page' => 1, 'hasMore' => true, 'nextPage' => 2, 'total' => 14])
-        ->where('filters', ['q' => '', 'country' => '', 'filters' => []]));
+        ->where('filters', ['q' => '', 'country' => '', 'filters' => ['landbased']]));
 
     $second = $this->get(route('jobs.index', ['page' => 2]));
     $second->assertInertia(fn (Assert $page) => $page
@@ -59,12 +59,12 @@ test('toggles combine with AND and unknown toggles are dropped', function () {
 
     expect(browsedTitles($this, ['filters' => ['landbased', 'urgent', 'recent']]))->toBe(['Urgent Recent Land'])
         ->and(browsedTitles($this, ['filter' => 'seabased']))->toBe(['Urgent Recent Sea'])
-        ->and(browsedTitles($this, ['filters' => ['urgent', 'bogus']]))->toHaveCount(3);
+        ->and(browsedTitles($this, ['filters' => ['urgent', 'bogus']]))->toHaveCount(2);
 
     $this->get(route('jobs.index', ['filters' => ['urgent', 'bogus']]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('filters.filters', ['urgent'])
+            ->where('filters.filters', ['landbased', 'urgent'])
             ->missing('filterCounts'));
 });
 
@@ -108,21 +108,21 @@ function sortedTitles(mixed $test, array $query = []): array
     return collect(browsedTitles($test, $query))->sort()->values()->all();
 }
 
-test('every filter combination returns exactly the matching job posts', function (array $filters, array $expected) {
+test('every filter combination returns exactly the matching job posts', function (array $filters, array $expected, ?array $selected = null) {
     filterMatrix();
 
     $this->get(route('jobs.index', ['filters' => $filters]))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->where('filters.filters', $filters));
+        ->assertInertia(fn (Assert $page) => $page->where('filters.filters', $selected ?? $filters));
 
     expect(sortedTitles($this, ['filters' => $filters]))->toBe(collect($expected)->sort()->values()->all());
 })->with([
-    'none' => [[], ['land urgent recent', 'land urgent old', 'land calm recent', 'land calm old', 'sea urgent recent', 'sea urgent old', 'sea calm recent', 'sea calm old']],
+    'none defaults to landbased' => [[], ['land urgent recent', 'land urgent old', 'land calm recent', 'land calm old'], ['landbased']],
     'landbased' => [['landbased'], ['land urgent recent', 'land urgent old', 'land calm recent', 'land calm old']],
     'seabased' => [['seabased'], ['sea urgent recent', 'sea urgent old', 'sea calm recent', 'sea calm old']],
-    'urgent' => [['urgent'], ['land urgent recent', 'land urgent old', 'sea urgent recent', 'sea urgent old']],
-    'recent' => [['recent'], ['land urgent recent', 'land calm recent', 'sea urgent recent', 'sea calm recent']],
-    'urgent, recent' => [['urgent', 'recent'], ['land urgent recent', 'sea urgent recent']],
+    'urgent defaults to landbased' => [['urgent'], ['land urgent recent', 'land urgent old'], ['landbased', 'urgent']],
+    'recent defaults to landbased' => [['recent'], ['land urgent recent', 'land calm recent'], ['landbased', 'recent']],
+    'urgent, recent defaults to landbased' => [['urgent', 'recent'], ['land urgent recent'], ['landbased', 'urgent', 'recent']],
     'landbased, urgent' => [['landbased', 'urgent'], ['land urgent recent', 'land urgent old']],
     'landbased, recent' => [['landbased', 'recent'], ['land urgent recent', 'land calm recent']],
     'landbased, urgent, recent' => [['landbased', 'urgent', 'recent'], ['land urgent recent']],
@@ -169,8 +169,8 @@ test('removing a filter brings its job posts back', function () {
     expect(browsedTitles($this, ['filters' => ['landbased', 'urgent', 'recent']]))->toHaveCount(1)
         ->and(browsedTitles($this, ['filters' => ['landbased', 'urgent']]))->toHaveCount(2)
         ->and(browsedTitles($this, ['filters' => ['landbased']]))->toHaveCount(4)
-        ->and(browsedTitles($this, ['filters' => []]))->toHaveCount(8)
-        ->and(browsedTitles($this))->toHaveCount(8);
+        ->and(browsedTitles($this, ['filters' => []]))->toHaveCount(4)
+        ->and(browsedTitles($this))->toHaveCount(4);
 });
 
 test('the next page keeps the filters', function () {

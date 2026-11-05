@@ -613,7 +613,8 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    overflow: hidden;
+    max-height: 280px;
+    overflow-y: auto;
     border: 1px solid var(--line);
     border-radius: 4px;
     background: #fff;
@@ -2722,10 +2723,28 @@
     font-weight: 700;
 }
 
+/* Touch screens get no hover style, which would otherwise stick after a tap. */
+@media (hover: hover) {
+    .agency-pathway-toggle button:not(.active):hover {
+        color: var(--navy);
+    }
+}
+
+.agency-pathway-toggle button:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+}
+
 .agencies-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
+    transition: opacity 0.15s ease;
+}
+
+/* The previous results stay in place, dimmed, until the new ones arrive. */
+.agencies-grid[aria-busy='true'] {
+    opacity: 0.55;
 }
 
 .agency-pagination {
@@ -3079,51 +3098,8 @@
     margin-top: 17px;
 }
 
-.jobs-filter-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 11px;
-    border: 1px solid var(--line);
-    border-radius: 100px;
-    background: #fff;
-    color: var(--slate);
-    cursor: pointer;
-    font-size: 11px;
-    transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease,
-        color 0.2s ease;
-}
-
-.jobs-filter-pill svg {
-    color: var(--teal);
-}
-
-/* Hover only outlines a pill; the solid fill is reserved for selected ones,
-   so the active filters are always the highlighted ones. Touch screens get no
-   hover style, which would otherwise stick after a tap. */
-@media (hover: hover) {
-    .jobs-filter-pill:not(.active):hover {
-        border-color: var(--navy);
-        color: var(--navy);
-    }
-}
-
-.jobs-filter-pill.active {
-    border-color: var(--navy);
-    background: var(--navy);
-    color: #fff;
-    font-weight: 600;
-}
-
-.jobs-filter-pill.active svg {
-    color: var(--amber);
-}
-
-.jobs-filter-pill:focus-visible {
-    outline: 2px solid var(--teal);
-    outline-offset: 2px;
+.jobs-filter-row .agency-pathway-toggle {
+    margin: 0;
 }
 
 .jobs-search-notice {
@@ -5896,20 +5872,15 @@ button.apply-step:disabled {
         grid-column: auto;
     }
 
-    .jobs-filter-row {
-        flex-wrap: nowrap;
-        margin-right: -18px;
-        overflow-x: auto;
-        padding-bottom: 3px;
-        scrollbar-width: none;
+    /* The pathway pill takes the first line; Urgent and Recent share the next. */
+    .jobs-filter-row .agency-pathway-toggle {
+        width: auto;
+        flex: 1 1 0;
+        margin-top: 0;
     }
 
-    .jobs-filter-row::-webkit-scrollbar {
-        display: none;
-    }
-
-    .jobs-filter-pill {
-        flex: 0 0 auto;
+    .jobs-filter-row .agency-pathway-toggle:first-child {
+        flex-basis: 100%;
     }
 
     .jobs-results-section {

@@ -8,6 +8,7 @@ use App\Models\AgencyReview;
 use App\Repositories\Site\PublicAgencyRepository;
 use App\Support\PublicAgencyFilters;
 use App\Support\PublicAgencyRules;
+use App\Support\PublicDisplay;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -57,13 +58,35 @@ class PublicAgencyService
         ];
     }
 
-    /** @return array{agencies: LengthAwarePaginator<int, Agency>, counts: array{landbased: int, seabased: int}} */
+    /** @return array{agencies: LengthAwarePaginator<int, Agency>, countries: list<string>} */
     public function directory(PublicAgencyFilters $filters): array
     {
         $page = $this->agencies->paginateRanked($filters, PublicAgencyRules::AGENCIES_PER_PAGE);
         $this->mark($page->getCollection(), $this->topHirerIds($filters->pathway));
 
-        return ['agencies' => $page, 'counts' => $this->agencies->countsByPathway($filters)];
+        return [
+            'agencies' => $page,
+            'countries' => $this->countriesWithOpenings($filters->pathway),
+        ];
+    }
+
+    /**
+     * The country suggestions for a pathway: only places with an active job
+     * post, so picking one never lands on an empty directory.
+     *
+     * @return list<string>
+     */
+    private function countriesWithOpenings(Pathway $pathway): array
+    {
+        $countries = [];
+        foreach ($this->agencies->activeLocations($pathway) as $location) {
+            array_push($countries, ...PublicDisplay::filterablePlaces($location));
+        }
+
+        $countries = array_values(array_unique($countries));
+        sort($countries);
+
+        return $countries;
     }
 
     /** The agency block on a job profile, with its Top Hirer flag. */

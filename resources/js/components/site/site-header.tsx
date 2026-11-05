@@ -17,7 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Brand } from '@/components/site/brand';
 import { SignedInMenu } from '@/components/site/signed-in-menu';
-import { applications, contact, home, resume } from '@/routes';
+import { contact, home, resume } from '@/routes';
 import { index as agenciesIndex } from '@/routes/agencies';
 import { index as jobsIndex } from '@/routes/jobs';
 
@@ -37,7 +37,7 @@ const resourceLinks = [
 ];
 
 const jobLinks = [
-    { label: 'All Jobs', icon: BriefcaseBusiness, href: jobsIndex.url() },
+    { label: 'Browse Jobs', icon: BriefcaseBusiness, href: jobsIndex.url() },
     {
         label: 'Landbased Jobs',
         icon: Building2,
@@ -79,7 +79,6 @@ export function SiteHeader() {
     const isHome = path === '/';
     const isAgencies = isUnder('/agencies') || isUnder('/agency');
     const isJobs = isUnder('/jobs') || isUnder('/job');
-    const isMyJobs = isUnder('/applications') || isUnder('/resume');
     const isContact = isUnder('/contact');
     const showScrolledHeader = isScrolled || isContact;
 
@@ -186,16 +185,6 @@ export function SiteHeader() {
                         >
                             Agencies
                         </a>
-                        {user && (
-                            <a
-                                href={applications.url()}
-                                className={isMyJobs ? 'nav-active' : undefined}
-                                aria-current={isMyJobs ? 'page' : undefined}
-                                data-testid="link-nav-my-jobs"
-                            >
-                                My Jobs
-                            </a>
-                        )}
                         <div className="nav-dropdown-wrap">
                             <button
                                 type="button"
@@ -413,15 +402,6 @@ export function SiteHeader() {
                         >
                             Contact Us <ArrowRight size={18} />
                         </a>
-                        {user && (
-                            <a
-                                href={applications.url()}
-                                onClick={closeMobile}
-                                data-testid="link-mobile-my-jobs"
-                            >
-                                My Jobs <ArrowRight size={18} />
-                            </a>
-                        )}
                     </div>
                     {!user && (
                         <div className="mobile-drawer-bottom">

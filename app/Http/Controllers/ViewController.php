@@ -55,7 +55,7 @@ class ViewController extends Controller
                 'items' => PublicAgencyCardResource::collection($page->getCollection())->resolve($request),
                 'total' => $page->total(), 'totalPages' => $page->lastPage(), 'page' => $page->currentPage(),
             ],
-            'pathwayCounts' => $result['counts'],
+            'countryOptions' => $result['countries'],
             'filters' => [...$filters->toArray(), 'page' => $page->currentPage()],
         ]);
     }

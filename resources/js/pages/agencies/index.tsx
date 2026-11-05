@@ -7,10 +7,9 @@ import {
     SearchX,
     Ship,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pagination } from '@/components/pagination';
 import { AgencyCard } from '@/components/site/agency-card';
-import { countryOptions } from '@/data/countries';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { index as agenciesIndex } from '@/routes/agencies';
 import type { Pathway } from '@/types/agency';
@@ -35,7 +34,8 @@ type AgenciesIndexProps = {
         totalPages: number;
         page: number;
     };
-    pathwayCounts: Record<Pathway, number>;
+    /** Places with an active job post on the current pathway. */
+    countryOptions: string[];
     filters: AgencyFilters;
 };
 
@@ -47,11 +47,22 @@ function scrollToResults(): void {
     });
 }
 
+function sameFilters(a: AgencyFilters, b: AgencyFilters): boolean {
+    return (
+        a.pathway === b.pathway &&
+        a.q === b.q &&
+        a.country === b.country &&
+        a.page === b.page
+    );
+}
+
 /**
- * Asks the server for another directory page. The URL carries every
- * filter, so a reload or a shared link lands on exactly the same results.
+ * The query string for a directory page. The URL carries every filter, so a
+ * reload or a shared link lands on exactly the same results.
  */
-function visit(filters: AgencyFilters): void {
+function directoryQuery(
+    filters: AgencyFilters,
+): Record<string, string | number> {
     const query: Record<string, string | number> = { pathway: filters.pathway };
 
     if (filters.q) {
@@ -66,63 +77,143 @@ function visit(filters: AgencyFilters): void {
         query.page = filters.page;
     }
 
-    router.get(agenciesIndex.url(), query, {
-        preserveState: true,
-        preserveScroll: true,
-        replace: true,
-        onSuccess: scrollToResults,
-    });
+    return query;
 }
 
 export default function AgenciesIndex({
     agencies: results,
-    pathwayCounts,
+    countryOptions,
     filters,
 }: AgenciesIndexProps) {
     const [keyword, setKeyword] = useState(filters.q);
     const [countryQuery, setCountryQuery] = useState(filters.country);
     const [countryOpen, setCountryOpen] = useState(false);
-    const debouncedKeyword = useDebouncedValue(keyword, SEARCH_DEBOUNCE_MS);
+    /** True while a request is in flight; the current results dim. */
+    const [isResolving, setIsResolving] = useState(false);
+    /** The pathway just clicked, shown as active while the server catches up. */
+    const [pendingPathway, setPendingPathway] = useState<Pathway | null>(null);
+
+    const latestVisit = useRef(0);
+    const isVisiting = useRef(false);
+    /** What the server last answered for. */
     const filtersRef = useRef(filters);
     filtersRef.current = filters;
+    /**
+     * The search the reader last asked for, which runs ahead of `filters`
+     * while a request is in flight. Every request is built from this, so a
+     * keyword landing mid-request never drops a country just picked, or the
+     * other way round.
+     */
+    const intendedRef = useRef<AgencyFilters>(filters);
 
-    const update = (next: Partial<AgencyFilters>) => {
-        const current = filtersRef.current;
-        const merged = { ...current, ...next };
-        const resetPage =
-            merged.pathway !== current.pathway ||
-            merged.q !== current.q ||
-            merged.country !== current.country;
+    // Page props that change without a request from here (back / forward)
+    // become the new intent, and the inputs follow them.
+    useEffect(() => {
+        if (isVisiting.current || sameFilters(intendedRef.current, filters)) {
+            return;
+        }
 
-        visit({ ...merged, page: resetPage ? 1 : (next.page ?? current.page) });
-    };
+        intendedRef.current = filters;
+        setKeyword(filters.q);
+        setCountryQuery(filters.country);
+    }, [filters]);
+
+    const searchInput = useMemo(
+        () => ({ q: keyword, country: countryQuery }),
+        [keyword, countryQuery],
+    );
+    const search = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+
+    /**
+     * Asks the server for a directory page; a different search starts again
+     * from the first page. `scroll` brings the results into view, which only
+     * suits a deliberate action: mid-typing it would pull the input away.
+     */
+    const update = useCallback(
+        (next: Partial<AgencyFilters>, scroll: boolean = true) => {
+            const current = intendedRef.current;
+            const merged = { ...current, ...next };
+            const isNewSearch =
+                merged.pathway !== current.pathway ||
+                merged.q !== current.q ||
+                merged.country !== current.country;
+            const target = { ...merged, page: isNewSearch ? 1 : merged.page };
+            const visitNumber = ++latestVisit.current;
+            let succeeded = false;
+
+            intendedRef.current = target;
+            isVisiting.current = true;
+            setPendingPathway(target.pathway);
+
+            router.get(agenciesIndex.url(), directoryQuery(target), {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+                onStart: () => setIsResolving(true),
+                onSuccess: () => {
+                    succeeded = true;
+
+                    if (scroll) {
+                        scrollToResults();
+                    }
+                },
+                // A visit cancelled by a newer one must not clear the newer state.
+                onFinish: () => {
+                    if (visitNumber !== latestVisit.current) {
+                        return;
+                    }
+
+                    // A failed visit leaves the page on what the server last
+                    // answered, so the intent falls back to it too.
+                    if (!succeeded) {
+                        intendedRef.current = filtersRef.current;
+                    }
+
+                    isVisiting.current = false;
+                    setIsResolving(false);
+                    setPendingPathway(null);
+                },
+            });
+        },
+        [],
+    );
 
     // Typing settles, then the directory follows it.
     useEffect(() => {
-        const q = debouncedKeyword.trim();
+        const q = search.q.trim();
+        const country = search.country.trim();
+        const current = intendedRef.current;
 
-        if (q !== filtersRef.current.q) {
-            update({ q });
+        if (q !== current.q || country !== current.country) {
+            update({ q, country }, false);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedKeyword]);
+    }, [search, update]);
 
     const matchingCountries = useMemo(() => {
         const query = countryQuery.trim().toLowerCase();
 
-        if (!query) {
+        // A finished choice lists everything again, so it can be changed
+        // without first deleting it.
+        if (
+            !query ||
+            countryOptions.some((option) => option.toLowerCase() === query)
+        ) {
             return countryOptions;
         }
 
         return countryOptions.filter((country) =>
             country.toLowerCase().includes(query),
         );
-    }, [countryQuery]);
+    }, [countryOptions, countryQuery]);
 
+    /** Enter skips the debounce rather than waiting for it to settle. */
     const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setCountryOpen(false);
         update({ q: keyword.trim(), country: countryQuery.trim() });
     };
+
+    const activePathway = pendingPathway ?? filters.pathway;
 
     return (
         <>
@@ -181,11 +272,13 @@ export default function AgenciesIndex({
                                     <input
                                         type="search"
                                         value={keyword}
+                                        maxLength={100}
                                         onChange={(event) =>
                                             setKeyword(event.target.value)
                                         }
                                         placeholder="Search DMW-accredited landbased and seabased agencies"
                                         aria-label="Search DMW-accredited agencies"
+                                        data-testid="input-agencies-keyword"
                                     />
                                 </div>
                             </label>
@@ -199,13 +292,20 @@ export default function AgenciesIndex({
                                     <input
                                         type="text"
                                         value={countryQuery}
+                                        maxLength={100}
                                         placeholder="All countries and regions"
                                         aria-label="Search for a country or region"
                                         role="combobox"
                                         aria-expanded={countryOpen}
                                         aria-controls="agency-country-options"
                                         autoComplete="off"
+                                        data-testid="input-agencies-country"
                                         onFocus={() => setCountryOpen(true)}
+                                        onKeyDown={(event) => {
+                                            if (event.key === 'Escape') {
+                                                setCountryOpen(false);
+                                            }
+                                        }}
                                         onChange={(event) => {
                                             setCountryQuery(event.target.value);
                                             setCountryOpen(true);
@@ -243,6 +343,7 @@ export default function AgenciesIndex({
                                                         setCountryOpen(false);
                                                         update({ country });
                                                     }}
+                                                    data-testid={`option-agencies-country-${country}`}
                                                 >
                                                     {country}
                                                 </button>
@@ -281,33 +382,29 @@ export default function AgenciesIndex({
                         <button
                             type="button"
                             className={
-                                filters.pathway === 'landbased' ? 'active' : ''
+                                activePathway === 'landbased' ? 'active' : ''
                             }
-                            aria-pressed={filters.pathway === 'landbased'}
+                            aria-pressed={activePathway === 'landbased'}
                             onClick={() => update({ pathway: 'landbased' })}
+                            data-testid="filter-agencies-landbased"
                         >
-                            <Building2 size={15} aria-hidden="true" /> Landbased{' '}
-                            <span data-testid="count-agencies-landbased">
-                                {pathwayCounts.landbased}
-                            </span>
+                            <Building2 size={15} aria-hidden="true" /> Landbased
                         </button>
                         <button
                             type="button"
                             className={
-                                filters.pathway === 'seabased' ? 'active' : ''
+                                activePathway === 'seabased' ? 'active' : ''
                             }
-                            aria-pressed={filters.pathway === 'seabased'}
+                            aria-pressed={activePathway === 'seabased'}
                             onClick={() => update({ pathway: 'seabased' })}
+                            data-testid="filter-agencies-seabased"
                         >
-                            <Ship size={15} aria-hidden="true" /> Seabased{' '}
-                            <span data-testid="count-agencies-seabased">
-                                {pathwayCounts.seabased}
-                            </span>
+                            <Ship size={15} aria-hidden="true" /> Seabased
                         </button>
                     </div>
 
                     {results.total > 0 ? (
-                        <div className="agencies-grid">
+                        <div className="agencies-grid" aria-busy={isResolving}>
                             {results.items.map((agency) => (
                                 <AgencyCard
                                     agency={agency}

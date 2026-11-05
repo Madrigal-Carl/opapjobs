@@ -443,7 +443,7 @@ export default function Home({ agencies, topHirers, jobs, stats }: HomeProps) {
                             href={jobsIndex.url()}
                             data-testid="link-view-all-jobs"
                         >
-                            See all jobs <ArrowRight size={17} />
+                            Browse jobs <ArrowRight size={17} />
                         </Link>
                     </div>
                     <div className="job-switcher-row">

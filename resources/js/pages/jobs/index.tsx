@@ -24,7 +24,7 @@ import { countryOptions } from '@/data/countries';
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import {
     JOB_FILTER_LABELS,
-    JOB_FILTERS,
+    onlyJobPathway,
     toggleJobFilter,
 } from '@/lib/public-catalog';
 import { cn } from '@/lib/utils';
@@ -42,6 +42,13 @@ const FILTER_ICONS: Record<JobFilterId, LucideIcon> = {
     urgent: Zap,
     recent: Clock3,
 };
+
+/** One pill per entry: the two pathways share one, as they exclude each other. */
+const FILTER_PILLS: { label: string; filters: JobFilterId[] }[] = [
+    { label: 'Job pathway filter', filters: ['landbased', 'seabased'] },
+    { label: 'Urgent jobs filter', filters: ['urgent'] },
+    { label: 'Recent jobs filter', filters: ['recent'] },
+];
 
 /**
  * How far past the bottom of the viewport the end of the list may sit
@@ -353,25 +360,36 @@ function JobsBrowser({
     const activeFilters = pendingFilters ?? filters.filters;
 
     /**
-     * On, off, and one pathway at a time — see `toggleJobFilter`. Built from
-     * the latest intent rather than the rendered pills, so a second click
-     * before the first re-renders still sees the first.
+     * One pathway at a time, Urgent and Recent on and off — see
+     * `toggleJobFilter`. Built from the latest intent rather than the
+     * rendered pills, so a second click before the first re-renders still
+     * sees the first. Clicking the current pathway asks the server nothing.
      */
     const toggleFilter = (filter: JobFilterId) => {
-        update({
-            filters: toggleJobFilter(intendedRef.current.filters, filter),
-        });
+        const current = intendedRef.current;
+        const next = toggleJobFilter(current.filters, filter);
+
+        if (!sameSearch({ ...current, filters: next }, current)) {
+            update({ filters: next });
+        }
     };
 
+    /** Like the directory: everything goes except the pathway being browsed. */
     const clearFilters = () => {
         setKeyword('');
         setCountry('');
         setSelectedId('');
-        update({ q: '', country: '', filters: [] });
+        update({
+            q: '',
+            country: '',
+            filters: onlyJobPathway(intendedRef.current.filters),
+        });
     };
 
     const hasAnyFilter =
-        filters.q !== '' || filters.country !== '' || activeFilters.length > 0;
+        filters.q !== '' ||
+        filters.country !== '' ||
+        activeFilters.length > onlyJobPathway(activeFilters).length;
 
     const selectJob = (jobId: string) => {
         // Below the split-view breakpoint a card opens the job post itself.
@@ -586,30 +604,50 @@ function JobsBrowser({
                                     role="group"
                                     aria-label="Filter jobs"
                                 >
-                                    {JOB_FILTERS.map((filter) => {
-                                        const Icon = FILTER_ICONS[filter];
-                                        const isActive =
-                                            activeFilters.includes(filter);
+                                    {FILTER_PILLS.map((pill) => (
+                                        <div
+                                            key={pill.label}
+                                            className="agency-pathway-toggle"
+                                            role="group"
+                                            aria-label={pill.label}
+                                        >
+                                            {pill.filters.map((filter) => {
+                                                const Icon =
+                                                    FILTER_ICONS[filter];
+                                                const isActive =
+                                                    activeFilters.includes(
+                                                        filter,
+                                                    );
 
-                                        return (
-                                            <button
-                                                key={filter}
-                                                type="button"
-                                                className={cn(
-                                                    'jobs-filter-pill',
-                                                    isActive && 'active',
-                                                )}
-                                                aria-pressed={isActive}
-                                                onClick={() =>
-                                                    toggleFilter(filter)
-                                                }
-                                                data-testid={`filter-${filter}`}
-                                            >
-                                                <Icon aria-hidden="true" />
-                                                {JOB_FILTER_LABELS[filter]}
-                                            </button>
-                                        );
-                                    })}
+                                                return (
+                                                    <button
+                                                        key={filter}
+                                                        type="button"
+                                                        className={
+                                                            isActive
+                                                                ? 'active'
+                                                                : ''
+                                                        }
+                                                        aria-pressed={isActive}
+                                                        onClick={() =>
+                                                            toggleFilter(filter)
+                                                        }
+                                                        data-testid={`filter-${filter}`}
+                                                    >
+                                                        <Icon
+                                                            size={15}
+                                                            aria-hidden="true"
+                                                        />{' '}
+                                                        {
+                                                            JOB_FILTER_LABELS[
+                                                                filter
+                                                            ]
+                                                        }
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
                                 </div>
 
                                 <p
@@ -646,9 +684,9 @@ function JobsBrowser({
                                         <SearchX size={28} aria-hidden="true" />
                                         <h3>No jobs match those filters</h3>
                                         <p>
-                                            Try a different keyword, widen the
-                                            pathway, or clear the filters to see
-                                            every verified opening.
+                                            Try a different keyword or pathway,
+                                            or clear the filters to see more
+                                            verified openings.
                                         </p>
                                         {hasAnyFilter && (
                                             <button

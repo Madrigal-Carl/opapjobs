@@ -16,24 +16,34 @@ export const CONFIDENTIAL_EMPLOYER_LABEL = 'Confidential employer';
 const PATHWAY_FILTERS: readonly JobFilterId[] = ['landbased', 'seabased'];
 
 /**
- * The toggles after clicking `filter`: a click turns it on, a second click
- * turns it off. Turning one pathway on turns the other off; Urgent and
- * Recent combine freely with either. Returned in `JOB_FILTERS` order so the
- * same selection always produces the same URL.
+ * The toggles after clicking `filter`. A pathway click selects that pathway
+ * in place of the other, and one is always selected, so clicking the current
+ * one changes nothing. Urgent and Recent turn on and off and combine freely
+ * with either pathway. Returned in `JOB_FILTERS` order so the same selection
+ * always produces the same URL.
  */
 export function toggleJobFilter(
     active: readonly JobFilterId[],
     filter: JobFilterId,
 ): JobFilterId[] {
+    if (PATHWAY_FILTERS.includes(filter)) {
+        return JOB_FILTERS.filter(
+            (id) =>
+                id === filter ||
+                (active.includes(id) && !PATHWAY_FILTERS.includes(id)),
+        );
+    }
+
     if (active.includes(filter)) {
         return JOB_FILTERS.filter((id) => id !== filter && active.includes(id));
     }
 
-    const kept = PATHWAY_FILTERS.includes(filter)
-        ? active.filter((id) => !PATHWAY_FILTERS.includes(id))
-        : active;
+    return JOB_FILTERS.filter((id) => id === filter || active.includes(id));
+}
 
-    return JOB_FILTERS.filter((id) => id === filter || kept.includes(id));
+/** Just the selected pathway, which is what clearing the filters leaves on. */
+export function onlyJobPathway(active: readonly JobFilterId[]): JobFilterId[] {
+    return active.filter((id) => PATHWAY_FILTERS.includes(id));
 }
 
 /**
