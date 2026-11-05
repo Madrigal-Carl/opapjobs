@@ -23,7 +23,6 @@ use App\Http\Resources\Site\PublicJobPostCardResource;
 use App\Http\Resources\Site\PublicJobPostDetailResource;
 use App\Http\Resources\Site\PublicJobPostPreviewResource;
 use App\Http\Resources\Site\PublicJobPostQuestionResource;
-use App\Support\DashboardOverview;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -157,17 +156,6 @@ class ViewController extends Controller
         return Inertia::render('contact');
     }
 
-    public function dashboardOverview(Request $request): Response
-    {
-        $component = DashboardOverview::componentFor($request->user());
-
-        if ($component === null) {
-            abort(403);
-        }
-
-        return Inertia::render($component);
-    }
-
     public function dashboardCandidates(): Response
     {
         return Inertia::render('dashboard/candidates');
@@ -178,11 +166,6 @@ class ViewController extends Controller
      * the browser, so these methods only pick the component and pass the
      * route id through — there is no query, service or policy behind them.
      */
-    public function systemOverview(): Response
-    {
-        return Inertia::render('dashboard/system/overview');
-    }
-
     public function systemAgencies(): Response
     {
         return Inertia::render('dashboard/system/agencies/index');
@@ -262,10 +245,5 @@ class ViewController extends Controller
     public function systemAuditLog(): Response
     {
         return Inertia::render('dashboard/system/audit-log');
-    }
-
-    public function systemSettings(): Response
-    {
-        return Inertia::render('dashboard/system/settings');
     }
 }

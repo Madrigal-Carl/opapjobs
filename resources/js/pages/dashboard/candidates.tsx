@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AvailabilityBadge } from '@/components/dashboard/badges';
 import { DashboardEmptyState } from '@/components/dashboard/empty-state';
-import { DashboardPageHeader } from '@/components/dashboard/page-header';
+import { PageHeader } from '@/components/dashboard/page-header';
 import { SummaryStat } from '@/components/dashboard/summary-stat';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -92,18 +92,20 @@ export default function DashboardCandidates() {
         <>
             <Head title="Candidates" />
 
-            <DashboardPage>
-                <DashboardPageHeader
+            <DashboardPage className="md:px-8">
+                <PageHeader
                     title="Candidates"
                     subtitle="Find experienced Filipino professionals for your open roles."
                     actions={
-                        <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy)]">
-                            <ShieldCheck
-                                className="size-4 text-[var(--teal)]"
-                                aria-hidden="true"
-                            />
-                            Verified profiles
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium text-[var(--navy)]">
+                                <ShieldCheck
+                                    className="size-4 text-[var(--teal)]"
+                                    aria-hidden="true"
+                                />
+                                Verified profiles
+                            </span>
+                        </div>
                     }
                 />
 

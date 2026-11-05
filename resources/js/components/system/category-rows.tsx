@@ -99,22 +99,22 @@ export function CategoryRow({
                 onEditChange={onEditChange}
                 onCommitEdit={onCommitEdit}
                 onCancelEdit={onCancelEdit}
+                onActivate={onSelect}
+                active={selected}
+                activateTestId="category-select"
             />
 
-            <button
-                type="button"
-                onClick={onSelect}
-                data-testid="category-select"
-                aria-pressed={selected}
+            <span
+                data-testid="category-sub-count"
                 className={cn(
-                    'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors',
+                    'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums',
                     selected
                         ? 'bg-white/70 text-[var(--teal-ink)]'
-                        : 'text-[var(--slate)] hover:text-[var(--navy)]',
+                        : 'text-[var(--slate)]',
                 )}
             >
                 {subcategoryCount} {subcategoryCount === 1 ? 'sub' : 'subs'}
-            </button>
+            </span>
 
             <UsageCount count={usage} noun="post" />
 

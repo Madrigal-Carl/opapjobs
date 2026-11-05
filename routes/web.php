@@ -5,6 +5,7 @@ use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
+use App\Http\Controllers\Dashboard\OverviewController;
 use App\Http\Controllers\RedirectController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
@@ -46,7 +47,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('dashboard.access')
         ->prefix('dashboard')
         ->group(function () {
-            Route::get('overview', [ViewController::class, 'dashboardOverview'])->name('dashboard.overview');
+            Route::get('overview', [OverviewController::class, 'index'])->name('dashboard.overview');
 
             Route::get('jobs/new', [JobPostController::class, 'create'])
                 ->middleware('can:'.Permission::ManageJob->value)
@@ -132,8 +133,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::prefix('system')
                 ->middleware('can:'.Permission::ViewSystemOverview->value)
                 ->group(function () {
-                    Route::get('overview', [ViewController::class, 'systemOverview'])->name('dashboard.system.overview');
-
                     Route::get('agencies/new', [ViewController::class, 'systemAgenciesCreate'])->name('dashboard.system.agencies.create');
                     Route::get('agencies/{agency}', [ViewController::class, 'systemAgenciesShow'])->name('dashboard.system.agencies.show');
                     Route::get('agencies', [ViewController::class, 'systemAgencies'])->name('dashboard.system.agencies');
@@ -158,8 +157,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::get('content', [ViewController::class, 'systemContent'])->name('dashboard.system.content');
 
                     Route::get('audit-log', [ViewController::class, 'systemAuditLog'])->name('dashboard.system.audit-log');
-
-                    Route::get('settings', [ViewController::class, 'systemSettings'])->name('dashboard.system.settings');
                 });
         });
 });
