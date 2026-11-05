@@ -342,15 +342,15 @@ sail composer ci:check
 
 Run these from inside the project folder.
 
-| Task                                          | Command                             |
-| --------------------------------------------- | ----------------------------------- |
-| Run one test file                             | `sail test tests/Feature/Public/JobBrowseTest.php` |
-| Run new migrations                            | `sail artisan migrate`              |
-| Reset the database and demo data (deletes all data) | `sail artisan migrate:fresh --seed` |
-| Open the database shell                       | `sail psql`                         |
-| Open a shell in the container                 | `sail shell`                        |
-| Remove the containers                         | `sail down`                         |
-| Remove the containers **and the database**    | `sail down -v`                      |
+| Task                                                | Command                                            |
+| --------------------------------------------------- | -------------------------------------------------- |
+| Run one test file                                   | `sail test tests/Feature/Public/JobBrowseTest.php` |
+| Run new migrations                                  | `sail artisan migrate`                             |
+| Reset the database and demo data (deletes all data) | `sail artisan migrate:fresh --seed`                |
+| Open the database shell                             | `sail psql`                                        |
+| Open a shell in the container                       | `sail shell`                                       |
+| Remove the containers                               | `sail down`                                        |
+| Remove the containers **and the database**          | `sail down -v`                                     |
 
 To connect a desktop database client, use host `localhost`, port `5432`, database `opapjobs`, username `sail` and password `password`.
 
@@ -384,22 +384,22 @@ Then open the app at your new address, such as <http://localhost:8088>.
 
 ## Troubleshooting
 
-| What you see                                                  | What to do                                                                                                    |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `sail: command not found`                                     | Go back to [Step 5](#step-5-create-the-sail-shortcut), or use `./vendor/bin/sail` instead.                    |
-| `Unsupported operating system`                                | You're in PowerShell or Git Bash. Open the Ubuntu terminal.                                                   |
-| `Cannot connect to the Docker daemon`                         | Open Docker Desktop and wait for the engine to start. On Windows, also check WSL Integration is on for Ubuntu. |
-| `port is already allocated` or `address already in use`       | Stop the program using that port, or [use different ports](#use-different-ports).                             |
+| What you see                                                  | What to do                                                                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `sail: command not found`                                     | Go back to [Step 5](#step-5-create-the-sail-shortcut), or use `./vendor/bin/sail` instead.                                            |
+| `Unsupported operating system`                                | You're in PowerShell or Git Bash. Open the Ubuntu terminal.                                                                           |
+| `Cannot connect to the Docker daemon`                         | Open Docker Desktop and wait for the engine to start. On Windows, also check WSL Integration is on for Ubuntu.                        |
+| `port is already allocated` or `address already in use`       | Stop the program using that port, or [use different ports](#use-different-ports).                                                     |
 | `password authentication failed for user "sail"`              | The database has older credentials. Run `sail down -v` (this deletes the database), `sail up -d`, then `sail artisan migrate --seed`. |
-| `could not translate host name "pgsql"`                       | You ran it outside the containers. Use `sail artisan`, not `php artisan`.                                     |
-| `Unable to locate file in Vite manifest`                      | Run `sail npm run dev`.                                                                                       |
-| The page has no styling                                       | Check that `sail npm run dev` is running. If you stopped Vite, delete the `public/hot` file.                  |
-| Changes don't appear without a refresh                        | Check that Vite is running. On Windows, keep the project in `~/code`, not `/mnt/c/`.                          |
-| `Cannot find module` for a native binding                     | `node_modules` came from another computer. Delete the folder and run `sail npm install`.                      |
-| Demo accounts don't work                                      | Check that `.env` has `APP_ENV=local`, then run `sail artisan db:seed`.                                       |
-| `Permission denied` writing to `storage` or `bootstrap/cache` | Run `sudo chown -R "$(id -u):$(id -g)" storage bootstrap/cache`.                                              |
-| `535 Username and Password not accepted` from Gmail           | Use an [App Password](#part-4-send-real-email-optional), not your normal password.                            |
-| New staff never receive their email                           | Start the [queue worker](#part-4-send-real-email-optional).                                                   |
+| `could not translate host name "pgsql"`                       | You ran it outside the containers. Use `sail artisan`, not `php artisan`.                                                             |
+| `Unable to locate file in Vite manifest`                      | Run `sail npm run dev`.                                                                                                               |
+| The page has no styling                                       | Check that `sail npm run dev` is running. If you stopped Vite, delete the `public/hot` file.                                          |
+| Changes don't appear without a refresh                        | Check that Vite is running. On Windows, keep the project in `~/code`, not `/mnt/c/`.                                                  |
+| `Cannot find module` for a native binding                     | `node_modules` came from another computer. Delete the folder and run `sail npm install`.                                              |
+| Demo accounts don't work                                      | Check that `.env` has `APP_ENV=local`, then run `sail artisan db:seed`.                                                               |
+| `Permission denied` writing to `storage` or `bootstrap/cache` | Run `sudo chown -R "$(id -u):$(id -g)" storage bootstrap/cache`.                                                                      |
+| `535 Username and Password not accepted` from Gmail           | Use an [App Password](#part-4-send-real-email-optional), not your normal password.                                                    |
+| New staff never receive their email                           | Start the [queue worker](#part-4-send-real-email-optional).                                                                           |
 
 ## Staging and production gaps
 
