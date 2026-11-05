@@ -23,7 +23,6 @@ use App\Http\Resources\Site\PublicJobPostCardResource;
 use App\Http\Resources\Site\PublicJobPostDetailResource;
 use App\Http\Resources\Site\PublicJobPostPreviewResource;
 use App\Http\Resources\Site\PublicJobPostQuestionResource;
-use App\Support\DashboardOverview;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -155,17 +154,6 @@ class ViewController extends Controller
     public function contact(): Response
     {
         return Inertia::render('contact');
-    }
-
-    public function dashboardOverview(Request $request): Response
-    {
-        $component = DashboardOverview::componentFor($request->user());
-
-        if ($component === null) {
-            abort(403);
-        }
-
-        return Inertia::render($component);
     }
 
     public function dashboardCandidates(): Response
