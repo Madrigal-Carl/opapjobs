@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
     JOB_FILTERS,
+    onlyJobPathway,
     toggleJobFilter,
 } from '../../resources/js/lib/public-catalog.ts';
 
@@ -10,7 +11,7 @@ const clickAll = (clicks) =>
     clicks.reduce((active, filter) => toggleJobFilter(active, filter), []);
 
 for (const [name, clicks, expected] of [
-    ['nothing selected shows all', [], []],
+    ['no clicks change nothing', [], []],
     ['landbased, urgent', ['landbased', 'urgent'], ['landbased', 'urgent']],
     [
         'landbased, urgent, recent',
@@ -32,9 +33,9 @@ for (const [name, clicks, expected] of [
         ['landbased'],
     ],
     [
-        'every filter can be switched back off',
+        'urgent and recent can be switched back off, the pathway stays',
         ['landbased', 'urgent', 'recent', 'landbased', 'urgent', 'recent'],
-        [],
+        ['landbased'],
     ],
     [
         'seabased replaces landbased and keeps the rest',
@@ -48,14 +49,30 @@ for (const [name, clicks, expected] of [
     });
 }
 
-for (const filter of JOB_FILTERS) {
+for (const filter of ['urgent', 'recent']) {
     await test(`job filter toggle: ${filter} turns on, then off`, () => {
-        const on = toggleJobFilter([], filter);
+        const on = toggleJobFilter(['landbased'], filter);
 
-        assert.deepEqual(on, [filter]);
-        assert.deepEqual(toggleJobFilter(on, filter), []);
+        assert.deepEqual(on, ['landbased', filter]);
+        assert.deepEqual(toggleJobFilter(on, filter), ['landbased']);
     });
 }
+
+for (const pathway of ['landbased', 'seabased']) {
+    await test(`job filter toggle: clicking ${pathway} again keeps it selected`, () => {
+        const selected = toggleJobFilter([], pathway);
+
+        assert.deepEqual(selected, [pathway]);
+        assert.deepEqual(toggleJobFilter(selected, pathway), [pathway]);
+    });
+}
+
+await test('job filter toggle: clearing leaves only the pathway', () => {
+    assert.deepEqual(onlyJobPathway(['seabased', 'urgent', 'recent']), [
+        'seabased',
+    ]);
+    assert.deepEqual(onlyJobPathway(['landbased']), ['landbased']);
+});
 
 for (const pathway of ['landbased', 'seabased']) {
     await test(`job filter toggle: urgent and recent never clear ${pathway}`, () => {

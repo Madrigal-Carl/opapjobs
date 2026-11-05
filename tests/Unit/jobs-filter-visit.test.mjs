@@ -111,20 +111,36 @@ await test('a filter click is a full visit, so the filters and totals come back 
 });
 
 await test('a second click before the page re-renders builds on the first', () => {
-    const page = renderJobsPage({ q: 'welder', country: '', filters: [] });
+    const page = renderJobsPage({
+        q: 'welder',
+        country: '',
+        filters: ['landbased'],
+    });
 
     page.pill('seabased').props.onClick();
     page.pill('urgent').props.onClick();
-    page.pill('seabased').props.onClick();
+    page.pill('landbased').props.onClick();
 
     assert.deepEqual(
         page.visits.map((visit) => visit.data),
         [
             { q: 'welder', filters: ['seabased'] },
             { q: 'welder', filters: ['seabased', 'urgent'] },
-            { q: 'welder', filters: ['urgent'] },
+            { q: 'welder', filters: ['landbased', 'urgent'] },
         ],
     );
+});
+
+await test('clicking the selected pathway sends no request', () => {
+    const page = renderJobsPage({
+        q: '',
+        country: '',
+        filters: ['landbased'],
+    });
+
+    page.pill('landbased').props.onClick();
+
+    assert.deepEqual(page.visits, []);
 });
 
 await test('the pills show the page filters as active', () => {
@@ -140,9 +156,6 @@ await test('the pills show the page filters as active', () => {
         ),
         [false, true, false, true],
     );
-    assert.equal(
-        page.pill('seabased').props.className,
-        'jobs-filter-pill active',
-    );
-    assert.equal(page.pill('landbased').props.className, 'jobs-filter-pill');
+    assert.equal(page.pill('seabased').props.className, 'active');
+    assert.equal(page.pill('landbased').props.className, '');
 });

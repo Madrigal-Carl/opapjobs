@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Site;
 
+use App\Enums\Pathway;
 use App\Http\Requests\Site\Concerns\NormalizesPublicQuery;
 use App\Support\PublicJobPostFilters;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -49,6 +50,11 @@ class PublicJobPostIndexRequest extends FormRequest
         if (in_array('landbased', $toggles, true) && in_array('seabased', $toggles, true)) {
             $dropped = array_search('landbased', $requested, true) > array_search('seabased', $requested, true) ? 'seabased' : 'landbased';
             $toggles = array_values(array_diff($toggles, [$dropped]));
+        }
+
+        // One pathway is always selected, as on the agency directory, and Landbased is the default.
+        if (! in_array('landbased', $toggles, true) && ! in_array('seabased', $toggles, true)) {
+            array_unshift($toggles, Pathway::Landbased->value);
         }
 
         $this->merge([

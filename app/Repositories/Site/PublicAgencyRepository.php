@@ -111,15 +111,30 @@ class PublicAgencyRepository
     }
 
     /** @return array{landbased: int, seabased: int} */
-    public function countsByPathway(?PublicAgencyFilters $filters = null): array
+    public function countsByPathway(): array
     {
-        $query = Agency::query()->whereNull('agencies.suspended_at');
-        if ($filters !== null) {
-            $this->filtered($query, $filters);
-        }
-        $counts = $query->toBase()->selectRaw('agencies.pathway AS pathway, COUNT(*) AS total')->groupBy('agencies.pathway')->pluck('total', 'pathway');
+        $counts = Agency::query()->whereNull('agencies.suspended_at')->toBase()->selectRaw('agencies.pathway AS pathway, COUNT(*) AS total')->groupBy('agencies.pathway')->pluck('total', 'pathway');
 
         return ['landbased' => (int) ($counts['landbased'] ?? 0), 'seabased' => (int) ($counts['seabased'] ?? 0)];
+    }
+
+    /**
+     * Distinct public locations of the pathway's active job posts, read through
+     * the same SQL the country filter searches, so nothing hidden can be offered.
+     *
+     * @return list<string>
+     */
+    public function activeLocations(Pathway $pathway): array
+    {
+        $locations = $this->publicJobPosts()
+            ->whereIn('job_posts.agency_id', $this->publicAgencyIds($pathway->value))
+            ->toBase()
+            ->selectRaw($this->publicLocationSql().' AS location')
+            ->distinct()
+            ->pluck('location')
+            ->all();
+
+        return array_values(array_filter($locations, 'is_string'));
     }
 
     public function findPublicBySlug(string $slug): ?Agency

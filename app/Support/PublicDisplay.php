@@ -12,6 +12,8 @@ final class PublicDisplay
 {
     private const MARK_STOP_WORDS = ['of', 'and', 'the', 'for', '&'];
 
+    private const INTERNATIONAL_WATERS = 'International waters';
+
     /** Mirrors `formatJobPostSalary` in resources/js/lib/job-post-salary.ts, plus the " / mo" period. */
     public static function salary(?string $currency, string|int|float|null $min, string|int|float|null $max): string
     {
@@ -59,6 +61,23 @@ final class PublicDisplay
         $parts = array_values(array_filter(array_map('trim', explode(',', $location)), fn (string $part): bool => $part !== ''));
 
         return count($parts) > 1 ? $parts[count($parts) - 1] : trim($location);
+    }
+
+    /**
+     * The places a public location can be filtered by: its country, plus
+     * "International waters" when a job post names it ahead of the joining port.
+     *
+     * @return list<string>
+     */
+    public static function filterablePlaces(string $location): array
+    {
+        $places = [self::destination($location)];
+
+        if (str_starts_with(mb_strtolower($location), mb_strtolower(self::INTERNATIONAL_WATERS))) {
+            $places[] = self::INTERNATIONAL_WATERS;
+        }
+
+        return array_values(array_unique($places));
     }
 
     /** Two or three initials, e.g. "Salinlahi Global Careers" → "SGC". */
