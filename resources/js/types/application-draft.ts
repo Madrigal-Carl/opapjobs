@@ -56,12 +56,13 @@ export type CoverLetterChip = {
 
 /** The steps of the apply wizard, in order. */
 export const APPLICATION_STEPS = [
-    'Match analysis',
-    'Application',
-    'Review & submit',
+    'AI insight',
+    'Resume and cover letter',
+    'Q&A',
+    'Review and submit',
 ] as const;
 
-export type ApplicationStep = 1 | 2 | 3;
+export type ApplicationStep = 1 | 2 | 3 | 4;
 
 /**
  * Required answers block the wizard from moving on, so every unanswered
@@ -79,7 +80,7 @@ export function missingRequiredAnswers(
         const value = answers[question.id];
 
         if (Array.isArray(value)) {
-            return value.length === 0;
+            return !value.some((item) => item.trim());
         }
 
         return !value || !value.trim();

@@ -57,7 +57,9 @@ export function advanceStep(
     return (next > current ? next : current) as ApplicationStep;
 }
 
-function isRecord(value: unknown): value is Partial<ApplicationDraftRecord> {
+function isRecord(
+    value: unknown,
+): value is Partial<ApplicationDraftRecord> & { version?: number } {
     return typeof value === 'object' && value !== null;
 }
 
@@ -103,7 +105,12 @@ export function readApplicationDraft(jobId: string): ApplicationDraftRecord {
                     ? parsed.availability
                     : '',
             answers: isAnswerMap(parsed.answers) ? parsed.answers : {},
-            furthestStep: isStep(parsed.furthestStep) ? parsed.furthestStep : 1,
+            furthestStep:
+                parsed.version !== 2 && parsed.furthestStep === 3
+                    ? 4
+                    : isStep(parsed.furthestStep)
+                      ? parsed.furthestStep
+                      : 1,
             savedAt:
                 typeof parsed.savedAt === 'string'
                     ? parsed.savedAt
@@ -125,7 +132,11 @@ export function writeApplicationDraft(
     try {
         window.localStorage.setItem(
             storageKey(jobId),
-            JSON.stringify({ ...draft, savedAt: new Date().toISOString() }),
+            JSON.stringify({
+                ...draft,
+                version: 2,
+                savedAt: new Date().toISOString(),
+            }),
         );
     } catch {
         // The wizard still works; only the "we kept your answers" promise
@@ -147,7 +158,7 @@ export function clearApplicationDraft(jobId: string): void {
 }
 
 function isStep(value: unknown): value is ApplicationStep {
-    return value === 1 || value === 2 || value === 3;
+    return value === 1 || value === 2 || value === 3 || value === 4;
 }
 
 function isUploadedResume(value: unknown): value is {
