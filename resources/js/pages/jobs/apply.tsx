@@ -1,37 +1,29 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
     Check,
     CircleCheck,
-    FileText,
+    Bookmark,
+    ShieldCheck,
+    Sparkles,
     History,
     TriangleAlert,
-    Upload,
 } from 'lucide-react';
-import {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { JobNotFound } from '@/components/applicant/job-not-found';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
+import { focusApplyField } from '@/components/applicant/apply-field';
+import { ApplicationStepForm } from '@/components/applicant/apply-form';
+import { ReviewStep } from '@/components/applicant/apply-review';
 import {
     ApplyRailRow,
-    FieldError,
     MatchBlockList,
 } from '@/components/applicant/match-blocks';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { useApplications } from '@/contexts/applications-context';
 import { useApplicantProfile } from '@/contexts/applicant-profile-context';
 import {
-    AVAILABILITY_OPTIONS,
-    COVER_LETTER_CHIPS,
-    YES_NO_OPTIONS,
     getJobQuestions,
     requiredJobQuestions,
 } from '@/data/application-questions';
@@ -43,12 +35,12 @@ import {
     writeApplicationDraft,
     type ApplicationDraftRecord,
 } from '@/data/application-draft-store';
-import { countLabel, formatFileSize } from '@/data/applicant-profile';
-import { generateMatchAnalysis, overallMatchMeta } from '@/data/match-analysis';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { countLabel } from '@/data/applicant-profile';
+import { overallMatchMeta } from '@/data/match-analysis';
 import { toApplyJob } from '@/lib/public-catalog';
+import { getNameInitials } from '@/lib/name-initials';
 import { applications } from '@/routes';
-import { index as jobsIndex } from '@/routes/jobs';
+import { index as jobsIndex, show as jobsShow } from '@/routes/jobs';
 import {
     APPLICATION_STEPS,
     missingRequiredAnswers,
@@ -56,12 +48,34 @@ import {
     type ApplicationStep,
     type MatchAnalysis,
 } from '@/types/application-draft';
-import type { ResumeDocument } from '@/types/applicant-profile';
 import type { Job, JobQuestion } from '@/types/job';
 import type { PublicJobPostDetail } from '@/types/public-catalog';
 
-/** How long typing settles before the draft is written to storage. */
-const DRAFT_DEBOUNCE_MS = 400;
+/** shortcut: fixed demo guidance until live match assessment is connected. */
+const DEMO_MATCH: MatchAnalysis = {
+    overall: 31.2,
+    categories: [
+        { label: 'Education', score: 63.3 },
+        { label: 'Experience', score: 30 },
+        { label: 'Skills', score: 0 },
+        { label: 'Certifications', score: 25 },
+        { label: 'Languages', score: 40 },
+        { label: 'Availability & Location', score: 30 },
+        { label: 'Career Trajectory', score: 30 },
+    ],
+    strengths: [
+        'Education matches at 63.3%',
+        'Languages matches at 40%',
+        '0 years of experience against a 2-year minimum',
+    ],
+    gaps: [
+        'Skills scores lowest at 0%',
+        'Certifications scores lowest at 25%',
+        'This listing asks for 2 years; your resume shows 0',
+        'The listing asks for a qualification above your highest',
+    ],
+    tips: [],
+};
 
 type JobApplyProps = {
     jobId: string;
@@ -71,21 +85,16 @@ type JobApplyProps = {
 };
 
 /**
- * The three-step apply wizard.
- *
- * Step 1 is read-only and explains why the role is or is not a fit. Step 2
- * is the only page in the flow that takes input. Step 3 restates everything
- * the applicant just entered, because submitting is the one action here that
- * cannot be undone.
+ * Four steps: match guidance, documents, employer questions, then review.
  *
  * Answers are kept per listing in localStorage as they are typed, so a
- * closed tab costs a few seconds rather than the whole application. The
+ * refresh restores the latest input rather than losing the application. The
  * draft is cleared the moment a submission is recorded.
  */
 export default function JobApply(props: JobApplyProps) {
     return (
         <ApplicantScope>
-            <JobApplyBody {...props} />
+            <JobApplyBody key={props.jobId} {...props} />
         </ApplicantScope>
     );
 }
@@ -95,7 +104,7 @@ function JobApplyBody({
     jobPost,
     questions: jobQuestions,
 }: JobApplyProps) {
-    const { markApplied } = useApplications();
+    const { markApplied, toggleSaved, isSaved } = useApplications();
     const { profile } = useApplicantProfile();
 
     const job = useMemo(
@@ -113,6 +122,7 @@ function JobApplyBody({
     const hasLoadedDraft = useRef(false);
     const columnRef = useRef<HTMLDivElement>(null);
     const hasMovedFocus = useRef(false);
+    const pendingField = useRef<string | null>(null);
 
     const questions = useMemo(() => (job ? getJobQuestions(job) : []), [job]);
     const required = useMemo(
@@ -120,32 +130,17 @@ function JobApplyBody({
         [job],
     );
 
-    const match = useMemo(
-        () => (job ? generateMatchAnalysis(job, profile) : null),
-        [job, profile],
+    const hasResume = Boolean(draft.resumeId || draft.uploadedResume?.name);
+    const missingAnswers = missingRequiredAnswers(required, draft.answers);
+    const resumeOutstanding = hasResume ? [] : ['Choose which resume to send'];
+    const answerOutstanding = missingAnswers.length
+        ? [`Answer ${countLabel(missingAnswers.length, 'question')}`]
+        : [];
+    const outstanding = step === 2 ? resumeOutstanding : answerOutstanding;
+    const reachableStep = Math.min(
+        draft.furthestStep,
+        !hasResume ? 2 : missingAnswers.length ? 3 : 4,
     );
-
-    /*
-     * What the form still needs, derived from the draft rather than read back
-     * from `blocked`. `blocked` only existed after the applicant pressed
-     * review and was told no; this is the same computation run live, so the
-     * form can say the same sentence either way.
-     */
-    const outstanding = useMemo(() => {
-        const items: string[] = [];
-
-        if (!draft.resumeId && !draft.uploadedResume) {
-            items.push('Choose which resume to send');
-        }
-
-        const missing = missingRequiredAnswers(required, draft.answers);
-
-        if (missing.length > 0) {
-            items.push(`Answer ${countLabel(missing.length, 'question')}`);
-        }
-
-        return items;
-    }, [draft.resumeId, draft.uploadedResume, draft.answers, required]);
 
     useEffect(() => {
         const stored = readApplicationDraft(jobId);
@@ -158,29 +153,25 @@ function JobApplyBody({
             Object.keys(stored.answers).length > 0,
         );
 
-        setDraft(stored);
+        const validStep = Math.min(
+            stored.furthestStep,
+            !stored.resumeId && !stored.uploadedResume?.name
+                ? 2
+                : missingRequiredAnswers(required, stored.answers).length
+                  ? 3
+                  : 4,
+        ) as ApplicationStep;
+        setDraft({ ...stored, furthestStep: validStep });
         setRestored(hasContent);
 
-        /*
-         * `furthestStep` was written on every step change and read back
-         * nowhere, so a saved draft always reopened on step 1 and the answers
-         * it did restore sat one click away behind a notice nobody could see.
-         * Land where they left off — unless the step they reached is no longer
-         * valid, which happens when a required question disappears from the
-         * listing between visits and the draft can no longer be reviewed.
-         */
+        /** Reopen at the reached step unless a resume or newly required answer is missing. */
         if (!hasLoadedDraft.current && hasContent && stored.furthestStep > 1) {
-            const stillReviewable =
-                Boolean(stored.resumeId || stored.uploadedResume) &&
-                missingRequiredAnswers(required, stored.answers).length === 0;
-
-            setStep(stillReviewable ? stored.furthestStep : 2);
+            setStep(validStep);
         }
 
         hasLoadedDraft.current = true;
     }, [jobId, required]);
 
-    const debouncedDraft = useDebouncedValue(draft, DRAFT_DEBOUNCE_MS);
     const isFirstWrite = useRef(true);
 
     useEffect(() => {
@@ -188,8 +179,7 @@ function JobApplyBody({
             return;
         }
 
-        // The debounce fires on mount with the seed value, which would
-        // overwrite the record we only meant to read.
+        // Do not overwrite the saved draft with the initial empty state.
         if (isFirstWrite.current) {
             isFirstWrite.current = false;
 
@@ -200,8 +190,8 @@ function JobApplyBody({
             return;
         }
 
-        writeApplicationDraft(job.id, debouncedDraft);
-    }, [debouncedDraft, job, submitted]);
+        writeApplicationDraft(job.id, draft);
+    }, [draft, job, submitted]);
 
     /*
      * Swapping steps unmounts whichever button was pressed, which drops focus
@@ -220,6 +210,11 @@ function JobApplyBody({
         columnRef.current
             ?.querySelector<HTMLElement>('.apply-card h2')
             ?.focus();
+
+        if (pendingField.current) {
+            focusApplyField(pendingField.current);
+            pendingField.current = null;
+        }
     }, [step, submitted]);
 
     const patch = useCallback((next: Partial<ApplicationDraftRecord>) => {
@@ -239,7 +234,6 @@ function JobApplyBody({
                 ...current,
                 answers: { ...current.answers, [questionId]: value },
             }));
-            setBlocked([]);
         },
         [],
     );
@@ -253,13 +247,17 @@ function JobApplyBody({
         }));
     }, []);
 
-    if (!job || !match) {
+    if (!job) {
         return <JobNotFound title="This job is no longer available" />;
     }
 
     const isClosed = !jobPost?.isAcceptingApplications;
 
-    const startApplication = () => goToStep(2);
+    const startApplication = () => {
+        if (!isClosed) {
+            goToStep(2);
+        }
+    };
 
     /**
      * Reports everything that is missing at once rather than refusing to
@@ -267,20 +265,42 @@ function JobApplyBody({
      */
     const reviewApplication = () => {
         if (outstanding.length > 0) {
+            const firstProblem =
+                step === 2
+                    ? 'apply-resume'
+                    : `question-${missingAnswers[0].id}`;
             setBlocked(outstanding);
+            requestAnimationFrame(() => focusApplyField(firstProblem));
 
             return;
         }
 
-        goToStep(3);
+        goToStep(step === 2 ? 3 : 4);
     };
 
+    const editSection = (id: string) => {
+        pendingField.current = id;
+        goToStep(id === 'apply-resume' || id === 'apply-cover-letter' ? 2 : 3);
+    };
+
+    const requiredLeft =
+        step === 2 ? Number(!hasResume) : missingAnswers.length;
+
     const submit = () => {
+        if (isClosed) {
+            return;
+        }
+        if (!hasResume) {
+            goToStep(2);
+            setBlocked(resumeOutstanding);
+            return;
+        }
+        if (missingAnswers.length) {
+            goToStep(3);
+            setBlocked(answerOutstanding);
+            return;
+        }
         markApplied(job.id);
-        // Cleared before the flag flips: the debounced write above checks
-        // `submitted`, so setting it first would leave this draft on disk and
-        // the applicant would be told their answers were kept for an
-        // application they had already sent.
         clearApplicationDraft(job.id);
         setSubmitted(true);
     };
@@ -300,15 +320,26 @@ function JobApplyBody({
         <>
             <Head title={`Apply — ${job.title} | OPAP Job Abroad`} />
 
-            <section className="apply-hero">
-                <div className="shell apply-hero-inner">
-                    <div className="eyebrow">
-                        <span className="eyebrow-rule" /> APPLYING FOR
-                    </div>
-                    <h1>{job.title}</h1>
-                    <p>
-                        {job.agency} · {job.location} · {job.salary}
-                    </p>
+            <section className="apply-body">
+                <div className="shell">
+                    <header className="apply-job-header">
+                        <div className="apply-logo-tile" aria-hidden="true">
+                            {getNameInitials(job.agency)}
+                        </div>
+                        <div>
+                            <p className="apply-header-eyebrow">Applying for</p>
+                            <h1>{job.title}</h1>
+                            <p className="apply-job-meta">
+                                {job.agency} · {job.location} · {job.salary}
+                            </p>
+                            <Link
+                                className="apply-text-action"
+                                href={jobsShow.url(job.id)}
+                            >
+                                View job description
+                            </Link>
+                        </div>
+                    </header>
 
                     <ol
                         className="apply-stepper"
@@ -320,34 +351,46 @@ function JobApplyBody({
                             const isDone = number < step;
 
                             return (
-                                <li key={name}>
+                                <li
+                                    key={name}
+                                    className={isDone ? 'is-done' : ''}
+                                >
                                     <button
                                         type="button"
                                         className={[
-                                            'apply-step w-full',
+                                            'apply-progress-step',
                                             isCurrent ? 'is-current' : '',
                                             isDone ? 'is-done' : '',
                                         ]
                                             .filter(Boolean)
                                             .join(' ')}
-                                        disabled={isCurrent}
+                                        disabled={
+                                            isCurrent ||
+                                            number > reachableStep ||
+                                            (isClosed && number > step)
+                                        }
+                                        aria-label={`Step ${number}: ${name}`}
                                         aria-current={
                                             isCurrent ? 'step' : undefined
                                         }
-                                        onClick={() => goToStep(number)}
+                                        onClick={() => {
+                                            if (number <= reachableStep) {
+                                                goToStep(number);
+                                            }
+                                        }}
                                         data-testid={`apply-step-${number}`}
                                     >
-                                        <span className="apply-step-number">
+                                        <span className="apply-progress-dot">
                                             {isDone ? (
                                                 <Check
                                                     size={12}
                                                     aria-hidden="true"
                                                 />
                                             ) : (
-                                                number
+                                                <span className="apply-progress-inner" />
                                             )}
                                         </span>
-                                        <span className="apply-step-name">
+                                        <span className="apply-progress-label">
                                             {name}
                                         </span>
                                     </button>
@@ -355,12 +398,20 @@ function JobApplyBody({
                             );
                         })}
                     </ol>
-                </div>
-            </section>
-
-            <section className="apply-body">
-                <div className="shell">
-                    <div className="apply-columns">
+                    <p className="apply-mobile-progress">
+                        Step {step} of 4 · {APPLICATION_STEPS[step - 1]}
+                    </p>
+                    <p className="apply-autosave">
+                        <CircleCheck size={14} aria-hidden="true" /> Saved
+                        automatically on this device
+                    </p>
+                    <div
+                        className={
+                            step === 1 && !submitted
+                                ? 'apply-columns'
+                                : 'apply-form-column'
+                        }
+                    >
                         <div ref={columnRef}>
                             {isClosed && (
                                 <p
@@ -407,13 +458,14 @@ function JobApplyBody({
                                 <>
                                     {step === 1 && (
                                         <MatchStep
-                                            match={match}
+                                            match={DEMO_MATCH}
                                             agency={job.agency}
                                         />
                                     )}
 
-                                    {step === 2 && (
+                                    {(step === 2 || step === 3) && (
                                         <ApplicationStepForm
+                                            step={step}
                                             agency={job.agency}
                                             draft={draft}
                                             questions={questions}
@@ -426,22 +478,22 @@ function JobApplyBody({
                                         />
                                     )}
 
-                                    {step === 3 && (
+                                    {step === 4 && (
                                         <ReviewStep
                                             draft={draft}
                                             questions={questions}
                                             jobTitle={job.title}
                                             agency={job.agency}
                                             documents={profile.documents}
-                                            onEditStep={goToStep}
+                                            onEditSection={editSection}
                                         />
                                     )}
 
-                                    <div className="apply-actions apply-actions-bar">
-                                        {step > 1 ? (
-                                            <Button
+                                    {step !== 1 && (
+                                        <div className="apply-actions apply-actions-bar">
+                                            <button
                                                 type="button"
-                                                variant="secondary"
+                                                className="apply-text-action"
                                                 onClick={() =>
                                                     goToStep(
                                                         (step -
@@ -455,71 +507,101 @@ function JobApplyBody({
                                                     aria-hidden="true"
                                                 />{' '}
                                                 Back
-                                            </Button>
-                                        ) : (
-                                            <a
-                                                className="job-detail-back-link"
-                                                href={jobsIndex.url()}
-                                            >
-                                                <ArrowLeft
-                                                    size={15}
-                                                    aria-hidden="true"
-                                                />{' '}
-                                                Back to jobs
-                                            </a>
-                                        )}
+                                            </button>
 
-                                        <span className="apply-actions-spacer" />
+                                            <span className="apply-actions-spacer" />
 
-                                        {step === 1 && (
-                                            <Button
-                                                type="button"
-                                                onClick={startApplication}
-                                                data-testid="button-apply-next-1"
-                                            >
-                                                Start application{' '}
-                                                <ArrowRight
-                                                    size={15}
-                                                    aria-hidden="true"
-                                                />
-                                            </Button>
-                                        )}
+                                            {(step === 2 || step === 3) && (
+                                                <span
+                                                    className="apply-actions-remaining"
+                                                    role="status"
+                                                    data-testid="status-apply-required-left"
+                                                >
+                                                    {requiredLeft === 0
+                                                        ? 'Ready to continue'
+                                                        : `${requiredLeft} required left`}
+                                                </span>
+                                            )}
 
-                                        {step === 2 && (
-                                            <Button
-                                                type="button"
-                                                onClick={reviewApplication}
-                                                data-testid="button-apply-next-2"
-                                            >
-                                                Review application{' '}
-                                                <ArrowRight
-                                                    size={15}
-                                                    aria-hidden="true"
-                                                />
-                                            </Button>
-                                        )}
+                                            {(step === 2 || step === 3) && (
+                                                <Button
+                                                    type="button"
+                                                    onClick={reviewApplication}
+                                                    disabled={isClosed}
+                                                    data-testid={`button-apply-next-${step}`}
+                                                >
+                                                    Continue{' '}
+                                                    <ArrowRight
+                                                        size={15}
+                                                        aria-hidden="true"
+                                                    />
+                                                </Button>
+                                            )}
 
-                                        {step === 3 && (
-                                            <Button
-                                                type="button"
-                                                onClick={submit}
-                                                disabled={isClosed}
-                                                data-testid="button-apply-submit"
-                                            >
-                                                Submit application{' '}
-                                                <Check
-                                                    size={15}
-                                                    aria-hidden="true"
-                                                />
-                                            </Button>
-                                        )}
-                                    </div>
+                                            {step === 4 && (
+                                                <Button
+                                                    type="button"
+                                                    onClick={submit}
+                                                    disabled={isClosed}
+                                                    data-testid="button-apply-submit"
+                                                >
+                                                    Submit application{' '}
+                                                    <Check
+                                                        size={15}
+                                                        aria-hidden="true"
+                                                    />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    )}
                                 </>
                             )}
                         </div>
 
-                        <ApplyRail job={job} step={step} draft={draft} />
+                        {step === 1 && !submitted && <MatchRail job={job} />}
                     </div>
+                    {step === 1 && !submitted && (
+                        <footer className="apply-match-actions">
+                            <div>
+                                <h3>Ready to proceed with your application?</h3>
+                                <p>
+                                    Choose your resume, then answer a few
+                                    questions.
+                                </p>
+                            </div>
+                            <div className="apply-match-buttons">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    aria-pressed={isSaved(job.id)}
+                                    onClick={() => toggleSaved(job.id)}
+                                    data-testid="button-apply-save-match"
+                                >
+                                    <Bookmark
+                                        size={16}
+                                        fill={
+                                            isSaved(job.id)
+                                                ? 'currentColor'
+                                                : 'none'
+                                        }
+                                        aria-hidden="true"
+                                    />
+                                    {isSaved(job.id)
+                                        ? 'Match saved'
+                                        : 'Save match'}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={startApplication}
+                                    disabled={isClosed}
+                                    data-testid="button-apply-next-1"
+                                >
+                                    Continue to apply{' '}
+                                    <ArrowRight size={16} aria-hidden="true" />
+                                </Button>
+                            </div>
+                        </footer>
+                    )}
                 </div>
             </section>
         </>
@@ -561,48 +643,67 @@ function MatchStep({
     agency: string;
 }) {
     const meta = overallMatchMeta(match.overall);
-    const ringColor = meta.tone === 'amber' ? 'var(--amber)' : 'var(--teal)';
+    const ringColor = `var(--${meta.tone})`;
+    const met = match.categories.filter(
+        (category) => category.score >= 70,
+    ).length;
 
     return (
-        <div className="apply-card">
-            <h2 tabIndex={-1}>Before you apply</h2>
-            <p className="apply-card-lede">
-                This compares your resume against what {agency} asked for on
-                this listing. It is guidance, not a decision — the agency reads
-                every application.
-            </p>
+        <div className="apply-match-main">
+            <div className="apply-card match-overview">
+                <div className="match-header-chips">
+                    <span>
+                        <Sparkles size={14} aria-hidden="true" /> AI MATCH
+                        ANALYSIS
+                    </span>
+                    <span className={`match-eligibility is-${meta.tone}`}>
+                        {meta.label}
+                    </span>
+                </div>
 
-            <div className="match-hero">
-                <div
-                    className="match-score-ring"
-                    style={{
-                        background: `conic-gradient(${ringColor} ${match.overall * 3.6}deg, var(--surface-soft) 0deg)`,
-                    }}
-                    role="img"
-                    aria-label={`Overall match ${Math.round(match.overall)} out of 100`}
-                    data-testid="match-overall-score"
-                >
-                    <div className="text-center">
-                        <span className="match-score-value">
-                            {Math.round(match.overall)}
-                        </span>
-                        <span className="match-score-suffix">/100</span>
-                        <div className="match-score-label">{meta.label}</div>
+                <div className="match-hero">
+                    <div
+                        className="match-score-ring"
+                        style={{
+                            background: `conic-gradient(${ringColor} ${match.overall * 3.6}deg, var(--surface-soft) 0deg)`,
+                        }}
+                        role="img"
+                        aria-label={`Overall match ${Math.round(match.overall)} out of 100`}
+                        data-testid="match-overall-score"
+                    >
+                        <div className="text-center">
+                            <span className="match-score-value">
+                                {Math.round(match.overall)}
+                            </span>
+                            <span className="match-score-suffix">%</span>
+                        </div>
+                    </div>
+                    <div>
+                        <h2 tabIndex={-1}>{meta.label}</h2>
+                        <p className="match-score-copy">
+                            Your profile meets {met} of{' '}
+                            {match.categories.length} criteria assessed for this
+                            role with {agency}.
+                        </p>
                     </div>
                 </div>
-                <p className="match-score-copy">
-                    Scored across education, experience, skills, certifications,
-                    languages, availability and how your career has moved so
-                    far. Every number comes from the listing and your resume —
-                    nothing here is a stored rating.
+                <p className="match-disclaimer">
+                    Demo guidance only, not a live profile assessment or hiring
+                    decision. The agency reviews your application.
                 </p>
             </div>
 
-            <ul className="match-list">
-                {match.categories.map((category) => (
-                    <MatchRow key={category.label} category={category} />
-                ))}
-            </ul>
+            <section
+                className="match-assessment"
+                aria-labelledby="match-criteria-title"
+            >
+                <div className="match-section-heading">
+                    <h3 id="match-criteria-title">Core criteria assessment</h3>
+                    <span>
+                        {met} of {match.categories.length} criteria met
+                    </span>
+                </div>
+            </section>
 
             <MatchBlockList
                 blocks={{
@@ -615,528 +716,45 @@ function MatchStep({
     );
 }
 
-function MatchRow({
-    category,
-}: {
-    category: MatchAnalysis['categories'][number];
-}) {
-    const fill =
-        category.score >= 80
-            ? 'var(--teal)'
-            : category.score >= 60
-              ? 'var(--amber)'
-              : 'var(--slate)';
-    const key = category.label.toLowerCase().replaceAll(' ', '-');
-
+function MatchRail({ job }: { job: Job }) {
     return (
-        <li className="match-row">
-            <div className="match-row-head">
-                <span>{category.label}</span>
-                <span
-                    className="match-row-score"
-                    data-testid={`match-score-${key}`}
-                >
-                    {Math.round(category.score)}%
-                </span>
-            </div>
-            <div className="match-track">
-                <div
-                    className="match-fill"
-                    style={{ width: `${category.score}%`, background: fill }}
-                />
-            </div>
-        </li>
-    );
-}
-
-function ApplicationStepForm({
-    agency,
-    draft,
-    questions,
-    documents,
-    profileName,
-    blocked,
-    outstanding,
-    onPatch,
-    onAnswer,
-}: {
-    agency: string;
-    draft: ApplicationDraftRecord;
-    questions: JobQuestion[];
-    documents: ResumeDocument[];
-    profileName: string;
-    blocked: string[];
-    outstanding: string[];
-    onPatch: (next: Partial<ApplicationDraftRecord>) => void;
-    onAnswer: (questionId: string, value: ApplicationAnswer) => void;
-}) {
-    return (
-        <div className="apply-card">
-            <h2 tabIndex={-1}>Your application</h2>
-            <p className="apply-card-lede">
-                Everything here is saved as you type. Nothing reaches the agency
-                until you press submit on the last step.
-            </p>
-
-            {/* Live read-out. Calm when the form is simply unfinished, so an
-                untouched form never looks like an error; the orange blocked
-                list below still fires if review is pressed too early. */}
-            <p
-                className={`apply-requirement-status ${
-                    outstanding.length === 0 ? 'is-ready' : ''
-                }`}
-                role="status"
-                data-testid="status-apply-outstanding"
-            >
-                {outstanding.length === 0 && (
-                    <CircleCheck size={15} aria-hidden="true" />
-                )}
-                <span>
-                    {outstanding.length === 0
-                        ? 'Everything required is filled in. The next step reads it back exactly as it will be sent.'
-                        : `Still needed: ${outstanding.join(' and ').toLowerCase()}.`}
-                </span>
-            </p>
-
-            {blocked.length > 0 && (
-                <ul
-                    className="apply-blocked-list"
-                    role="alert"
-                    data-testid="list-apply-blocked"
-                >
-                    {blocked.map((problem) => (
-                        <li key={problem}>
-                            <TriangleAlert size={13} aria-hidden="true" />
-                            {problem}
-                        </li>
-                    ))}
-                </ul>
-            )}
-
-            <div className="apply-field-stack">
-                <fieldset className="field">
-                    <legend className="field-label">
-                        Resume
-                        <span className="field-required">*</span>
-                    </legend>
-                    <p className="field-hint">
-                        Sending as {profileName}. Pick a document from your
-                        profile, or upload one now.
-                    </p>
-
-                    <ResumePicker
-                        draft={draft}
-                        documents={documents}
-                        onPatch={onPatch}
-                    />
-
-                    {blocked.length > 0 &&
-                        !draft.resumeId &&
-                        !draft.uploadedResume && (
-                            <FieldError>
-                                Choose a resume before continuing.
-                            </FieldError>
-                        )}
-                </fieldset>
-
-                <div className="field">
-                    <label className="field-label" htmlFor="apply-cover-letter">
-                        Cover letter
-                        <span className="field-optional">
-                            optional, but it is read
-                        </span>
-                    </label>
-                    <Textarea
-                        id="apply-cover-letter"
-                        className="field-control"
-                        value={draft.coverLetter}
-                        placeholder="Why this role, and why you."
-                        onChange={(event) =>
-                            onPatch({ coverLetter: event.target.value })
-                        }
-                        data-testid="input-apply-cover-letter"
-                    />
-                    <div className="apply-cover-chips">
-                        {COVER_LETTER_CHIPS.map((chip) => (
-                            <button
-                                key={chip.slug}
-                                type="button"
-                                className="apply-chip"
-                                onClick={() =>
-                                    onPatch({
-                                        coverLetter: `${draft.coverLetter.trim()}${
-                                            draft.coverLetter.trim() ? ' ' : ''
-                                        }${chip.snippet}`,
-                                    })
-                                }
-                                data-testid={`chip-apply-${chip.slug}`}
-                            >
-                                + {chip.label}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="field-row">
-                    <div className="field">
-                        <label className="field-label" htmlFor="apply-salary">
-                            Expected salary
-                        </label>
-                        <input
-                            id="apply-salary"
-                            type="text"
-                            className="field-control"
-                            value={draft.salary}
-                            placeholder="e.g. AED 6,000 / month"
-                            onChange={(event) =>
-                                onPatch({ salary: event.target.value })
-                            }
-                            data-testid="input-apply-salary"
-                        />
-                        <p className="field-hint">
-                            Leave blank to let the agency quote theirs.
-                        </p>
-                    </div>
-
-                    <div className="field">
-                        <label
-                            className="field-label"
-                            htmlFor="apply-availability"
-                        >
-                            Availability
-                        </label>
-                        <select
-                            id="apply-availability"
-                            className="field-control"
-                            value={draft.availability}
-                            onChange={(event) =>
-                                onPatch({ availability: event.target.value })
-                            }
-                            data-testid="select-apply-availability"
-                        >
-                            <option value="">Not sure yet</option>
-                            {AVAILABILITY_OPTIONS.map((option) => (
-                                <option key={option} value={option}>
-                                    {option}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                {questions.length > 0 && (
-                    <div className="apply-field-stack">
-                        <span className="field-label">
-                            Questions from {agency}
-                        </span>
-                        {questions.map((question) => (
-                            <QuestionField
-                                key={question.id}
-                                question={question}
-                                answer={draft.answers[question.id]}
-                                onAnswer={onAnswer}
-                            />
-                        ))}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function ResumePicker({
-    draft,
-    documents,
-    onPatch,
-}: {
-    draft: ApplicationDraftRecord;
-    documents: ResumeDocument[];
-    onPatch: (next: Partial<ApplicationDraftRecord>) => void;
-}) {
-    return (
-        <>
-            <div
-                className="apply-doc-list"
-                role="radiogroup"
-                aria-label="Resume to send"
-            >
-                {documents.map((document) => (
-                    <label
-                        key={document.id}
-                        className={`apply-doc-option ${
-                            draft.resumeId === document.id ? 'is-selected' : ''
-                        }`}
-                    >
-                        <input
-                            type="radio"
-                            name="resume"
-                            checked={draft.resumeId === document.id}
-                            onChange={() =>
-                                onPatch({
-                                    resumeId: document.id,
-                                    uploadedResume: null,
-                                })
-                            }
-                            data-testid={`radio-resume-${document.id}`}
-                        />
-                        <FileText size={15} aria-hidden="true" />
-                        <span>{document.name}</span>
-                        <span className="apply-doc-meta">
-                            {document.uploadedAt} · {document.size}
-                        </span>
-                    </label>
-                ))}
-
-                <label
-                    className={`apply-doc-option ${
-                        draft.uploadedResume ? 'is-selected' : ''
-                    }`}
-                >
-                    <input
-                        type="radio"
-                        name="resume"
-                        checked={Boolean(draft.uploadedResume)}
-                        onChange={() =>
-                            onPatch({
-                                resumeId: null,
-                                uploadedResume: { name: '', size: '' },
-                            })
-                        }
-                        data-testid="radio-resume-upload"
-                    />
-                    <Upload size={15} aria-hidden="true" />
-                    <span>Upload a different file</span>
-                    <span className="apply-doc-meta">PDF or DOCX</span>
-                </label>
-            </div>
-
-            {draft.uploadedResume && (
-                <>
-                    <input
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        className="field-control"
-                        aria-label="Upload your resume"
-                        data-testid="input-apply-upload"
-                        onChange={(event) => {
-                            const file = event.target.files?.[0];
-
-                            onPatch({
-                                uploadedResume: file
-                                    ? {
-                                          name: file.name,
-                                          size: formatFileSize(file.size),
-                                      }
-                                    : null,
-                            });
-                        }}
-                    />
-                    {draft.uploadedResume.name && (
-                        <p className="field-hint">
-                            {draft.uploadedResume.name} ·{' '}
-                            {draft.uploadedResume.size}
-                        </p>
-                    )}
-                </>
-            )}
-        </>
-    );
-}
-
-function QuestionField({
-    question,
-    answer,
-    onAnswer,
-}: {
-    question: JobQuestion;
-    answer: ApplicationAnswer | undefined;
-    onAnswer: (questionId: string, value: ApplicationAnswer) => void;
-}) {
-    if (question.type === 'yesno') {
-        const selected = typeof answer === 'string' ? answer : '';
-
-        return (
-            <div className="field">
-                <span className="field-label">
-                    {question.label}
-                    {question.required && (
-                        <span className="field-required">*</span>
-                    )}
-                </span>
-                <div
-                    className="apply-yesno"
-                    role="radiogroup"
-                    aria-label={question.label}
-                >
-                    {YES_NO_OPTIONS.map((option) => (
-                        <button
-                            key={option}
-                            type="button"
-                            className={selected === option ? 'is-selected' : ''}
-                            onClick={() => onAnswer(question.id, option)}
-                            data-testid={`button-answer-${question.id}-${option.toLowerCase()}`}
-                        >
-                            {option}
-                        </button>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div className="field">
-            <label className="field-label" htmlFor={`question-${question.id}`}>
-                {question.label}
-                {question.required && <span className="field-required">*</span>}
-            </label>
-            <Textarea
-                id={`question-${question.id}`}
-                className="field-control"
-                rows={question.type === 'short' ? 2 : 4}
-                value={typeof answer === 'string' ? answer : ''}
-                placeholder="Your answer"
-                onChange={(event) => onAnswer(question.id, event.target.value)}
-                data-testid={`input-answer-${question.id}`}
-            />
-        </div>
-    );
-}
-
-function ReviewStep({
-    draft,
-    questions,
-    jobTitle,
-    agency,
-    documents,
-    onEditStep,
-}: {
-    draft: ApplicationDraftRecord;
-    questions: JobQuestion[];
-    jobTitle: string;
-    agency: string;
-    documents: ResumeDocument[];
-    onEditStep: (step: ApplicationStep) => void;
-}) {
-    const resumeName =
-        draft.uploadedResume?.name ||
-        documents.find((item) => item.id === draft.resumeId)?.name ||
-        '';
-
-    return (
-        <div className="apply-card">
-            <h2 tabIndex={-1}>Review and submit</h2>
-            <p className="apply-card-lede">
-                This is what {agency} will see for {jobTitle}. Check it once
-                more — after submitting, you can only withdraw.
-            </p>
-
-            <div className="review-grid">
-                <ReviewRow label="Resume" value={resumeName} />
-                <ReviewRow
-                    label="Cover letter"
-                    value={draft.coverLetter.trim()}
-                />
-                <ReviewRow
-                    label="Expected salary"
-                    value={draft.salary.trim()}
-                />
-                <ReviewRow label="Availability" value={draft.availability} />
-
-                {questions.map((question) => (
-                    <ReviewRow
-                        key={question.id}
-                        label={question.label}
-                        value={
-                            typeof draft.answers[question.id] === 'string'
-                                ? (draft.answers[question.id] as string)
-                                : ''
-                        }
-                    />
-                ))}
-            </div>
-
-            <div className="apply-actions" style={{ borderTop: 'none' }}>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => onEditStep(2)}
-                    data-testid="button-review-edit"
-                >
-                    Edit my answers
-                </Button>
-            </div>
-
-            <p className="apply-card-lede">
-                By submitting you confirm the details above are yours and agree
-                that the agency may share them with the hiring employer.
-            </p>
-        </div>
-    );
-}
-
-/** What an unanswered review row reads as, so blanks stand out. */
-const REVIEW_PLACEHOLDERS: Record<string, string> = {
-    Resume: 'No resume attached',
-    'Cover letter': 'Not included',
-    'Expected salary': 'Let the agency quote',
-    Availability: 'Not stated',
-};
-
-function ReviewRow({ label, value }: { label: string; value: string }) {
-    const placeholder = REVIEW_PLACEHOLDERS[label] ?? '—';
-    const shown = value.trim() || placeholder;
-
-    return (
-        <div className="review-block">
-            <span className="review-label">{label}</span>
-            <p
-                className={`review-value ${value.trim() ? '' : 'is-empty'}`}
-                data-testid={`review-${label
-                    .toLowerCase()
-                    .replaceAll(/[^a-z0-9]+/g, '-')}`}
-            >
-                {shown}
-            </p>
-        </div>
-    );
-}
-
-function ApplyRail({
-    job,
-    step,
-    draft,
-}: {
-    job: Job;
-    step: ApplicationStep;
-    draft: ApplicationDraftRecord;
-}) {
-    const answered = Object.keys(draft.answers).length;
-
-    const note: Record<ApplicationStep, ReactNode> = {
-        1: 'Read the fit report. Nothing is sent on this step.',
-        2: `${countLabel(answered, 'question')} answered so far. Saved automatically.`,
-        3: 'Check each line, then submit to send it to the agency.',
-    };
-
-    return (
-        <aside className="apply-rail">
-            <div className="apply-rail-card">
-                <p className="apply-rail-title">What this role asks for</p>
+        <aside className="apply-rail" aria-label="About this role">
+            <section className="apply-rail-card">
+                <h2>The role at a glance</h2>
                 <ApplyRailRow label="Agency" value={job.agency} />
-                <ApplyRailRow
-                    label="Slots"
-                    value={countLabel(job.quantity, 'position')}
-                />
+                <ApplyRailRow label="Open positions" value={job.quantity} />
                 <ApplyRailRow label="Advertised pay" value={job.salary} />
-            </div>
-
-            <div className="apply-rail-card">
-                <p className="apply-rail-title">
-                    Step {step} of {APPLICATION_STEPS.length}
-                </p>
-                <p className="field-hint">{note[step]}</p>
-            </div>
+                {job.contractDuration && (
+                    <ApplyRailRow
+                        label="Contract"
+                        value={
+                            job.contractDuration === 'fixed'
+                                ? 'Fixed term'
+                                : job.contractDuration === 'seasonal'
+                                  ? 'Seasonal'
+                                  : 'Permanent'
+                        }
+                    />
+                )}
+                <ApplyRailRow label="Location" value={job.location} />
+                {Boolean(job.benefits?.length) && (
+                    <div className="apply-benefits">
+                        {job.benefits?.map((benefit) => (
+                            <span key={benefit}>{benefit}</span>
+                        ))}
+                    </div>
+                )}
+            </section>
+            {job.poeaLicenseNo && (
+                <section className="apply-rail-card apply-verification">
+                    <ShieldCheck size={24} aria-hidden="true" />
+                    <h2>Verified agency</h2>
+                    <p>{job.agency}</p>
+                    <p>
+                        POEA license: <strong>{job.poeaLicenseNo}</strong>
+                    </p>
+                </section>
+            )}
         </aside>
     );
 }
