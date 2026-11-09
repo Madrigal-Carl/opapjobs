@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
+use Laravel\Fortify\Fortify;
 
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
@@ -84,6 +86,27 @@ test('users can not authenticate with invalid password', function () {
 
     $this->assertGuest();
 });
+
+test('custom authentication callbacks preserve login and reject suspended or invalid users', function (string $state) {
+    config(['fortify.features' => []]);
+    $user = User::factory()->applicant()->create(['suspended_at' => $state === 'suspended' ? now() : null]);
+    $previous = Fortify::$authenticateUsingCallback;
+    Fortify::authenticateUsing(fn (Request $request): ?User => $state === 'invalid' ? null : $user);
+
+    try {
+        $response = $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password']);
+
+        if ($state === 'active') {
+            $response->assertRedirect(route('home', absolute: false))->assertSessionHasNoErrors();
+            $this->assertAuthenticatedAs($user);
+        } else {
+            $response->assertSessionHasErrors(['email' => $state === 'suspended' ? 'Your account has been suspended.' : trans('auth.failed')]);
+            $this->assertGuest();
+        }
+    } finally {
+        Fortify::$authenticateUsingCallback = $previous;
+    }
+})->with(['active', 'suspended', 'invalid']);
 
 test('users can logout', function () {
     $user = User::factory()->create();

@@ -57,10 +57,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'dashboard.jobs.status', 'dashboard.jobs.archive', 'dashboard.jobs.duplicates', 'dashboard.employers.store',
         );
 
-        $isAccountForm = fn (Request $request): bool => str_starts_with($request->route()?->getName() ?? '', 'dashboard.accounts');
-
-        $exceptions->render(function (AccountException $exception, Request $request) use ($isAccountForm) {
-            if (! $isAccountForm($request)) {
+        $exceptions->render(function (AccountException $exception, Request $request) {
+            if (! $request->routeIs('dashboard.accounts*')) {
                 return null;
             }
 
@@ -110,8 +108,8 @@ return Application::configure(basePath: dirname(__DIR__))
             return back()->withErrors([$exception->field ?? 'job_post' => $exception->getMessage()])->withInput();
         });
 
-        $exceptions->render(function (Throwable $exception, Request $request) use ($isJobForm, $isAccountForm) {
-            if ($isAccountForm($request) && ! ($exception instanceof ValidationException
+        $exceptions->render(function (Throwable $exception, Request $request) use ($isJobForm) {
+            if ($request->routeIs('dashboard.accounts*') && ! ($exception instanceof ValidationException
                 || $exception instanceof AuthenticationException || $exception instanceof AccountException)) {
                 if ($exception instanceof HttpExceptionInterface || $exception instanceof AuthorizationException) {
                     $status = $exception instanceof AuthorizationException ? 403 : $exception->getStatusCode();
