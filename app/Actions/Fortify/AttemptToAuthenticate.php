@@ -10,34 +10,17 @@ use Laravel\Fortify\Fortify;
 
 class AttemptToAuthenticate extends FortifyAttemptToAuthenticate
 {
-    public function handle($request, $next)
+    /**
+     * @param  Request  $request
+     * @param  callable(Request): mixed  $next
+     */
+    public function handle(mixed $request, mixed $next): mixed
     {
-        if (Fortify::$authenticateUsingCallback) {
-            return $this->handleUsingCustomCallback($request, $next);
-        }
-
-        if ($this->guard->attempt($request->only(Fortify::username(), 'password'), $request->boolean('remember'))) {
+        return parent::handle($request, function (Request $request) use ($next): mixed {
             $this->rejectSuspended($request);
 
             return $next($request);
-        }
-
-        $this->throwFailedAuthenticationException($request);
-    }
-
-    protected function handleUsingCustomCallback($request, $next)
-    {
-        $user = call_user_func(Fortify::$authenticateUsingCallback, $request);
-
-        if (! $user) {
-            $this->fireFailedEvent($request);
-
-            $this->throwFailedAuthenticationException($request);
-        }
-
-        $this->guard->login($user, $request->boolean('remember'));
-
-        return $next($request);
+        });
     }
 
     /**
