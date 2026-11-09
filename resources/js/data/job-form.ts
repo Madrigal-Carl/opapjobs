@@ -171,10 +171,26 @@ export function createJobFormSchema(
                                 1,
                                 'Enter the question or remove it',
                             ),
-                            type: z.enum(options.answer_types),
+                            type: z
+                                .enum(options.answer_types)
+                                .refine(
+                                    (type): boolean => type !== 'paragraph',
+                                    'Choose Short answer, Yes / No, Selection, or Number.',
+                                ),
                             answer: z.string().trim().max(2000),
                             required: z.boolean(),
+                            options: z.array(z.string()).optional(),
                         })
+                        .refine(
+                            (question) =>
+                                question.type === 'yesno' ||
+                                question.answer === '',
+                            {
+                                path: ['answer'],
+                                message:
+                                    'Expected answers are only available for Yes / No questions.',
+                            },
+                        )
                         .refine(
                             (question) =>
                                 question.type !== 'yesno' ||
@@ -186,7 +202,39 @@ export function createJobFormSchema(
                                 path: ['answer'],
                                 message: 'Choose Yes, No, or no preference.',
                             },
-                        ),
+                        )
+                        .superRefine((question, context) => {
+                            if (question.type !== 'selection') return;
+                            const choices = (question.options ?? []).map(
+                                (choice) => choice.trim(),
+                            );
+                            if (
+                                choices.length < 2 ||
+                                choices.length > 20 ||
+                                choices.some(
+                                    (choice) => !choice || choice.length > 255,
+                                )
+                            ) {
+                                context.addIssue({
+                                    code: 'custom',
+                                    path: ['options'],
+                                    message:
+                                        'Enter 2–20 choices with 1–255 characters each.',
+                                });
+                            } else if (
+                                new Set(
+                                    choices.map((choice) =>
+                                        choice.toLowerCase(),
+                                    ),
+                                ).size !== choices.length
+                            ) {
+                                context.addIssue({
+                                    code: 'custom',
+                                    path: ['options'],
+                                    message: 'Each choice must be different.',
+                                });
+                            }
+                        }),
                 )
                 .max(20, 'A job post can have at most 20 screening questions.'),
         })
@@ -288,7 +336,26 @@ export const emptyJobForm: JobForm = {
     contactPhone: '',
     applyInstructions: '',
     urgent: false,
-    questions: [],
+    questions: [
+        {
+            label: 'What is your expected monthly salary?',
+            type: 'number',
+            answer: '',
+            required: false,
+        },
+        {
+            label: 'When can you start?',
+            type: 'selection',
+            answer: '',
+            required: false,
+            options: [
+                'Immediately',
+                'Within 2 weeks',
+                'Within 1 month',
+                'More than 1 month',
+            ],
+        },
+    ],
 };
 
 const nullableText = (value: string) => value.trim() || null;
@@ -331,14 +398,22 @@ export function toJobPostPayload(form: JobForm) {
             proficiency,
         })),
         questions: form.questions.map(
-            ({ questionId, label, type, answer, required }) => ({
+            ({ questionId, label, type, answer, required, options }) => ({
                 ...(questionId === undefined ? {} : { id: questionId }),
                 question_text: label.trim(),
                 answer_type: type,
-                expected_answer: nullableText(
-                    type === 'yesno' ? answer.toLowerCase() : answer,
-                ),
+                expected_answer:
+                    type === 'yesno'
+                        ? nullableText(answer.toLowerCase())
+                        : null,
                 is_required: required,
+                ...(type === 'selection'
+                    ? {
+                          options: (options ?? []).map((choice) =>
+                              choice.trim(),
+                          ),
+                      }
+                    : {}),
             }),
         ),
     };
@@ -399,9 +474,18 @@ export function fromJobPostPayload(
         questions: post.questions.map((question) => ({
             questionId: question.id,
             label: question.question_text,
-            type: question.answer_type,
-            answer: question.expected_answer ?? '',
+            type:
+                question.answer_type === 'paragraph'
+                    ? 'short'
+                    : question.answer_type,
+            answer:
+                question.answer_type === 'yesno'
+                    ? (question.expected_answer ?? '')
+                    : '',
             required: question.is_required,
+            ...(question.answer_type === 'selection'
+                ? { options: question.options ?? [] }
+                : {}),
         })),
     };
 }
@@ -414,6 +498,9 @@ export function copyQuestion(
         type: question.type,
         answer: question.answer,
         required: question.required,
+        ...(question.options === undefined
+            ? {}
+            : { options: [...question.options] }),
     };
 }
 
@@ -457,6 +544,8 @@ const serverFields: Record<string, keyof JobForm> = {
 
 export function serverErrorField(key: string): FieldPath<JobForm> | null {
     if (serverFields[key]) return serverFields[key];
+    const choices = /^questions\.(\d+)\.options(?:\.\d+)?$/.exec(key);
+    if (choices) return `questions.${Number(choices[1])}.options`;
     const question =
         /^questions\.(\d+)\.(id|question_text|answer_type|expected_answer|is_required)$/.exec(
             key,

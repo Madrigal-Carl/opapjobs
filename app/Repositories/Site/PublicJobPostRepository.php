@@ -34,7 +34,7 @@ class PublicJobPostRepository
     private const PREVIEW_COLUMNS = [
         'job_posts.contract_type', 'job_posts.education_level', 'job_posts.min_experience_years',
         'job_posts.max_experience_years', 'job_posts.gender_requirement', 'job_posts.job_description',
-        'job_posts.other_requirements', 'job_posts.application_instructions',
+        'job_posts.other_requirements', 'job_posts.application_instructions', 'job_posts.required_documents',
     ];
 
     private const DETAIL_COLUMNS = [

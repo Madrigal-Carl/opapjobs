@@ -4,6 +4,7 @@ use App\Models\Agency;
 use App\Models\Employer;
 use App\Models\JobCategory;
 use App\Models\JobPost;
+use App\Models\JobPostQuestion;
 use App\Models\JobSubcategory;
 use App\Models\User;
 use App\Repositories\JobPost\JobPostRepository;
@@ -36,6 +37,47 @@ test('staff publish a pending job post with session ownership and a success toas
         ->toBe(['Question 1', 'Question 2', 'Question 3', 'Question 4', 'Question 5']);
     $this->assertDatabaseHas('audit_logs', ['actor_user_id' => $user->id, 'subject_id' => $post->id, 'action' => 'job_post.created']);
 })->with(['agency', 'admin']);
+
+test('staff save and edit selection choices and numeric screening questions', function () {
+    $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
+    $input = JobPostInput::for($user);
+    $input['questions'] = [
+        ['question_text' => 'Expected salary?', 'answer_type' => 'number', 'is_required' => false],
+        ['question_text' => 'When can you start?', 'answer_type' => 'selection', 'options' => [' Immediately ', 'Within 2 weeks'], 'is_required' => true],
+        ['question_text' => 'Preferred shift?', 'answer_type' => 'selection', 'options' => ['Immediately', 'Later']],
+    ];
+
+    $this->actingAs($user)->post('/dashboard/jobs', $input)->assertSessionHasNoErrors()->assertRedirect(route('dashboard.jobs'));
+    $post = JobPost::sole();
+    $questions = $post->questions()->orderBy('sort_order')->get();
+    expect($questions[0]->answer_type->value)->toBe('number');
+    expect($questions[1]->options)->toBe(['Immediately', 'Within 2 weeks']);
+    expect($questions[1]->expected_answer)->toBeNull();
+    $this->get("/dashboard/jobs/{$post->id}/edit")->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('jobPost.questions.1.options', ['Immediately', 'Within 2 weeks']));
+
+    $input['questions'][1]['id'] = $questions[1]->id;
+    $input['questions'][1]['options'] = ['Next week', 'Next month'];
+    $this->put("/dashboard/jobs/{$post->id}", $input)->assertSessionHasNoErrors()->assertRedirect(route('dashboard.jobs'));
+    expect(JobPostQuestion::findOrFail($questions[1]->id)->options)->toBe(['Next week', 'Next month']);
+});
+
+test('selection questions require a valid list of distinct choices', function (mixed $options, string $field) {
+    $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
+    $input = JobPostInput::for($user);
+    $input['questions'] = [['question_text' => 'When?', 'answer_type' => 'selection', 'options' => $options]];
+
+    $this->actingAs($user)->post('/dashboard/jobs', $input)->assertSessionHasErrors($field);
+    $this->assertDatabaseCount('job_posts', 0);
+})->with([
+    'missing choices' => [null, 'questions.0.options'],
+    'single choice' => [['Now'], 'questions.0.options'],
+    'blank choice' => [['Now', ' '], 'questions.0.options.1'],
+    'duplicate choices' => [['Now', ' now '], 'questions.0.options'],
+    'not a list' => [['a' => 'Now', 'b' => 'Later'], 'questions.0.options'],
+    'too many choices' => [array_map(fn (int $i): string => "Choice {$i}", range(1, 21)), 'questions.0.options'],
+    'long choice' => [['Now', str_repeat('a', 256)], 'questions.0.options.1'],
+]);
 
 test('zero or many questions are saved in order in one insert', function (int $count) {
     $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
@@ -104,6 +146,8 @@ test('job post validation returns per field errors and one summary toast', funct
     'long question' => [['questions' => [['question_text' => str_repeat('x', 256), 'answer_type' => 'short']]], 'questions.0.question_text'],
     'long answer' => [['questions' => [['question_text' => 'Question', 'answer_type' => 'short', 'expected_answer' => str_repeat('a', 2001)]]], 'questions.0.expected_answer'],
     'answer type' => [['questions' => [['question_text' => 'Question', 'answer_type' => 'invalid']]], 'questions.0.answer_type'],
+    'paragraph answer type' => [['questions' => [['question_text' => 'Question', 'answer_type' => 'paragraph']]], 'questions.0.answer_type'],
+    'short expected answer' => [['questions' => [['question_text' => 'Question', 'answer_type' => 'short', 'expected_answer' => 'An expected response']]], 'questions.0.expected_answer'],
     'yesno answer' => [['questions' => [['question_text' => 'Question', 'answer_type' => 'yesno', 'expected_answer' => 'maybe']]], 'questions.0.expected_answer'],
     'duplicate question' => [['questions' => [
         ['question_text' => ' Are you qualified? ', 'answer_type' => 'short'],

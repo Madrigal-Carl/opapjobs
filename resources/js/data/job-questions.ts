@@ -22,6 +22,16 @@ export const QUESTION_ANSWER_TYPES: QuestionAnswerTypeOption[] = [
         placeholder: 'Short answer goes here',
     },
     {
+        value: 'selection',
+        label: 'Selection',
+        placeholder: 'Select one answer',
+    },
+    {
+        value: 'number',
+        label: 'Number',
+        placeholder: 'Enter a number',
+    },
+    {
         value: 'paragraph',
         label: 'Show paragraph',
         placeholder: 'Let the applicant explain in their own words…',

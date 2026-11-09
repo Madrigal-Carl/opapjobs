@@ -110,11 +110,16 @@ function wizard(
         jobId = '1',
         draftStore = {},
         debouncePending = false,
+        jobQuestions = questions,
+        submission = 'success',
+        applicantId = '42',
+        requiredDocuments = [],
     } = {},
 ) {
     const state = [];
     const refs = [];
     const effects = [];
+    const requests = [];
     let cursor = 0;
     let refCursor = 0;
     const hooks = {
@@ -153,15 +158,39 @@ function wizard(
         location: 'Dubai',
         salary: 'AED 6,000',
         quantity: 3,
-        questions,
+        questions: jobQuestions,
     };
     const module = load('resources/js/pages/jobs/apply.tsx', {
         react: hooks,
+        '@inertiajs/react': {
+            Head: () => null,
+            Link: 'a',
+            router: {
+                post(url, data, options) {
+                    requests.push({ url, data, options });
+                    if (submission === 'success') {
+                        options.onSuccess({
+                            props: { jobId, submittedApplicationId: '99' },
+                        });
+                        options.onFinish();
+                    } else if (submission === 'error') {
+                        options.onError({ application: 'Please try again.' });
+                        options.onFinish();
+                    }
+                },
+            },
+        },
+        '@/routes/jobs': {
+            index: { url: () => '/jobs' },
+            show: { url: () => `/job/${jobId}` },
+            submit: { url: () => `/job/${jobId}/apply` },
+        },
         '@/contexts/applications-context': {
             useApplications: () => ({
                 markApplied() {},
                 toggleSaved() {},
                 isSaved: () => false,
+                isApplied: () => false,
             }),
         },
         '@/contexts/applicant-profile-context': {
@@ -197,13 +226,18 @@ function wizard(
         effects.length = 0;
         return module.JobApplyBody({
             jobId,
-            jobPost: { isAcceptingApplications: !closed },
+            applicantId,
+            jobPost: { isAcceptingApplications: !closed, requiredDocuments },
         });
     };
     render();
     state[0] = structuredClone(initial);
     return {
         render,
+        requests,
+        sync() {
+            effects.forEach((effect) => effect());
+        },
         restore() {
             effects[0]();
         },
@@ -220,6 +254,316 @@ function wizard(
         },
     };
 }
+
+await test('jobs without questions show three steps and skip Q&A in both directions and restored drafts', () => {
+    const page = wizard({ ...empty, resumeId: 'doc-7' }, { jobQuestions: [] });
+    assert.equal(
+        find(
+            page.render(),
+            (node) => node.props?.['data-testid'] === 'apply-step-3',
+        ),
+        null,
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    assert.equal(
+        find(page.render(), (node) => node.props?.['aria-current'] === 'step')
+            .props['aria-label'],
+        'Step 3: Review and submit',
+    );
+    page.click('button-apply-back');
+    assert.equal(
+        find(page.render(), (node) => node.props?.['aria-current'] === 'step')
+            .props['data-testid'],
+        'apply-step-2',
+    );
+    const restored = wizard(
+        { ...empty, resumeId: 'doc-7', furthestStep: 3 },
+        { jobQuestions: [] },
+    );
+    restored.restore();
+    assert.ok(
+        find(
+            restored.render(),
+            (node) => node.props?.['data-testid'] === 'button-apply-submit',
+        ),
+    );
+});
+
+await test('review omits Q&A for jobs without questions but keeps the submitted document details', () => {
+    const { ReviewStep } = load(
+        'resources/js/components/applicant/apply-review.tsx',
+    );
+    const html = renderToStaticMarkup(
+        React.createElement(ReviewStep, {
+            draft: {
+                ...empty,
+                resumeId: 'doc-7',
+                coverLetter: 'Please consider me.',
+            },
+            questions: [],
+            jobTitle: 'Welder',
+            agency: 'Agency',
+            documents: [{ id: 'doc-7', name: 'My resume.pdf' }],
+            onEditSection() {},
+        }),
+    );
+    assert.doesNotMatch(html, /Q&amp;A|apply-details/);
+    assert.match(html, /My resume.pdf/);
+    assert.match(html, /Please consider me\./);
+});
+
+await test('removing a job’s questions while applying cannot leave the applicant on a hidden Q&A step', () => {
+    const currentQuestions = [...questions];
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7' },
+        { jobQuestions: currentQuestions },
+    );
+    page.restore();
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    currentQuestions.length = 0;
+    page.render();
+    page.sync();
+    assert.equal(
+        find(page.render(), (node) => node.props?.['aria-current'] === 'step')
+            .props['data-testid'],
+        'apply-step-4',
+    );
+});
+
+await test('a submitted restored draft no longer offers Start over or claims nothing was sent', () => {
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7', furthestStep: 4 },
+        { jobQuestions: [] },
+    );
+    page.restore();
+    assert.ok(
+        find(
+            page.render(),
+            (node) => node.props?.['data-testid'] === 'status-apply-restored',
+        ),
+    );
+    page.click('button-apply-submit');
+    const tree = page.render();
+    assert.ok(find(tree, (node) => node.type?.name === 'SubmittedCard'));
+    assert.equal(
+        find(
+            tree,
+            (node) => node.props?.['data-testid'] === 'status-apply-restored',
+        ),
+        null,
+    );
+    assert.equal(
+        find(
+            tree,
+            (node) => node.props?.['data-testid'] === 'button-apply-start-over',
+        ),
+        null,
+    );
+});
+
+await test('submission sends only the current job answers and keeps the draft until confirmed success', () => {
+    const cleared = [];
+    const page = wizard(
+        {
+            ...empty,
+            resumeId: 'doc-7',
+            coverLetter: 'My cover letter',
+            salary: '2500.50',
+            availability: 'Within 2 weeks',
+            answers: {
+                license: 'No',
+                experience: 'Five years',
+                oldJob: 'Do not send',
+            },
+        },
+        {
+            submission: 'pending',
+            draftStore: { clearApplicationDraft: (id) => cleared.push(id) },
+        },
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    page.click('button-apply-next-3');
+    page.click('button-apply-submit');
+    assert.equal(page.requests.length, 1);
+    const { url, data, options } = page.requests[0];
+    assert.equal(url, '/job/1/apply');
+    assert.equal(data.resume_document_id, '7');
+    assert.equal(data.cover_letter, 'My cover letter');
+    assert.equal('availability' in data, false);
+    assert.equal('expected_monthly_salary' in data, false);
+    assert.deepEqual(data.answers, {
+        optional: '',
+        license: 'No',
+        experience: 'Five years',
+    });
+    assert.deepEqual(cleared, []);
+    options.onSuccess({ props: { jobId: '1', submittedApplicationId: null } });
+    assert.deepEqual(cleared, []);
+    find(
+        page.render(),
+        (node) => node.props?.onEditSection,
+    ).props.onEditSection('apply-resume');
+    assert.equal(
+        find(page.render(), (node) => node.props?.['aria-current'] === 'step')
+            .props['data-testid'],
+        'apply-step-4',
+    );
+    page.click('button-apply-submit');
+    assert.equal(page.requests.length, 1);
+    options.onError({ application: 'Please try again.' });
+    options.onFinish();
+    assert.deepEqual(cleared, []);
+    assert.ok(
+        find(
+            page.render(),
+            (node) =>
+                node.props?.['data-testid'] === 'status-apply-submit-errors',
+        ),
+    );
+    page.click('button-apply-submit');
+    page.requests[1].options.onSuccess({
+        props: { jobId: '1', submittedApplicationId: '99' },
+    });
+    page.requests[1].options.onFinish();
+    assert.deepEqual(cleared, ['42:1']);
+});
+
+await test('refreshing an upload draft requires the actual file again without losing typed answers', () => {
+    const page = wizard(
+        {
+            ...empty,
+            uploadedResume: { name: 'resume.pdf', size: '1 KB' },
+            coverLetter: 'Keep this',
+            furthestStep: 4,
+        },
+        { jobQuestions: [] },
+    );
+    page.restore();
+    const form = find(page.render(), (node) => node.props?.onPatch);
+    assert.equal(form.props.step, 2);
+    assert.equal(form.props.draft.coverLetter, 'Keep this');
+    assert.equal(form.props.draft.uploadedResume.name, '');
+});
+
+await test('a new upload sends the actual file and skips an absent Q&A step', () => {
+    const page = wizard(empty, { jobQuestions: [], submission: 'pending' });
+    page.click('button-apply-next-1');
+    const form = find(page.render(), (node) => node.props?.onFileChange);
+    const file = new File(['%PDF-1.4 resume'], 'resume.pdf', {
+        type: 'application/pdf',
+    });
+    form.props.onFileChange(file);
+    form.props.onPatch({ uploadedResume: { name: file.name, size: '1 KB' } });
+    page.click('button-apply-next-2');
+    page.click('button-apply-submit');
+    assert.equal(page.requests[0].data.resume, file);
+    assert.equal(page.requests[0].data.resume_document_id, null);
+    assert.deepEqual(page.requests[0].data.answers, {});
+});
+
+await test('step 2 requires all job documents and preserves the actual PDFs on submission failure', () => {
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7' },
+        {
+            jobQuestions: [],
+            requiredDocuments: ['NBI', 'Police clearance'],
+            submission: 'pending',
+        },
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    assert.equal(
+        find(page.render(), (node) => node.props?.onPatch).props.step,
+        2,
+    );
+    const nbi = new File(['%PDF-1.4 nbi'], 'nbi.pdf', {
+        type: 'application/pdf',
+    });
+    const police = new File(['%PDF-1.4 police'], 'police.pdf', {
+        type: 'application/pdf',
+    });
+    find(
+        page.render(),
+        (node) => node.props?.onDocumentChange,
+    ).props.onDocumentChange('NBI', nbi);
+    page.click('button-apply-next-2');
+    assert.equal(
+        find(page.render(), (node) => node.props?.onPatch).props.step,
+        2,
+    );
+    find(
+        page.render(),
+        (node) => node.props?.onDocumentChange,
+    ).props.onDocumentChange('Police clearance', police);
+    page.click('button-apply-next-2');
+    const review = find(page.render(), (node) => node.props?.onEditSection);
+    assert.equal(review.props.supportingFiles.get('NBI'), nbi);
+    page.click('button-apply-submit');
+    assert.deepEqual(page.requests[0].data.documents, [
+        { name: 'NBI', file: nbi },
+        { name: 'Police clearance', file: police },
+    ]);
+    page.requests[0].options.onError({
+        'documents.0.file': 'Try the PDF again.',
+    });
+    page.requests[0].options.onFinish();
+    const form = find(page.render(), (node) => node.props?.onDocumentChange);
+    assert.equal(form.props.step, 2);
+    assert.equal(form.props.supportingFiles.get('NBI'), nbi);
+    form.props.onDocumentChange('NBI', null);
+    page.click('button-apply-next-2');
+    assert.equal(
+        find(page.render(), (node) => node.props?.onPatch).props.step,
+        2,
+    );
+});
+
+await test('refreshing a review draft reopens documents when the job requires PDF uploads', () => {
+    const page = wizard(
+        {
+            ...empty,
+            resumeId: 'doc-7',
+            coverLetter: 'Keep this letter',
+            furthestStep: 4,
+        },
+        { jobQuestions: [], requiredDocuments: ['NBI'] },
+    );
+    page.restore();
+    const form = find(page.render(), (node) => node.props?.onDocumentChange);
+    assert.equal(form.props.step, 2);
+    assert.equal(form.props.draft.coverLetter, 'Keep this letter');
+});
+
+await test('the review shows each required PDF filename without adding Q&A', () => {
+    const { ReviewStep } = load(
+        'resources/js/components/applicant/apply-review.tsx',
+    );
+    const html = renderToStaticMarkup(
+        React.createElement(ReviewStep, {
+            draft: { ...empty, resumeId: 'doc-7' },
+            questions: [],
+            jobTitle: 'Welder',
+            agency: 'Agency',
+            documents: [{ id: 'doc-7', name: 'resume.pdf' }],
+            requiredDocuments: ['NBI'],
+            supportingFiles: new Map([
+                [
+                    'NBI',
+                    new File(['%PDF-1.4'], 'nbi.pdf', {
+                        type: 'application/pdf',
+                    }),
+                ],
+            ]),
+            onEditSection() {},
+        }),
+    );
+    assert.match(html, /NBI/);
+    assert.match(html, /nbi\.pdf/);
+    assert.doesNotMatch(html, /Q&amp;A/);
+});
 
 await test('the first step shows fixed demo guidance without criterion cards and keeps the actual agency', () => {
     const page = wizard();
@@ -299,10 +643,25 @@ await test('draft edits survive an immediate refresh, stay separate by job and c
     page.save();
 
     assert.equal(
-        draftStore.readApplicationDraft('1').coverLetter,
+        draftStore.readApplicationDraft('42:1').coverLetter,
         'Keep my latest edit',
     );
     const refreshed = wizard(empty, { draftStore });
+    const otherApplicant = wizard(empty, { draftStore, applicantId: '43' });
+    otherApplicant.restore();
+    assert.equal(
+        find(
+            otherApplicant.render(),
+            (node) => node.props?.['aria-current'] === 'step',
+        ).props['data-testid'],
+        'apply-step-1',
+    );
+    otherApplicant.click('button-apply-next-1');
+    assert.equal(
+        find(otherApplicant.render(), (node) => node.props?.onPatch).props.draft
+            .coverLetter,
+        '',
+    );
     refreshed.restore();
     const restored = find(refreshed.render(), (node) => node.props?.onPatch);
     assert.equal(restored.props.draft.coverLetter, 'Keep my latest edit');
@@ -314,7 +673,7 @@ await test('draft edits survive an immediate refresh, stay separate by job and c
     const otherForm = find(other.render(), (node) => node.props?.onPatch);
     assert.equal(otherForm.props.draft.coverLetter, '');
     assert.equal(otherForm.props.draft.resumeId, null);
-    draftStore.writeApplicationDraft('2', {
+    draftStore.writeApplicationDraft('42:2', {
         ...empty,
         coverLetter: 'Other job',
     });
@@ -324,8 +683,11 @@ await test('draft edits survive an immediate refresh, stay separate by job and c
     refreshed.click('button-apply-next-2');
     refreshed.click('button-apply-next-3');
     refreshed.click('button-apply-submit');
-    assert.equal(storage.has('opap-application-draft-1'), false);
-    assert.equal(draftStore.readApplicationDraft('2').coverLetter, 'Other job');
+    assert.equal(storage.has('opap-application-draft-42:1'), false);
+    assert.equal(
+        draftStore.readApplicationDraft('42:2').coverLetter,
+        'Other job',
+    );
 });
 
 await test('the stepper cannot bypass required fields and both forward paths show field-level errors', (t) => {
@@ -573,7 +935,7 @@ await test('required answers treat No as answered but not whitespace or empty se
     );
 });
 
-await test('required questions precede extras, salary and availability on the Q&A step', () => {
+await test('Q&A shows only saved questions with required questions before optional ones', () => {
     const { ApplicationStepForm } = load(
         'resources/js/components/applicant/apply-form.tsx',
     );
@@ -594,12 +956,49 @@ await test('required questions precede extras, salary and availability on the Q&
     assert.ok(
         html.indexOf('Do you hold a license?') < html.indexOf('Anything else?'),
     );
-    assert.ok(
-        html.indexOf('Anything else?') <
-            html.indexOf('Expected monthly salary'),
+    assert.doesNotMatch(
+        html,
+        /Expected monthly salary|Select your availability|input-apply-salary|select-apply-availability/,
     );
     assert.doesNotMatch(html, /input-apply-cover-letter/);
     assert.doesNotMatch(html, /aria-invalid="true"/);
+});
+
+await test('selection uses one saved choice and number questions use numeric inputs', () => {
+    const { ApplyQuestion } = load(
+        'resources/js/components/applicant/apply-question.tsx',
+    );
+    const selected = renderToStaticMarkup(
+        React.createElement(ApplyQuestion, {
+            question: {
+                id: 'start',
+                label: 'When can you start?',
+                type: 'selection',
+                options: ['Now', 'Next month'],
+                required: true,
+            },
+            answer: 'Next month',
+            onAnswer() {},
+        }),
+    );
+    assert.match(selected, /<select/);
+    assert.match(selected, /<option[^>]*value="Next month"[^>]*selected/);
+    assert.doesNotMatch(selected, /multiple|checkbox/);
+    const numeric = renderToStaticMarkup(
+        React.createElement(ApplyQuestion, {
+            question: {
+                id: 'salary',
+                label: 'Salary?',
+                type: 'number',
+                required: true,
+            },
+            answer: '0',
+            onAnswer() {},
+        }),
+    );
+    assert.match(numeric, /type="number"/);
+    assert.match(numeric, /step="any"/);
+    assert.match(numeric, /value="0"/);
 });
 
 await test('question controls expose inline errors, selected No, short inputs and paragraph counts', () => {
@@ -694,6 +1093,7 @@ await test('choosing the upload card without a file still requires a resume', ()
 
 await test('upload browse and drop accept PDF/DOCX metadata, reject other files, and Remove clears the selection', () => {
     let draft = { ...empty, uploadedResume: { name: '', size: '' } };
+    let selectedFile = null;
     const state = [];
     let cursor = 0;
     const { ResumePicker } = load(
@@ -721,6 +1121,9 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
             draft,
             documents: [],
             invalid: false,
+            onFileChange: (file) => {
+                selectedFile = file;
+            },
             onPatch: (patch) => {
                 draft = { ...draft, ...patch };
             },
@@ -735,6 +1138,7 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
         name: 'resume.PDF',
         size: '2 KB',
     });
+    assert.equal(selectedFile.name, 'resume.PDF');
     control('dropzone-apply-resume').props.onDrop({
         preventDefault() {},
         dataTransfer: { files: [{ name: 'unsafe.html', size: 500 }] },
@@ -757,7 +1161,131 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
     );
     control('button-apply-upload-remove').props.onClick();
     assert.deepEqual(draft.uploadedResume, { name: '', size: '' });
+    assert.equal(selectedFile, null);
     assert.ok(control('button-apply-upload-browse'));
+});
+
+await test('required document controls reject non-PDF and oversized files and allow selecting and removing PDFs', () => {
+    const files = new Map();
+    let errors = {};
+    const { RequiredDocumentUploads } = load(
+        'resources/js/components/applicant/required-document-uploads.tsx',
+        {
+            react: {
+                ...React,
+                useState: () => [
+                    errors,
+                    (next) => {
+                        errors = next(errors);
+                    },
+                ],
+            },
+        },
+    );
+    const render = () =>
+        RequiredDocumentUploads({
+            names: ['NBI clearance', 'Police clearance'],
+            files,
+            blocked: true,
+            onChange: (name, file) => {
+                if (file) files.set(name, file);
+                else files.delete(name);
+            },
+        });
+    const input = () =>
+        find(render(), (node) => node.props?.id === 'apply-document-0');
+    assert.equal(input().props.accept, '.pdf,application/pdf');
+    assert.equal(input().props['aria-invalid'], true);
+    const html = renderToStaticMarkup(
+        React.createElement(React.Fragment, null, render()),
+    );
+    assert.match(html, /NBI clearance/);
+    assert.match(html, /Police clearance/);
+    assert.match(html, /Upload NBI clearance before continuing/);
+    for (const file of [
+        {
+            name: 'nbi.docx',
+            type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            size: 10,
+        },
+        { name: 'nbi.pdf', type: 'text/html', size: 10 },
+        {
+            name: 'nbi.pdf',
+            type: 'application/pdf',
+            size: 10 * 1024 * 1024 + 1,
+        },
+    ]) {
+        input().props.onChange({
+            target: { files: [file], value: 'selected' },
+        });
+        assert.equal(files.size, 0);
+        assert.ok(errors[0]);
+    }
+    const pdf = new File(['%PDF-1.4'], 'nbi.PDF', { type: 'application/pdf' });
+    input().props.onChange({ target: { files: [pdf], value: 'selected' } });
+    assert.equal(files.get('NBI clearance'), pdf);
+    assert.equal(errors[0], '');
+    assert.match(
+        renderToStaticMarkup(
+            React.createElement(React.Fragment, null, render()),
+        ),
+        /nbi.PDF/,
+    );
+    find(
+        render(),
+        (node) =>
+            node.props?.['data-testid'] === 'button-remove-required-document-0',
+    ).props.onClick();
+    assert.equal(files.size, 0);
+    assert.equal(input().props.type, 'file');
+    input().props.onChange({ target: { files: [], value: '' } });
+    assert.equal(files.size, 0);
+    input().props.onChange({
+        target: {
+            files: [{ name: 'nbi.pdf', type: '', size: 10 * 1024 * 1024 }],
+            value: '',
+        },
+    });
+    assert.equal(files.get('NBI clearance').size, 10 * 1024 * 1024);
+});
+
+await test('job details show only the saved required documents and escape their names', () => {
+    const { JobDetailPanel } = load(
+        'resources/js/components/applicant/job-detail-panel.tsx',
+        {
+            '@/components/formatted-text': { FormattedText: () => null },
+            '@/routes/agencies': { show: { url: () => '/agencies/agency' } },
+            './job-facts': { JobFacts: () => null, JOB_FACT_OVERVIEW: [] },
+        },
+    );
+    const props = {
+        job: {
+            id: '1',
+            title: 'Welder',
+            agency: 'Agency',
+            postingType: 'job_order',
+            requiredDocuments: ['NBI clearance', '<script>police</script>'],
+        },
+        isSaved: false,
+        onToggleSaved() {},
+        applyHref: '/job/1/apply',
+    };
+    const html = renderToStaticMarkup(
+        React.createElement(JobDetailPanel, props),
+    );
+    assert.match(html, /aria-label="Required documents"/);
+    assert.match(html, /<li>NBI clearance<\/li>/);
+    assert.match(html, /&lt;script&gt;police&lt;\/script&gt;/);
+    assert.doesNotMatch(html, /<script>/);
+    assert.doesNotMatch(
+        renderToStaticMarkup(
+            React.createElement(JobDetailPanel, {
+                ...props,
+                job: { ...props.job, requiredDocuments: [] },
+            }),
+        ),
+        /aria-label="Required documents"/,
+    );
 });
 
 await test('review sections keep optional blanks distinct from required warnings and edit the correct field', () => {

@@ -36,6 +36,7 @@ export function buildJobPostPreview(
                 (entry) => entry.id === form.subcategoryId,
             )?.name ?? '',
         description: form.description,
+        requiredDocuments: form.requiredDocuments,
         closingDate: form.closingDate || undefined,
         minExperienceYears:
             form.minExperienceYears === ''

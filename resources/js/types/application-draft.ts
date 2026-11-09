@@ -8,7 +8,7 @@
 
 import type { JobQuestion } from './job';
 
-/** A single question answer. Arrays back the multi-select question type. */
+/** New answers are strings; arrays are retained when restoring older drafts. */
 export type ApplicationAnswer = string | string[];
 
 export type UploadedResume = {
@@ -21,8 +21,6 @@ export type ApplicationDraft = {
     resumeId: string | null;
     uploadedResume: UploadedResume | null;
     coverLetter: string;
-    salary: string;
-    availability: string;
     answers: Record<string, ApplicationAnswer>;
 };
 

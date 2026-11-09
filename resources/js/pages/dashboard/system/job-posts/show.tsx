@@ -140,6 +140,8 @@ const ANSWER_TYPE_LABELS: Record<QuestionAnswerType, string> = {
     yesno: 'Yes / no',
     short: 'Short text',
     paragraph: 'Paragraph',
+    selection: 'Selection',
+    number: 'Number',
 };
 
 const TABS = [
@@ -1256,6 +1258,9 @@ export default function SystemJobPostShow({ jobPostId }: JobPostShowProps) {
                                                             {question.expectedAnswer !==
                                                                 null &&
                                                                 ` · expected “${question.expectedAnswer}”`}
+                                                            {question.answerType ===
+                                                                'selection' &&
+                                                                ` · Choices: ${question.options?.join(', ') ?? ''}`}
                                                         </p>
                                                     </div>
                                                     <StatusPill

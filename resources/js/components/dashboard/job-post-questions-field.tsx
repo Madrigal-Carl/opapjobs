@@ -20,7 +20,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import {
     copyQuestion,
     questionMoveTarget,
@@ -32,6 +31,8 @@ const answerLabels = {
     yesno: 'Yes / No',
     short: 'Short answer',
     paragraph: 'Paragraph',
+    selection: 'Selection',
+    number: 'Number',
 };
 
 export function JobPostQuestionsField({
@@ -65,6 +66,16 @@ export function JobPostQuestionsField({
             );
             input?.scrollIntoView({ block: 'center', behavior: 'smooth' });
             input?.focus({ preventScroll: true });
+        });
+    const focusOption = (questionIndex: number, optionIndex: number) =>
+        requestAnimationFrame(() => {
+            document
+                .getElementById(
+                    optionIndex < 0
+                        ? `question-${questionIndex}-add-option`
+                        : `question-${questionIndex}-option-${optionIndex}`,
+                )
+                ?.focus();
         });
 
     return (
@@ -123,10 +134,11 @@ export function JobPostQuestionsField({
             />
             {fields.map((field, index) => {
                 const question = questions[index] ?? field;
+                const choices = question.options ?? [];
                 const error = errors.questions?.[index];
                 const hidden = collapsed.has(field.id) && !error;
                 const errorProps = (
-                    name: 'label' | 'type' | 'answer' | 'required',
+                    name: 'label' | 'type' | 'answer' | 'required' | 'options',
                 ) => ({
                     'aria-invalid': Boolean(error?.[name]),
                     'aria-describedby': error?.[name]
@@ -289,6 +301,13 @@ export function JobPostQuestionsField({
                                                     shouldValidate: true,
                                                 },
                                             );
+                                            setValue(
+                                                `questions.${index}.options`,
+                                                value === 'selection'
+                                                    ? ['', '']
+                                                    : [],
+                                                { shouldDirty: true },
+                                            );
                                         }}
                                     >
                                         <SelectTrigger
@@ -317,11 +336,13 @@ export function JobPostQuestionsField({
                                         message={error?.type?.message}
                                     />
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor={`question-${index}-answer`}>
-                                        Expected answer
-                                    </Label>
-                                    {question.type === 'yesno' ? (
+                                {question.type === 'yesno' && (
+                                    <div className="space-y-1.5">
+                                        <Label
+                                            htmlFor={`question-${index}-answer`}
+                                        >
+                                            Expected answer
+                                        </Label>
                                         <Select
                                             value={question.answer || 'none'}
                                             onValueChange={(value) =>
@@ -361,35 +382,131 @@ export function JobPostQuestionsField({
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                    ) : question.type === 'short' ? (
-                                        <Input
-                                            id={`question-${index}-answer`}
-                                            {...register(
-                                                `questions.${index}.answer`,
-                                            )}
-                                            {...errorProps('answer')}
-                                            data-testid={`input-question-answer-${index}`}
-                                            placeholder="Short answer goes here"
+                                        <InputError
+                                            id={`question-${index}-answer-error`}
+                                            role="alert"
+                                            message={error?.answer?.message}
                                         />
-                                    ) : (
-                                        <Textarea
-                                            id={`question-${index}-answer`}
-                                            rows={3}
-                                            {...register(
-                                                `questions.${index}.answer`,
-                                            )}
-                                            {...errorProps('answer')}
-                                            data-testid={`textarea-question-answer-${index}`}
-                                            placeholder="Let the applicant explain in their own words…"
-                                        />
-                                    )}
-                                    <InputError
-                                        id={`question-${index}-answer-error`}
-                                        role="alert"
-                                        message={error?.answer?.message}
-                                    />
-                                </div>
+                                    </div>
+                                )}
                             </div>
+                            {question.type === 'selection' && (
+                                <fieldset
+                                    className="space-y-2"
+                                    {...errorProps('options')}
+                                    aria-describedby={`question-${index}-options-hint${error?.options ? ` question-${index}-options-error` : ''}`}
+                                >
+                                    <legend className="text-sm font-medium">
+                                        Choices
+                                    </legend>
+                                    <p
+                                        id={`question-${index}-options-hint`}
+                                        className="text-xs text-[var(--slate)]"
+                                    >
+                                        Add 2–20 choices. Applicants select one
+                                        answer.
+                                    </p>
+                                    {choices.map((choice, choiceIndex) => (
+                                        <div
+                                            key={choiceIndex}
+                                            className="flex items-center gap-2"
+                                        >
+                                            <Input
+                                                id={`question-${index}-option-${choiceIndex}`}
+                                                value={choice}
+                                                maxLength={255}
+                                                className="min-w-0 flex-1"
+                                                placeholder={`Option ${choiceIndex + 1}`}
+                                                aria-label={`Option ${choiceIndex + 1} for question ${index + 1}`}
+                                                {...errorProps('options')}
+                                                onChange={(event) =>
+                                                    setValue(
+                                                        `questions.${index}.options`,
+                                                        choices.map(
+                                                            (
+                                                                item,
+                                                                itemIndex,
+                                                            ) =>
+                                                                itemIndex ===
+                                                                choiceIndex
+                                                                    ? event
+                                                                          .target
+                                                                          .value
+                                                                    : item,
+                                                        ),
+                                                        {
+                                                            shouldDirty: true,
+                                                            shouldValidate: true,
+                                                        },
+                                                    )
+                                                }
+                                                data-testid={`input-question-option-${index}-${choiceIndex}`}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 shrink-0 text-destructive"
+                                                aria-label={`Remove option ${choiceIndex + 1} from question ${index + 1}`}
+                                                data-testid={`button-remove-question-option-${index}-${choiceIndex}`}
+                                                onClick={() => {
+                                                    setValue(
+                                                        `questions.${index}.options`,
+                                                        choices.filter(
+                                                            (_, itemIndex) =>
+                                                                itemIndex !==
+                                                                choiceIndex,
+                                                        ),
+                                                        {
+                                                            shouldDirty: true,
+                                                            shouldValidate: true,
+                                                        },
+                                                    );
+                                                    focusOption(
+                                                        index,
+                                                        Math.min(
+                                                            choiceIndex,
+                                                            choices.length - 2,
+                                                        ),
+                                                    );
+                                                }}
+                                            >
+                                                <Trash2
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button
+                                        id={`question-${index}-add-option`}
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        disabled={choices.length >= 20}
+                                        data-testid={`button-add-question-option-${index}`}
+                                        onClick={() => {
+                                            setValue(
+                                                `questions.${index}.options`,
+                                                [...choices, ''],
+                                                { shouldDirty: true },
+                                            );
+                                            focusOption(index, choices.length);
+                                        }}
+                                    >
+                                        <Plus
+                                            className="size-4"
+                                            aria-hidden="true"
+                                        />{' '}
+                                        Add option
+                                    </Button>
+                                    <InputError
+                                        id={`question-${index}-options-error`}
+                                        role="alert"
+                                        message={error?.options?.message}
+                                    />
+                                </fieldset>
+                            )}
                             <div className="flex items-center gap-2">
                                 <Checkbox
                                     id={`question-${index}-required`}

@@ -313,6 +313,19 @@ export function JobPostPreviewDialog({
                             />
                         </section>
                     )}
+                    {Boolean(job.requiredDocuments?.length) && (
+                        <section aria-label="Required documents">
+                            <hr className={divider} />
+                            <h3 className="mb-3 text-[13px] font-semibold text-[var(--navy)]">
+                                Required documents
+                            </h3>
+                            <ul className="list-inside list-disc text-[13px] text-[var(--slate)]">
+                                {job.requiredDocuments?.map((name) => (
+                                    <li key={name}>{name}</li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
                     {questions.length > 0 && (
                         <section aria-label="Screening questions">
                             <hr className={divider} />
@@ -333,6 +346,8 @@ export function JobPostPreviewDialog({
                                                         yesno: 'Yes / No',
                                                         short: 'Short answer',
                                                         paragraph: 'Paragraph',
+                                                        selection: 'Selection',
+                                                        number: 'Number',
                                                     }[question.type]
                                                 }
                                             </span>
@@ -342,14 +357,21 @@ export function JobPostPreviewDialog({
                                                 </span>
                                             )}
                                         </p>
-                                        {question.answer.trim() && (
-                                            <p className="mt-1 text-xs whitespace-pre-line text-[var(--slate)]">
-                                                Expected Answer:{' '}
-                                                <span className="font-semibold text-[#1f7a4d]">
-                                                    {question.answer}
-                                                </span>
+                                        {question.type === 'selection' && (
+                                            <p className="mt-1 text-xs text-[var(--slate)]">
+                                                Choices:{' '}
+                                                {question.options?.join(' · ')}
                                             </p>
                                         )}
+                                        {question.type === 'yesno' &&
+                                            question.answer.trim() && (
+                                                <p className="mt-1 text-xs whitespace-pre-line text-[var(--slate)]">
+                                                    Expected Answer:{' '}
+                                                    <span className="font-semibold text-[#1f7a4d]">
+                                                        {question.answer}
+                                                    </span>
+                                                </p>
+                                            )}
                                     </div>
                                 ))}
                             </div>

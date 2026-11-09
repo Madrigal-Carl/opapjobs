@@ -3,13 +3,10 @@ import { ApplyTag, focusApplyField } from '@/components/applicant/apply-field';
 import { ApplyQuestion } from '@/components/applicant/apply-question';
 import { FieldError } from '@/components/applicant/match-blocks';
 import { ResumePicker } from '@/components/applicant/resume-dropzone';
-import { FormSelect } from '@/components/form/form-select';
+import { RequiredDocumentUploads } from '@/components/applicant/required-document-uploads';
 import { Textarea } from '@/components/ui/textarea';
 import type { ApplicationDraftRecord } from '@/data/application-draft-store';
-import {
-    AVAILABILITY_OPTIONS,
-    COVER_LETTER_CHIPS,
-} from '@/data/application-questions';
+import { COVER_LETTER_CHIPS } from '@/data/application-questions';
 import {
     missingRequiredAnswers,
     type ApplicationAnswer,
@@ -28,6 +25,10 @@ export function ApplicationStepForm({
     outstanding,
     onPatch,
     onAnswer,
+    onFileChange,
+    requiredDocuments = [],
+    supportingFiles = new Map(),
+    onDocumentChange = () => {},
 }: {
     step: 2 | 3;
     agency: string;
@@ -39,15 +40,23 @@ export function ApplicationStepForm({
     outstanding: string[];
     onPatch: (next: Partial<ApplicationDraftRecord>) => void;
     onAnswer: (questionId: string, value: ApplicationAnswer) => void;
+    onFileChange: (file: File | null) => void;
+    requiredDocuments?: string[];
+    supportingFiles?: ReadonlyMap<string, File>;
+    onDocumentChange?: (name: string, file: File | null) => void;
 }) {
     const required = questions.filter((question) => question.required);
     const optional = questions.filter((question) => !question.required);
     const missing = missingRequiredAnswers(required, draft.answers);
     const hasResume = Boolean(draft.resumeId || draft.uploadedResume?.name);
     const resumeInvalid = blocked.length > 0 && !hasResume;
-    const total = step === 2 ? 1 : required.length;
+    const total = step === 2 ? 1 + requiredDocuments.length : required.length;
     const done =
-        step === 2 ? Number(hasResume) : required.length - missing.length;
+        step === 2
+            ? Number(hasResume) +
+              requiredDocuments.filter((name) => supportingFiles.has(name))
+                  .length
+            : required.length - missing.length;
     const problems = [
         ...(step === 2 && !hasResume
             ? [{ id: 'apply-resume', label: 'Choose a resume to send' }]
@@ -56,6 +65,18 @@ export function ApplicationStepForm({
             id: `question-${question.id}`,
             label: question.label,
         })),
+        ...(step === 2
+            ? requiredDocuments.flatMap((name, index) =>
+                  supportingFiles.has(name)
+                      ? []
+                      : [
+                            {
+                                id: `apply-document-${index}`,
+                                label: `Upload ${name}`,
+                            },
+                        ],
+              )
+            : []),
     ];
     const questionField = (question: JobQuestion) => (
         <ApplyQuestion
@@ -112,6 +133,7 @@ export function ApplicationStepForm({
                             documents={documents}
                             invalid={resumeInvalid}
                             onPatch={onPatch}
+                            onFileChange={onFileChange}
                         />
                         {resumeInvalid && (
                             <div id="apply-resume-error">
@@ -121,6 +143,14 @@ export function ApplicationStepForm({
                             </div>
                         )}
                     </fieldset>
+                )}
+                {step === 2 && (
+                    <RequiredDocumentUploads
+                        names={requiredDocuments}
+                        files={supportingFiles}
+                        blocked={blocked.length > 0}
+                        onChange={onDocumentChange}
+                    />
                 )}
                 {step === 3 && [...required, ...optional].map(questionField)}
                 {step === 2 && (
@@ -163,59 +193,6 @@ export function ApplicationStepForm({
                             ))}
                         </div>
                     </div>
-                )}
-                {step === 3 && (
-                    <>
-                        <div className="field" id="apply-details">
-                            <label
-                                className="apply-field-label"
-                                htmlFor="apply-salary"
-                            >
-                                Expected monthly salary <ApplyTag />
-                            </label>
-                            <input
-                                id="apply-salary"
-                                type="text"
-                                className="field-control"
-                                value={draft.salary}
-                                placeholder="Amount and currency per month"
-                                onChange={(event) =>
-                                    onPatch({ salary: event.target.value })
-                                }
-                                data-testid="input-apply-salary"
-                            />
-                            <p className="field-hint">
-                                Leave blank to let the agency quote theirs.
-                            </p>
-                        </div>
-                        <div className="field">
-                            <label
-                                className="apply-field-label"
-                                htmlFor="apply-availability"
-                            >
-                                Availability <ApplyTag />
-                            </label>
-                            <FormSelect
-                                id="apply-availability"
-                                selectClassName="field-control"
-                                placeholder="Select your availability"
-                                value={draft.availability}
-                                onChange={(event) =>
-                                    onPatch({
-                                        availability: event.target.value,
-                                    })
-                                }
-                                options={AVAILABILITY_OPTIONS.map((option) => ({
-                                    value: option,
-                                    label: option,
-                                }))}
-                                data-testid="select-apply-availability"
-                            />
-                            <p className="field-hint">
-                                Not sure yet? You can leave this blank.
-                            </p>
-                        </div>
-                    </>
                 )}
             </section>
             <p

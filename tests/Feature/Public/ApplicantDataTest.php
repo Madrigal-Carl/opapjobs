@@ -142,6 +142,12 @@ test('an applicant without a profile gets an empty resume', function () {
 
 test('the apply page loads the job post and its questions without the expected answers', function () {
     $post = PublicCatalog::post(PublicCatalog::agency(), ['job_title' => 'Staff Nurse']);
+    foreach (['resume', 'passport'] as $type) {
+        $this->applicant->documents()->create([
+            'document_type' => $type, 'original_file_name' => $type.'.pdf', 'storage_path' => 'documents/'.$type.'.pdf',
+            'mime_type' => 'application/pdf', 'file_size_bytes' => 1000, 'is_primary' => false, 'uploaded_at' => now(),
+        ]);
+    }
     JobPostQuestion::query()->create([
         'job_post_id' => $post->id, 'question_text' => 'Do you hold a valid PRC licence?', 'answer_type' => 'yesno',
         'expected_answer' => 'SECRET-EXPECTED', 'is_required' => true, 'sort_order' => 1,
@@ -161,7 +167,7 @@ test('the apply page loads the job post and its questions without the expected a
             ['Years in an ICU?', 'short', false, ''],
             ['Do you hold a valid PRC licence?', 'yesno', true, ''],
         ])
-        ->where('resume.name', 'Mariel Santos'));
+        ->where('resume.name', 'Mariel Santos')->has('resume.documents', 1)->where('resume.documents.0.name', 'resume.pdf'));
 
     expect($response->getContent())->not->toContain('SECRET-EXPECTED')->not->toContain('SECRET-TWO');
 });

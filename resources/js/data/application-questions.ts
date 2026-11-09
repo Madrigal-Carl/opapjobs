@@ -6,14 +6,6 @@ import type { Job, JobQuestion } from '@/types/job';
 /** Answers offered for a yes/no custom question. */
 export const YES_NO_OPTIONS = ['Yes', 'No'] as const;
 
-/** When the applicant could start. */
-export const AVAILABILITY_OPTIONS = [
-    'Immediately',
-    'Within 2 weeks',
-    'Within 1 month',
-    'More than 1 month',
-] as const;
-
 /** Insert-able sentences for the cover letter. */
 export const COVER_LETTER_CHIPS: CoverLetterChip[] = [
     {

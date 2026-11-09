@@ -11,6 +11,8 @@ export function ReviewStep({
     agency,
     documents,
     onEditSection,
+    requiredDocuments = [],
+    supportingFiles = new Map(),
 }: {
     draft: ApplicationDraftRecord;
     questions: JobQuestion[];
@@ -18,6 +20,8 @@ export function ReviewStep({
     agency: string;
     documents: ResumeDocument[];
     onEditSection: (id: string) => void;
+    requiredDocuments?: string[];
+    supportingFiles?: ReadonlyMap<string, File>;
 }) {
     const resumeName =
         draft.uploadedResume?.name ||
@@ -39,38 +43,48 @@ export function ReviewStep({
                     <ReviewRow label="Resume" value={resumeName} required />
                     <ReviewRow label="Cover letter" value={draft.coverLetter} />
                 </ReviewSection>
-                <ReviewSection
-                    title="Q&A"
-                    target={
-                        questions.length
-                            ? `question-${questions.find((question) => question.required)?.id ?? questions[0].id}`
-                            : 'apply-details'
-                    }
-                    onEdit={onEditSection}
-                >
-                    {questions.map((question, index) => (
-                        <ReviewRow
-                            key={question.id}
-                            label={question.label}
-                            number={index + 1}
-                            value={
-                                typeof draft.answers[question.id] === 'string'
-                                    ? (draft.answers[question.id] as string)
-                                    : ((
-                                          draft.answers[question.id] as
-                                              | string[]
-                                              | undefined
-                                      )?.join(', ') ?? '')
-                            }
-                            required={question.required}
-                        />
-                    ))}
-                    <ReviewRow label="Expected salary" value={draft.salary} />
-                    <ReviewRow
-                        label="Availability"
-                        value={draft.availability}
-                    />
-                </ReviewSection>
+                {requiredDocuments.length > 0 && (
+                    <ReviewSection
+                        title="Required documents"
+                        target="apply-document-0"
+                        onEdit={onEditSection}
+                    >
+                        {requiredDocuments.map((name) => (
+                            <ReviewRow
+                                key={name}
+                                label={name}
+                                value={supportingFiles.get(name)?.name ?? ''}
+                                required
+                            />
+                        ))}
+                    </ReviewSection>
+                )}
+                {questions.length > 0 && (
+                    <ReviewSection
+                        title="Q&A"
+                        target={`question-${questions.find((question) => question.required)?.id ?? questions[0].id}`}
+                        onEdit={onEditSection}
+                    >
+                        {questions.map((question, index) => (
+                            <ReviewRow
+                                key={question.id}
+                                label={question.label}
+                                number={index + 1}
+                                value={
+                                    typeof draft.answers[question.id] ===
+                                    'string'
+                                        ? (draft.answers[question.id] as string)
+                                        : ((
+                                              draft.answers[question.id] as
+                                                  | string[]
+                                                  | undefined
+                                          )?.join(', ') ?? '')
+                                }
+                                required={question.required}
+                            />
+                        ))}
+                    </ReviewSection>
+                )}
             </div>
             <p className="apply-card-lede">
                 By submitting you confirm the details above are yours and agree

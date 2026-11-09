@@ -20,6 +20,8 @@ export type JobPostRow = {
     recruitment_type: PostingType;
     display_status: JobPostDisplayStatus;
     applicants_count: number;
+    hired_count: number;
+    vacant_positions: number;
     is_urgent: boolean;
 };
 

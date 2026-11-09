@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { ApplyTag } from '@/components/applicant/apply-field';
 import { FieldError } from '@/components/applicant/match-blocks';
 import { Textarea } from '@/components/ui/textarea';
+import { FormSelect } from '@/components/form/form-select';
 import { YES_NO_OPTIONS } from '@/data/application-questions';
 import type { ApplicationAnswer } from '@/types/application-draft';
 import type { JobQuestion } from '@/types/job';
@@ -95,10 +96,32 @@ export function ApplyQuestion({
                         </label>
                     ))}
                 </div>
-            ) : question.type === 'short' ? (
+            ) : question.type === 'selection' ? (
+                <FormSelect
+                    id={id}
+                    selectClassName="field-control"
+                    value={value}
+                    placeholder="Select an answer"
+                    options={(question.options ?? []).map((option) => ({
+                        value: option,
+                        label: option,
+                    }))}
+                    aria-required={question.required || undefined}
+                    aria-invalid={invalid || undefined}
+                    aria-describedby={errorId}
+                    onChange={(event) =>
+                        onAnswer(question.id, event.target.value)
+                    }
+                    data-testid={`select-answer-${question.id}`}
+                />
+            ) : question.type === 'short' || question.type === 'number' ? (
                 <input
                     id={id}
-                    type="text"
+                    type={question.type === 'number' ? 'number' : 'text'}
+                    step={question.type === 'number' ? 'any' : undefined}
+                    inputMode={
+                        question.type === 'number' ? 'decimal' : undefined
+                    }
                     className="field-control"
                     value={value}
                     aria-required={question.required || undefined}

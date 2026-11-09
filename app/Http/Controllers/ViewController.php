@@ -120,13 +120,15 @@ class ViewController extends Controller
         $result = $action->execute($job, $request->user());
 
         if ($result === null) {
-            return Inertia::render('jobs/apply', ['jobId' => $job, 'jobPost' => null]);
+            return Inertia::render('jobs/apply', ['jobId' => $job, 'applicantId' => (string) $request->user()->id, 'jobPost' => null]);
         }
 
         return Inertia::render('jobs/apply', [
             'jobId' => $job,
+            'applicantId' => (string) $request->user()->id,
             'jobPost' => PublicJobPostDetailResource::make($result['post'])->resolve($request),
             'questions' => PublicJobPostQuestionResource::collection($result['questions'])->resolve($request),
+            'submittedApplicationId' => $request->session()->get('submitted_application_id'),
             'resume' => $result['applicant'] === null ? null : ApplicantResumeResource::make($result['applicant'])->resolve($request),
         ]);
     }

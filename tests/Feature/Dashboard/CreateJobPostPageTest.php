@@ -28,6 +28,7 @@ test('the create page contains only the agency pathway and active employers and 
         ->has('categories', 1)->where('categories.0.id', $category->id)
         ->has('categories.0.subcategories', 1)->where('categories.0.subcategories.0.id', $subcategory->id)
         ->has('employers', 1)->where('employers.0.id', $employer->id)
+        ->where('options.answer_types', ['yesno', 'short', 'selection', 'number'])
         ->hasAll(['options.currencies', 'options.contract_types', 'options.education_levels',
             'options.languages', 'options.proficiencies', 'options.genders', 'options.recruitment_types', 'options.answer_types', 'today']));
 });

@@ -176,9 +176,11 @@ class ApplicationDetailResource extends JsonResource
     {
         return array_values($this->applicant->documents
             ->filter(fn (ApplicantDocument $document): bool => $document->uploaded_at->lessThanOrEqualTo($this->submitted_at))
+            ->merge($this->supportingDocuments)
             ->map(fn (ApplicantDocument $document): array => [
                 'id' => $document->id,
-                'name' => $document->original_file_name,
+                'name' => ($document->getRelationValue('pivot')?->getAttribute('requirement_name') !== null
+                    ? $document->getRelationValue('pivot')->getAttribute('requirement_name').' — ' : '').$document->original_file_name,
                 'document_type' => $document->document_type->value,
                 'uploaded_at' => $document->uploaded_at->toISOString(),
                 'size' => $this->fileSize($document->file_size_bytes),
