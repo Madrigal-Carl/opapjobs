@@ -1,4 +1,6 @@
 import type { Pathway } from '@/types/agency';
+import type { QuestionAnswerType } from '@/types/job';
+export type { QuestionAnswerType };
 
 /**
  * Entity shapes for the Super Admin console.
@@ -125,7 +127,6 @@ export type RecruitmentType = 'joborder' | 'manpooling';
 export type ContractType = 'permanent' | 'fixed' | 'seasonal';
 export type EducationLevel = 'secondary' | 'vocational' | 'bachelor' | 'master';
 export type GenderRequirement = 'any' | 'male' | 'female';
-export type QuestionAnswerType = 'yesno' | 'short' | 'paragraph';
 
 /** Stored `job_posts.status` (§8.2). `active` / `expired` are derived. */
 export type JobPostStatus = 'pending' | 'closed' | 'archived';
@@ -173,6 +174,7 @@ export type JobPostQuestionRecord = {
     questionText: string;
     answerType: QuestionAnswerType;
     expectedAnswer: string | null;
+    options?: string[];
     isRequired: boolean;
     sortOrder: number;
     /** Drives the §8.4 rule: an answered question is archived, never edited. */

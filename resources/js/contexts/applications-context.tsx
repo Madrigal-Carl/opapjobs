@@ -42,9 +42,8 @@ const emptyActivity = (): ApplicationActivity => ({
  * The applicant's applied / saved / archived job post ids, read from the
  * database through the shared `applicantActivity` prop.
  *
- * Saving and applying are not stored yet, so `toggleSaved` and
- * `markApplied` only change this page view: the next visit shows what the
- * database holds again. A guest (or any non-applicant) gets empty lists,
+ * `markApplied` reflects a confirmed server submission. Saving is still
+ * local to the current page view. A guest (or any non-applicant) gets empty lists,
  * so no page ever claims they sent an application they did not.
  */
 export function ApplicationsProvider({ children }: { children: ReactNode }) {

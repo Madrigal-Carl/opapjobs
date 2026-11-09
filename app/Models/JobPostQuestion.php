@@ -11,16 +11,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * @property QuestionAnswerType $answer_type
  * @property bool $is_required
+ * @property list<string>|null $options
  */
 class JobPostQuestion extends Model
 {
     use SoftDeletes;
 
-    protected $fillable = ['job_post_id', 'question_text', 'answer_type', 'expected_answer', 'is_required', 'sort_order'];
+    protected $fillable = ['job_post_id', 'question_text', 'answer_type', 'expected_answer', 'options', 'is_required', 'sort_order'];
 
     protected function casts(): array
     {
-        return ['answer_type' => QuestionAnswerType::class, 'is_required' => 'boolean', 'sort_order' => 'integer'];
+        return ['answer_type' => QuestionAnswerType::class, 'options' => 'array', 'is_required' => 'boolean', 'sort_order' => 'integer'];
     }
 
     /** @return BelongsTo<JobPost, $this> */

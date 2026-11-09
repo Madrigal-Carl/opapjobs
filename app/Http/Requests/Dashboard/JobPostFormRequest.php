@@ -82,8 +82,10 @@ abstract class JobPostFormRequest extends FormRequest
             'questions.*' => ['array'],
             'questions.*.id' => ['prohibited'],
             'questions.*.question_text' => ['required', 'string', 'max:255'],
-            'questions.*.answer_type' => ['required', Rule::enum(QuestionAnswerType::class)],
-            'questions.*.expected_answer' => ['nullable', 'string', 'max:2000'],
+            'questions.*.answer_type' => ['required', Rule::enum(QuestionAnswerType::class)->except([QuestionAnswerType::Paragraph])],
+            'questions.*.expected_answer' => ['nullable', 'prohibited_unless:questions.*.answer_type,yesno', 'string', 'max:2000'],
+            'questions.*.options' => ['exclude_unless:questions.*.answer_type,selection', 'required', 'array', 'list', 'min:2', 'max:20'],
+            'questions.*.options.*' => ['required', 'string', 'max:255'],
             'questions.*.is_required' => ['sometimes', 'boolean'],
         ];
     }
@@ -120,6 +122,12 @@ abstract class JobPostFormRequest extends FormRequest
                     && ! in_array($question['expected_answer'], ['yes', 'no'], true)) {
                     $validator->errors()->add("questions.{$index}.expected_answer", __('Choose Yes, No, or no preference.'));
                 }
+                if (($question['answer_type'] ?? null) === 'selection' && is_array($question['options'] ?? null)) {
+                    $choices = array_map(fn (mixed $choice): string => is_string($choice) ? mb_strtolower($choice) : '', $question['options']);
+                    if (count(array_unique($choices)) !== count($choices)) {
+                        $validator->errors()->add("questions.{$index}.options", __('Each choice must be different.'));
+                    }
+                }
             }
         }];
     }
@@ -154,13 +162,14 @@ abstract class JobPostFormRequest extends FormRequest
 
         /** @var list<LanguageData> $languages */
         $languages = $this->validated('languages', []);
-        /** @var list<array{id?: int, question_text: string, answer_type: string, expected_answer?: ?string, is_required?: bool}> $questions */
+        /** @var list<array{id?: int, question_text: string, answer_type: string, expected_answer?: ?string, options?: list<string>, is_required?: bool}> $questions */
         $questions = $this->validated('questions', []);
 
         return new StoreJobPostData($attributes, $languages, array_map(fn (array $question): array => [
             ...(isset($question['id']) ? ['id' => (int) $question['id']] : []),
             'question_text' => $question['question_text'], 'answer_type' => $question['answer_type'],
             'expected_answer' => $question['expected_answer'] ?? null, 'is_required' => (bool) ($question['is_required'] ?? false),
+            'options' => $question['options'] ?? [],
         ], $questions), $this->ip() ?? '0.0.0.0');
     }
 

@@ -24,7 +24,7 @@ const options = {
     recruitment_types: ['joborder', 'manpooling'],
     languages: ['english', 'arabic'],
     proficiencies: ['basic', 'conversational', 'fluent'],
-    answer_types: ['yesno', 'short', 'paragraph'],
+    answer_types: ['yesno', 'short', 'selection', 'number', 'paragraph'],
 };
 const categories = [
     { id: 1, name: 'Trades', subcategories: [{ id: 2, name: 'Electrician' }] },
@@ -49,6 +49,237 @@ const question = (label = 'Qualified?') => ({
     required: true,
 });
 
+await test('new posts prefill removable salary and start questions without injecting them into edits', () => {
+    const defaults = structuredClone(exports.emptyJobForm);
+    assert.deepEqual(
+        defaults.questions.map(({ type }) => type),
+        ['number', 'selection'],
+    );
+    assert.deepEqual(defaults.questions[1].options, [
+        'Immediately',
+        'Within 2 weeks',
+        'Within 1 month',
+        'More than 1 month',
+    ]);
+    assert.equal(
+        exports
+            .createJobFormSchema(options, '2026-10-19', categories)
+            .safeParse({ ...valid(), questions: defaults.questions }).success,
+        true,
+    );
+    assert.deepEqual(
+        exports.toJobPostPayload({ ...valid(), questions: [] }).questions,
+        [],
+    );
+    assert.deepEqual(
+        exports.fromJobPostPayload(
+            { ...exports.toJobPostPayload(valid()), id: 42 },
+            categories,
+        ).questions,
+        [],
+    );
+});
+
+await test('the job location dropdown searches the job-search countries and stores the selected country', () => {
+    const countries = {};
+    compileFunction(
+        ts.transpileModule(
+            readFileSync('resources/js/data/countries.ts', 'utf8'),
+            {
+                compilerOptions: { module: ts.ModuleKind.CommonJS },
+            },
+        ).outputText,
+        ['exports'],
+    )(countries);
+    const component = {};
+    const state = [];
+    let cursor = 0;
+    let value = 'Riyadh, Saudi Arabia';
+    const jsx = (type, props) => ({ type, props });
+    const imports = {
+        react: {
+            useEffect() {},
+            useState(initial) {
+                const index = cursor++;
+                if (!(index in state)) state[index] = initial;
+                return [
+                    state[index],
+                    (next) => {
+                        state[index] =
+                            typeof next === 'function'
+                                ? next(state[index])
+                                : next;
+                    },
+                ];
+            },
+        },
+        'react/jsx-runtime': { jsx, jsxs: jsx },
+        'lucide-react': { MapPin: 'span' },
+        '@/components/ui/input': { Input: 'input' },
+        '@/data/countries': countries,
+        '@/lib/utils': {
+            cn: (...classes) => classes.filter(Boolean).join(' '),
+        },
+    };
+    compileFunction(
+        ts.transpileModule(
+            readFileSync(
+                'resources/js/components/dashboard/job-location-combobox.tsx',
+                'utf8',
+            ),
+            {
+                compilerOptions: {
+                    module: ts.ModuleKind.CommonJS,
+                    jsx: ts.JsxEmit.ReactJSX,
+                },
+            },
+        ).outputText,
+        ['require', 'exports'],
+    )((name) => imports[name], component);
+    const render = () => {
+        cursor = 0;
+        const nodes = [];
+        const visit = (node) => {
+            if (!node || typeof node !== 'object') return;
+            if (Array.isArray(node)) return node.forEach(visit);
+            nodes.push(node);
+            visit(node.props?.children);
+        };
+        visit(
+            component.JobLocationCombobox({
+                id: 'job-location',
+                value,
+                onChange: (next) => {
+                    value = next;
+                },
+            }),
+        );
+        return nodes;
+    };
+    const input = () => render().find((node) => node.type === 'input');
+    assert.equal(
+        input().props.value,
+        'Riyadh, Saudi Arabia',
+        'legacy job locations stay prefilled',
+    );
+    input().props.onChange({ target: { value: 'uni' } });
+    assert.equal(
+        value,
+        '',
+        'typing alone must not silently keep the previous location',
+    );
+    const matches = render().filter((node) => node.props?.role === 'option');
+    assert.deepEqual(
+        matches.map((node) => node.props.children),
+        ['United Arab Emirates'],
+    );
+    input().props.onKeyDown({ key: 'Enter', preventDefault() {} });
+    assert.equal(value, 'United Arab Emirates');
+    input().props.onFocus();
+    assert.equal(
+        render().filter((node) => node.props?.role === 'option').length,
+        countries.countryOptions.length,
+    );
+    input().props.onKeyDown({ key: 'Escape', preventDefault() {} });
+    assert.equal(input().props['aria-expanded'], false);
+});
+
+await test('system-admin configured answer types support the prefilled screening questions', () => {
+    const seeds = {};
+    compileFunction(
+        ts.transpileModule(
+            readFileSync('resources/js/data/system/seeds/config.ts', 'utf8'),
+            {
+                compilerOptions: {
+                    module: ts.ModuleKind.CommonJS,
+                    target: ts.ScriptTarget.ES2022,
+                },
+            },
+        ).outputText,
+        ['require', 'exports'],
+    )(() => ({ countryOptions: [] }), seeds);
+    const answer_types = seeds
+        .seedOptionLists()
+        .question_answer_types.filter(
+            (entry) => entry.active && entry.value !== 'paragraph',
+        )
+        .map((entry) => entry.value);
+    assert.deepEqual(answer_types, ['yesno', 'short', 'selection', 'number']);
+    const schema = exports.createJobFormSchema(
+        { ...options, answer_types },
+        '2026-10-19',
+        categories,
+    );
+    assert.equal(
+        schema.safeParse({
+            ...valid(),
+            questions: structuredClone(exports.emptyJobForm.questions),
+        }).success,
+        true,
+    );
+});
+
+await test('selection choices survive validation payload editing and copying in order', () => {
+    const questions = [
+        {
+            ...question('When can you start?'),
+            type: 'selection',
+            answer: '',
+            options: [' Now ', 'Next month'],
+        },
+    ];
+    const parsed = exports
+        .createJobFormSchema(options, '2026-10-19', categories)
+        .parse({ ...valid(), questions });
+    const payload = exports.toJobPostPayload(parsed);
+    assert.deepEqual(payload.questions[0].options, ['Now', 'Next month']);
+    const edited = exports.fromJobPostPayload(
+        { ...payload, id: 42, questions: [{ ...payload.questions[0], id: 7 }] },
+        categories,
+    );
+    assert.deepEqual(edited.questions[0].options, ['Now', 'Next month']);
+    const copied = exports.copyQuestion(edited.questions[0]);
+    assert.deepEqual(copied.options, ['Now', 'Next month']);
+    copied.options.push('Later');
+    assert.deepEqual(edited.questions[0].options, ['Now', 'Next month']);
+    assert.equal(
+        exports.serverErrorField('questions.1.options.0'),
+        'questions.1.options',
+    );
+});
+
+for (const choices of [
+    undefined,
+    [],
+    ['Only'],
+    ['Now', ' '],
+    ['Now', ' now '],
+    ['Now', 'x'.repeat(256)],
+    Array.from({ length: 21 }, (_, i) => `Choice ${i}`),
+]) {
+    await test(`selection rejects invalid choices: ${JSON.stringify(choices)}`, () => {
+        const result = exports
+            .createJobFormSchema(options, '2026-10-19', categories)
+            .safeParse({
+                ...valid(),
+                questions: [
+                    {
+                        ...question(),
+                        type: 'selection',
+                        answer: '',
+                        options: choices,
+                    },
+                ],
+            });
+        assert.equal(result.success, false);
+        assert.ok(
+            result.error.issues.some(
+                ({ path }) => path.join('.') === 'questions.0.options',
+            ),
+        );
+    });
+}
+
 await test('the real job post schema accepts optional experience and zero or twenty questions', () => {
     const schema = exports.createJobFormSchema(
         options,
@@ -56,6 +287,13 @@ await test('the real job post schema accepts optional experience and zero or twe
         categories,
     );
     assert.equal(schema.safeParse(valid()).success, true);
+    assert.equal(
+        schema.safeParse({
+            ...valid(),
+            questions: [{ ...question(), type: 'short', answer: '' }],
+        }).success,
+        true,
+    );
     assert.equal(
         schema.safeParse({
             ...valid(),
@@ -158,6 +396,20 @@ const invalidCases = [
         'questions.0.answer',
     ],
     [
+        'paragraph answer type',
+        { questions: [{ ...question(), type: 'paragraph', answer: '' }] },
+        'questions.0.type',
+    ],
+    [
+        'short expected answer',
+        {
+            questions: [
+                { ...question(), type: 'short', answer: 'Expected response' },
+            ],
+        },
+        'questions.0.answer',
+    ],
+    [
         'duplicate text',
         { questions: [question('Qualified? '), question(' qualified?')] },
         'questions.1.label',
@@ -197,7 +449,7 @@ await test('the payload maps every field to the server contract and strips clien
             {
                 ...question('Second'),
                 type: 'short',
-                answer: '',
+                answer: 'Stale answer from an earlier question type',
                 required: false,
             },
         ],
@@ -323,6 +575,232 @@ await test('question helpers preserve values but never duplicate field-array ids
     assert.equal(exports.questionMoveTarget(2, 1, 3), null);
     assert.equal(exports.questionMoveTarget(1, -1, 3), 0);
     assert.equal(exports.questionMoveTarget(1, 1, 3), 2);
+});
+
+function screeningFieldNodes(questions, overrides = {}) {
+    const component = {};
+    const jsx = (type, props) => ({ type, props });
+    const imports = {
+        react: { useState: (value) => [value, () => {}] },
+        'react/jsx-runtime': { jsx, jsxs: jsx },
+        'react-hook-form': {
+            useFieldArray: () => ({
+                fields: questions.map((question, id) => ({ ...question, id })),
+            }),
+            useWatch: () => questions,
+        },
+        '@/data/job-form': exports,
+    };
+    compileFunction(
+        ts.transpileModule(
+            readFileSync(
+                'resources/js/components/dashboard/job-post-questions-field.tsx',
+                'utf8',
+            ),
+            {
+                compilerOptions: {
+                    module: ts.ModuleKind.CommonJS,
+                    target: ts.ScriptTarget.ES2022,
+                    jsx: ts.JsxEmit.ReactJSX,
+                },
+            },
+        ).outputText,
+        ['require', 'exports'],
+    )((name) => imports[name] ?? {}, component);
+    const tree = component.JobPostQuestionsField({
+        control: {},
+        register: () => ({}),
+        setValue() {},
+        errors: {},
+        options: ['yesno', 'short', 'selection', 'number'],
+        ...overrides,
+    });
+    const nodes = [];
+    const visit = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node)) return node.forEach(visit);
+        nodes.push(node);
+        visit(node.props?.children);
+    };
+    visit(tree);
+    return nodes;
+}
+
+await test('screening fields show an expected-answer control only for yes/no questions', () => {
+    const nodes = screeningFieldNodes([
+        { ...question('Describe your experience'), type: 'short', answer: '' },
+        question('Do you hold a license?'),
+        {
+            ...question('When can you start?'),
+            type: 'selection',
+            answer: '',
+            options: ['Now', 'Later'],
+        },
+        { ...question('Expected salary?'), type: 'number', answer: '' },
+    ]);
+
+    assert.equal(
+        nodes.some(
+            (node) => node.props?.['data-field'] === 'questions.0.answer',
+        ),
+        false,
+    );
+    assert.equal(
+        nodes.some(
+            (node) =>
+                node.props?.['data-testid'] === 'input-question-option-2-0',
+        ),
+        true,
+    );
+    for (const index of [0, 2, 3]) {
+        assert.equal(
+            nodes.some(
+                (node) =>
+                    node.props?.['data-testid'] ===
+                    `select-question-answer-${index}`,
+            ),
+            false,
+        );
+    }
+    assert.equal(
+        nodes.some(
+            (node) =>
+                node.props?.['data-testid'] === 'select-question-answer-1',
+        ),
+        true,
+    );
+    assert.equal(
+        nodes.some(
+            (node) =>
+                node.props?.['data-testid'] === 'question-type-0-paragraph',
+        ),
+        false,
+    );
+});
+
+await test('selection choices can be edited added and removed individually without changing other choices', () => {
+    const questions = [
+        {
+            ...question('When?'),
+            type: 'selection',
+            answer: '',
+            options: ['Now', 'Next month'],
+        },
+    ];
+    const previousFrame = globalThis.requestAnimationFrame;
+    globalThis.requestAnimationFrame = () => 0;
+    try {
+        const render = () =>
+            screeningFieldNodes(questions, {
+                setValue(path, value) {
+                    const [, index, field] = path.split('.');
+                    questions[Number(index)][field] = value;
+                },
+            });
+        const get = (id) =>
+            render().find((node) => node.props?.['data-testid'] === id);
+        assert.equal(get('input-question-option-0-0').props.value, 'Now');
+        assert.equal(
+            get('input-question-option-0-1').props.value,
+            'Next month',
+        );
+        assert.equal(
+            render().some((node) => node.props?.rows),
+            false,
+            'no multiline choices control',
+        );
+
+        get('input-question-option-0-0').props.onChange({
+            target: { value: 'Next week' },
+        });
+        assert.deepEqual(questions[0].options, ['Next week', 'Next month']);
+        get('button-add-question-option-0').props.onClick();
+        assert.deepEqual(questions[0].options, ['Next week', 'Next month', '']);
+        get('input-question-option-0-2').props.onChange({
+            target: { value: 'Later' },
+        });
+        get('button-remove-question-option-0-1').props.onClick();
+        assert.deepEqual(questions[0].options, ['Next week', 'Later']);
+        assert.deepEqual(
+            exports.toJobPostPayload({ ...valid(), questions }).questions[0]
+                .options,
+            ['Next week', 'Later'],
+        );
+
+        questions[0].options = Array.from(
+            { length: 20 },
+            (_, i) => `Choice ${i}`,
+        );
+        assert.equal(get('button-add-question-option-0').props.disabled, true);
+        render()
+            .find(
+                (node) =>
+                    node.props?.onValueChange &&
+                    node.props.value === 'selection',
+            )
+            .props.onValueChange('short');
+        assert.deepEqual(questions[0].options, []);
+        render()
+            .find(
+                (node) =>
+                    node.props?.onValueChange && node.props.value === 'short',
+            )
+            .props.onValueChange('selection');
+        assert.deepEqual(questions[0].options, ['', '']);
+        get('button-remove-question-option-0-0').props.onClick();
+        get('button-remove-question-option-0-0').props.onClick();
+        assert.deepEqual(questions[0].options, []);
+        get('button-add-question-option-0').props.onClick();
+        assert.deepEqual(questions[0].options, ['']);
+    } finally {
+        globalThis.requestAnimationFrame = previousFrame;
+    }
+});
+
+await test('editing legacy text questions clears expected answers and makes paragraph questions short answers', () => {
+    const post = {
+        ...exports.toJobPostPayload(valid()),
+        id: 42,
+        questions: [
+            {
+                id: 7,
+                question_text: 'Describe your experience',
+                answer_type: 'short',
+                expected_answer: 'Old expected answer',
+                is_required: true,
+            },
+            {
+                id: 8,
+                question_text: 'Describe your skills',
+                answer_type: 'paragraph',
+                expected_answer: 'Old paragraph answer',
+                is_required: false,
+            },
+        ],
+    };
+
+    const form = exports.fromJobPostPayload(post, categories);
+    const parsed = exports
+        .createJobFormSchema(options, '2026-10-19', categories)
+        .parse(form);
+    const payload = exports.toJobPostPayload(parsed);
+
+    assert.deepEqual(payload.questions, [
+        {
+            id: 7,
+            question_text: 'Describe your experience',
+            answer_type: 'short',
+            expected_answer: null,
+            is_required: true,
+        },
+        {
+            id: 8,
+            question_text: 'Describe your skills',
+            answer_type: 'short',
+            expected_answer: null,
+            is_required: false,
+        },
+    ]);
 });
 
 await test('nested backend error keys map to the matching form row without inventing fields', () => {

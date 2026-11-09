@@ -5,7 +5,6 @@ import {
     BriefcaseBusiness,
     CircleHelp,
     ClipboardCheck,
-    MapPin,
     Phone,
     Plus,
 } from 'lucide-react';
@@ -19,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { FormSection } from '@/components/dashboard/form-section';
 import { JobPostDocumentsField } from '@/components/dashboard/job-post-documents-field';
+import { JobLocationCombobox } from '@/components/dashboard/job-location-combobox';
 import { JobPostQuestionsField } from '@/components/dashboard/job-post-questions-field';
 import { SystemPage } from '@/components/system/system-page';
 import InputError from '@/components/input-error';
@@ -136,7 +136,8 @@ const RECRUITMENT_TYPES: JobFormOptions['recruitment_types'] = [
 const ANSWER_TYPES: JobFormOptions['answer_types'] = [
     'yesno',
     'short',
-    'paragraph',
+    'selection',
+    'number',
 ];
 const PROFICIENCY_LEVELS: JobFormOptions['proficiencies'] = [
     'basic',
@@ -442,11 +443,14 @@ export default function SystemJobPostCreate() {
                 jobPostId: id,
                 questionText: question.label.trim(),
                 answerType: question.type,
-                expectedAnswer: nullable(
+                options:
+                    question.type === 'selection'
+                        ? question.options?.map((choice) => choice.trim())
+                        : [],
+                expectedAnswer:
                     question.type === 'yesno'
-                        ? question.answer.toLowerCase()
-                        : question.answer,
-                ),
+                        ? nullable(question.answer.toLowerCase())
+                        : null,
                 isRequired: question.required,
                 sortOrder: index,
                 answerCount: 0,
@@ -767,24 +771,17 @@ export default function SystemJobPostCreate() {
                             required
                             error={errors.location}
                         >
-                            <div className="relative">
-                                <MapPin
-                                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--slate)]"
-                                    aria-hidden="true"
-                                />
-                                <Input
-                                    id="job-location"
-                                    required
-                                    value={form.location}
-                                    onChange={(event) =>
-                                        setField('location', event.target.value)
-                                    }
-                                    placeholder="City, Country"
-                                    {...invalid('location', 'job-location')}
-                                    className={cn(inputClass, 'pl-9')}
-                                    data-testid="input-job-post-location"
-                                />
-                            </div>
+                            <JobLocationCombobox
+                                id="job-location"
+                                required
+                                value={form.location}
+                                onChange={(value) =>
+                                    setField('location', value)
+                                }
+                                {...invalid('location', 'job-location')}
+                                className={inputClass}
+                                data-testid="input-job-post-location"
+                            />
                         </JobField>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <JobField

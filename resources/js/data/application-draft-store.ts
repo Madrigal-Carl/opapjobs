@@ -18,8 +18,8 @@ export type ApplicationDraftRecord = ApplicationDraft & {
 const STORAGE_PREFIX = 'opap-application-draft-';
 
 /**
- * One draft per listing, so answers for a nursing role are never offered as
- * a starting point for an engineering one.
+ * Callers include the applicant and listing IDs, so answers cannot cross
+ * sign-ins or become the starting point for another job.
  */
 function storageKey(jobId: string): string {
     return `${STORAGE_PREFIX}${jobId}`;
@@ -30,8 +30,6 @@ export function emptyDraft(): ApplicationDraft {
         resumeId: null,
         uploadedResume: null,
         coverLetter: '',
-        salary: '',
-        availability: '',
         answers: {},
     };
 }
@@ -98,11 +96,6 @@ export function readApplicationDraft(jobId: string): ApplicationDraftRecord {
             coverLetter:
                 typeof parsed.coverLetter === 'string'
                     ? parsed.coverLetter
-                    : '',
-            salary: typeof parsed.salary === 'string' ? parsed.salary : '',
-            availability:
-                typeof parsed.availability === 'string'
-                    ? parsed.availability
                     : '',
             answers: isAnswerMap(parsed.answers) ? parsed.answers : {},
             furthestStep:

@@ -134,6 +134,8 @@ export function seedOptionLists(): OptionListState {
         question_answer_types: options([
             ['yesno', 'Yes / No'],
             ['short', 'Short answer'],
+            ['selection', 'Selection'],
+            ['number', 'Number'],
             ['paragraph', 'Paragraph'],
         ]),
         destination_countries: options(

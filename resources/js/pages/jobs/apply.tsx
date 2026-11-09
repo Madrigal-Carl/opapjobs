@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
@@ -40,7 +40,11 @@ import { overallMatchMeta } from '@/data/match-analysis';
 import { toApplyJob } from '@/lib/public-catalog';
 import { getNameInitials } from '@/lib/name-initials';
 import { applications } from '@/routes';
-import { index as jobsIndex, show as jobsShow } from '@/routes/jobs';
+import {
+    index as jobsIndex,
+    show as jobsShow,
+    submit as submitJob,
+} from '@/routes/jobs';
 import {
     APPLICATION_STEPS,
     missingRequiredAnswers,
@@ -79,13 +83,14 @@ const DEMO_MATCH: MatchAnalysis = {
 
 type JobApplyProps = {
     jobId: string;
+    applicantId: string;
     /** `null` when the applicant may not see the job post. */
     jobPost: PublicJobPostDetail | null;
     questions?: JobQuestion[];
 };
 
 /**
- * Four steps: match guidance, documents, employer questions, then review.
+ * Match guidance, documents, optional employer questions, then review.
  *
  * Answers are kept per listing in localStorage as they are typed, so a
  * refresh restores the latest input rather than losing the application. The
@@ -94,18 +99,23 @@ type JobApplyProps = {
 export default function JobApply(props: JobApplyProps) {
     return (
         <ApplicantScope>
-            <JobApplyBody key={props.jobId} {...props} />
+            <JobApplyBody
+                key={`${props.applicantId}:${props.jobId}`}
+                {...props}
+            />
         </ApplicantScope>
     );
 }
 
 function JobApplyBody({
     jobId,
+    applicantId,
     jobPost,
     questions: jobQuestions,
 }: JobApplyProps) {
-    const { markApplied, toggleSaved, isSaved } = useApplications();
+    const { markApplied, toggleSaved, isSaved, isApplied } = useApplications();
     const { profile } = useApplicantProfile();
+    const draftKey = `${applicantId}:${jobId}`;
 
     const job = useMemo(
         () => (jobPost ? toApplyJob(jobPost, jobQuestions ?? []) : undefined),
@@ -118,44 +128,77 @@ function JobApplyBody({
     const [step, setStep] = useState<ApplicationStep>(1);
     const [restored, setRestored] = useState(false);
     const [blocked, setBlocked] = useState<string[]>([]);
-    const [submitted, setSubmitted] = useState(false);
+    const [submitted, setSubmitted] = useState(() => isApplied(jobId));
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [supportingFiles, setSupportingFiles] = useState<Map<string, File>>(
+        () => new Map(),
+    );
+    const [processing, setProcessing] = useState(false);
+    const [submissionErrors, setSubmissionErrors] = useState<
+        Record<string, string>
+    >({});
+    const submitting = useRef(false);
     const hasLoadedDraft = useRef(false);
     const columnRef = useRef<HTMLDivElement>(null);
     const hasMovedFocus = useRef(false);
     const pendingField = useRef<string | null>(null);
 
     const questions = useMemo(() => (job ? getJobQuestions(job) : []), [job]);
+    const hasQuestions = questions.length > 0;
+    const steps = APPLICATION_STEPS.map((label, index) => ({
+        id: (index + 1) as ApplicationStep,
+        label,
+    })).filter(({ id }) => id !== 3 || hasQuestions);
     const required = useMemo(
         () => (job ? requiredJobQuestions(job) : []),
         [job],
     );
 
-    const hasResume = Boolean(draft.resumeId || draft.uploadedResume?.name);
+    const hasResume = Boolean(
+        draft.resumeId || (draft.uploadedResume?.name && resumeFile),
+    );
+    const requiredDocuments = jobPost?.requiredDocuments ?? [];
+    const missingDocuments = requiredDocuments.filter(
+        (name) => !supportingFiles.has(name),
+    );
+    const documentsReady = hasResume && missingDocuments.length === 0;
     const missingAnswers = missingRequiredAnswers(required, draft.answers);
-    const resumeOutstanding = hasResume ? [] : ['Choose which resume to send'];
+    const documentOutstanding = [
+        ...(hasResume ? [] : ['Choose which resume to send']),
+        ...missingDocuments.map((name) => `Upload ${name}`),
+    ];
     const answerOutstanding = missingAnswers.length
         ? [`Answer ${countLabel(missingAnswers.length, 'question')}`]
         : [];
-    const outstanding = step === 2 ? resumeOutstanding : answerOutstanding;
+    const outstanding = step === 2 ? documentOutstanding : answerOutstanding;
     const reachableStep = Math.min(
         draft.furthestStep,
-        !hasResume ? 2 : missingAnswers.length ? 3 : 4,
+        !documentsReady ? 2 : missingAnswers.length ? 3 : 4,
     );
 
     useEffect(() => {
-        const stored = readApplicationDraft(jobId);
+        if (hasLoadedDraft.current) {
+            return;
+        }
+        const stored = readApplicationDraft(draftKey);
         const hasContent = Boolean(
             stored.coverLetter.trim() ||
-            stored.salary.trim() ||
-            stored.availability.trim() ||
             stored.resumeId ||
             stored.uploadedResume ||
             Object.keys(stored.answers).length > 0,
         );
 
+        if (stored.uploadedResume && !resumeFile) {
+            stored.uploadedResume = { name: '', size: '' };
+            setSubmissionErrors({
+                resume: 'Please select your resume file again. Your typed answers have been kept.',
+            });
+        }
         const validStep = Math.min(
-            stored.furthestStep,
-            !stored.resumeId && !stored.uploadedResume?.name
+            stored.furthestStep === 3 && !hasQuestions
+                ? 4
+                : stored.furthestStep,
+            (!stored.resumeId && !resumeFile) || missingDocuments.length > 0
                 ? 2
                 : missingRequiredAnswers(required, stored.answers).length
                   ? 3
@@ -170,7 +213,7 @@ function JobApplyBody({
         }
 
         hasLoadedDraft.current = true;
-    }, [jobId, required]);
+    }, [draftKey, required, hasQuestions, resumeFile, missingDocuments.length]);
 
     const isFirstWrite = useRef(true);
 
@@ -190,8 +233,14 @@ function JobApplyBody({
             return;
         }
 
-        writeApplicationDraft(job.id, draft);
-    }, [draft, job, submitted]);
+        writeApplicationDraft(draftKey, draft);
+    }, [draft, job, submitted, draftKey]);
+
+    useEffect(() => {
+        if (step === 3 && !hasQuestions) {
+            setStep(documentsReady ? 4 : 2);
+        }
+    }, [step, hasQuestions, documentsReady]);
 
     /*
      * Swapping steps unmounts whichever button was pressed, which drops focus
@@ -247,6 +296,15 @@ function JobApplyBody({
         }));
     }, []);
 
+    const changeDocument = (name: string, file: File | null) => {
+        setSupportingFiles((current) => {
+            const next = new Map(current);
+            if (file) next.set(name, file);
+            else next.delete(name);
+            return next;
+        });
+    };
+
     if (!job) {
         return <JobNotFound title="This job is no longer available" />;
     }
@@ -267,7 +325,9 @@ function JobApplyBody({
         if (outstanding.length > 0) {
             const firstProblem =
                 step === 2
-                    ? 'apply-resume'
+                    ? !hasResume
+                        ? 'apply-resume'
+                        : `apply-document-${requiredDocuments.indexOf(missingDocuments[0])}`
                     : `question-${missingAnswers[0].id}`;
             setBlocked(outstanding);
             requestAnimationFrame(() => focusApplyField(firstProblem));
@@ -275,24 +335,36 @@ function JobApplyBody({
             return;
         }
 
-        goToStep(step === 2 ? 3 : 4);
+        goToStep(step === 2 && hasQuestions ? 3 : 4);
     };
 
     const editSection = (id: string) => {
+        if (submitting.current) {
+            return;
+        }
         pendingField.current = id;
-        goToStep(id === 'apply-resume' || id === 'apply-cover-letter' ? 2 : 3);
+        goToStep(
+            id === 'apply-resume' ||
+                id.startsWith('apply-document-') ||
+                id === 'apply-cover-letter' ||
+                !hasQuestions
+                ? 2
+                : 3,
+        );
     };
 
     const requiredLeft =
-        step === 2 ? Number(!hasResume) : missingAnswers.length;
+        step === 2
+            ? Number(!hasResume) + missingDocuments.length
+            : missingAnswers.length;
 
     const submit = () => {
-        if (isClosed) {
+        if (isClosed || submitting.current || submitted) {
             return;
         }
-        if (!hasResume) {
+        if (!documentsReady) {
             goToStep(2);
-            setBlocked(resumeOutstanding);
+            setBlocked(documentOutstanding);
             return;
         }
         if (missingAnswers.length) {
@@ -300,19 +372,88 @@ function JobApplyBody({
             setBlocked(answerOutstanding);
             return;
         }
-        markApplied(job.id);
-        clearApplicationDraft(job.id);
-        setSubmitted(true);
+        submitting.current = true;
+        setProcessing(true);
+        setSubmissionErrors({});
+        router.post(
+            submitJob.url(job.id),
+            {
+                resume_document_id: resumeFile
+                    ? null
+                    : (draft.resumeId?.replace(/^doc-/, '') ?? null),
+                resume: resumeFile,
+                cover_letter: draft.coverLetter.trim() || null,
+                documents: requiredDocuments.map((name) => ({
+                    name,
+                    file: supportingFiles.get(name)!,
+                })),
+                answers: Object.fromEntries(
+                    questions.map((question) => [
+                        question.id,
+                        typeof draft.answers[question.id] === 'string'
+                            ? draft.answers[question.id]
+                            : '',
+                    ]),
+                ),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    if (
+                        String(page.props.jobId) !== job.id ||
+                        !page.props.submittedApplicationId
+                    ) {
+                        setSubmissionErrors({
+                            application:
+                                'Submission could not be confirmed. Your draft is still saved.',
+                        });
+                        return;
+                    }
+                    markApplied(job.id);
+                    clearApplicationDraft(draftKey);
+                    setSubmitted(true);
+                    setResumeFile(null);
+                    setSupportingFiles(new Map());
+                },
+                onError: (errors) => {
+                    setSubmissionErrors(errors);
+                    if (
+                        errors.resume ||
+                        Object.keys(errors).some((key) =>
+                            key.startsWith('documents'),
+                        ) ||
+                        errors.resume_document_id ||
+                        errors.cover_letter
+                    ) {
+                        goToStep(2);
+                    } else if (
+                        Object.keys(errors).some((key) =>
+                            key.startsWith('answers'),
+                        )
+                    ) {
+                        setStep(hasQuestions ? 3 : 2);
+                    }
+                    setBlocked(Object.values(errors));
+                },
+                onFinish: () => {
+                    submitting.current = false;
+                    setProcessing(false);
+                },
+            },
+        );
     };
 
     const startOver = () => {
         const fresh = newDraftRecord();
 
         setDraft(fresh);
-        writeApplicationDraft(job.id, fresh);
+        writeApplicationDraft(draftKey, fresh);
         setRestored(false);
         setBlocked([]);
         setSubmitted(false);
+        setResumeFile(null);
+        setSupportingFiles(new Map());
+        setSubmissionErrors({});
         setStep(1);
     };
 
@@ -343,10 +484,12 @@ function JobApplyBody({
 
                     <ol
                         className="apply-stepper"
+                        style={{
+                            gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+                        }}
                         aria-label="Application steps"
                     >
-                        {APPLICATION_STEPS.map((name, index) => {
-                            const number = (index + 1) as ApplicationStep;
+                        {steps.map(({ id: number, label: name }, index) => {
                             const isCurrent = number === step;
                             const isDone = number < step;
 
@@ -366,10 +509,12 @@ function JobApplyBody({
                                             .join(' ')}
                                         disabled={
                                             isCurrent ||
+                                            submitted ||
+                                            processing ||
                                             number > reachableStep ||
                                             (isClosed && number > step)
                                         }
-                                        aria-label={`Step ${number}: ${name}`}
+                                        aria-label={`Step ${index + 1}: ${name}`}
                                         aria-current={
                                             isCurrent ? 'step' : undefined
                                         }
@@ -399,7 +544,8 @@ function JobApplyBody({
                         })}
                     </ol>
                     <p className="apply-mobile-progress">
-                        Step {step} of 4 · {APPLICATION_STEPS[step - 1]}
+                        Step {steps.findIndex(({ id }) => id === step) + 1} of{' '}
+                        {steps.length} · {APPLICATION_STEPS[step - 1]}
                     </p>
                     <p className="apply-autosave">
                         <CircleCheck size={14} aria-hidden="true" /> Saved
@@ -428,7 +574,7 @@ function JobApplyBody({
                                 </p>
                             )}
 
-                            {restored && step > 1 && (
+                            {restored && !submitted && step > 1 && (
                                 <p
                                     className="apply-draft-notice"
                                     role="status"
@@ -442,6 +588,7 @@ function JobApplyBody({
                                     <button
                                         type="button"
                                         onClick={startOver}
+                                        disabled={processing}
                                         data-testid="button-apply-start-over"
                                     >
                                         Start over
@@ -456,6 +603,20 @@ function JobApplyBody({
                                 />
                             ) : (
                                 <>
+                                    {Object.keys(submissionErrors).length >
+                                        0 && (
+                                        <div
+                                            className="apply-blocked-list"
+                                            role="alert"
+                                            data-testid="status-apply-submit-errors"
+                                        >
+                                            {Object.entries(
+                                                submissionErrors,
+                                            ).map(([field, message]) => (
+                                                <p key={field}>{message}</p>
+                                            ))}
+                                        </div>
+                                    )}
                                     {step === 1 && (
                                         <MatchStep
                                             match={DEMO_MATCH}
@@ -475,6 +636,12 @@ function JobApplyBody({
                                             outstanding={outstanding}
                                             onPatch={patch}
                                             onAnswer={answer}
+                                            onFileChange={setResumeFile}
+                                            requiredDocuments={
+                                                requiredDocuments
+                                            }
+                                            supportingFiles={supportingFiles}
+                                            onDocumentChange={changeDocument}
                                         />
                                     )}
 
@@ -486,6 +653,10 @@ function JobApplyBody({
                                             agency={job.agency}
                                             documents={profile.documents}
                                             onEditSection={editSection}
+                                            requiredDocuments={
+                                                requiredDocuments
+                                            }
+                                            supportingFiles={supportingFiles}
                                         />
                                     )}
 
@@ -496,11 +667,15 @@ function JobApplyBody({
                                                 className="apply-text-action"
                                                 onClick={() =>
                                                     goToStep(
-                                                        (step -
-                                                            1) as ApplicationStep,
+                                                        (step === 4 &&
+                                                        !hasQuestions
+                                                            ? 2
+                                                            : step -
+                                                              1) as ApplicationStep,
                                                     )
                                                 }
                                                 data-testid="button-apply-back"
+                                                disabled={processing}
                                             >
                                                 <ArrowLeft
                                                     size={15}
@@ -527,7 +702,9 @@ function JobApplyBody({
                                                 <Button
                                                     type="button"
                                                     onClick={reviewApplication}
-                                                    disabled={isClosed}
+                                                    disabled={
+                                                        isClosed || processing
+                                                    }
                                                     data-testid={`button-apply-next-${step}`}
                                                 >
                                                     Continue{' '}
@@ -542,10 +719,14 @@ function JobApplyBody({
                                                 <Button
                                                     type="button"
                                                     onClick={submit}
-                                                    disabled={isClosed}
+                                                    disabled={
+                                                        isClosed || processing
+                                                    }
                                                     data-testid="button-apply-submit"
                                                 >
-                                                    Submit application{' '}
+                                                    {processing
+                                                        ? 'Submitting…'
+                                                        : 'Submit application'}{' '}
                                                     <Check
                                                         size={15}
                                                         aria-hidden="true"
@@ -565,8 +746,9 @@ function JobApplyBody({
                             <div>
                                 <h3>Ready to proceed with your application?</h3>
                                 <p>
-                                    Choose your resume, then answer a few
-                                    questions.
+                                    {hasQuestions
+                                        ? 'Choose your resume, then answer a few questions.'
+                                        : 'Choose your resume, then review your application.'}
                                 </p>
                             </div>
                             <div className="apply-match-buttons">
@@ -616,12 +798,11 @@ function SubmittedCard({ job, contact }: { job: Job; contact: string }) {
                 className="text-[var(--teal)]"
                 aria-hidden="true"
             />
-            <h2 tabIndex={-1}>Application ready</h2>
+            <h2 tabIndex={-1}>Application submitted</h2>
             <p className="apply-card-lede">
                 Your application for {job.title} with{' '}
-                <strong>{job.agency}</strong> is complete. Sending it to the
-                agency is not connected yet, so it has not been submitted — the
-                agency will contact you on {contact} once it is.
+                <strong>{job.agency}</strong> has been submitted. The agency can
+                review it and contact you at {contact} about next steps.
             </p>
             <div className="apply-actions">
                 <Button asChild>

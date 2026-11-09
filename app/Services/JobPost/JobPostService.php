@@ -129,7 +129,7 @@ class JobPostService
                 'proficiencies' => array_column(LanguageProficiency::cases(), 'value'),
                 'genders' => array_column(GenderRequirement::cases(), 'value'),
                 'recruitment_types' => array_column(RecruitmentType::cases(), 'value'),
-                'answer_types' => array_column(QuestionAnswerType::cases(), 'value'),
+                'answer_types' => [QuestionAnswerType::Yesno->value, QuestionAnswerType::Short->value, QuestionAnswerType::Selection->value, QuestionAnswerType::Number->value],
             ],
         ];
     }

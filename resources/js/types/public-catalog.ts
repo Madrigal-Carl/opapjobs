@@ -85,6 +85,7 @@ export type PublicJobPostLanguage = {
 };
 
 export type PublicJobPostPreview = PublicJobPostCard & {
+    requiredDocuments: string[];
     jobDescription: string | null;
     otherRequirements: string | null;
     applicationInstructions: string | null;

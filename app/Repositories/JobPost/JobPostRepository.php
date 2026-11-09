@@ -54,7 +54,7 @@ class JobPostRepository
             ...$post->only(['id', ...(new JobPost)->getFillable()]),
             'closing_date' => $post->closing_date?->toDateString(),
             'languages' => $post->languages->map(fn (JobPostLanguage $language): array => $language->only(['language', 'proficiency']))->all(),
-            'questions' => $post->questions->map(fn (JobPostQuestion $question): array => $question->only(['id', 'question_text', 'answer_type', 'expected_answer', 'is_required']))->all(),
+            'questions' => $post->questions->map(fn (JobPostQuestion $question): array => $question->only(['id', 'question_text', 'answer_type', 'expected_answer', 'options', 'is_required']))->all(),
         ];
     }
 
@@ -97,7 +97,7 @@ class JobPostRepository
         $now = now();
         $rows = [];
         foreach ($questions as $index => $question) {
-            $rows[] = [...$question, 'job_post_id' => $post->id, 'sort_order' => $index, 'created_at' => $now, 'updated_at' => $now];
+            $rows[] = [...$question, 'options' => json_encode($question['options'], JSON_THROW_ON_ERROR), 'job_post_id' => $post->id, 'sort_order' => $index, 'created_at' => $now, 'updated_at' => $now];
         }
         JobPostQuestion::query()->insert($rows);
     }
@@ -190,7 +190,11 @@ class JobPostRepository
             'job_posts.id', 'job_posts.job_title', 'job_posts.work_location', 'job_posts.created_at',
             'job_posts.closing_date', 'job_posts.salary_currency', 'job_posts.monthly_salary_min',
             'job_posts.monthly_salary_max', 'job_posts.recruitment_type', 'job_posts.status', 'job_posts.is_urgent',
-        ])->withCount('applications');
+            'job_posts.vacant_positions',
+        ])->withCount([
+            'applications',
+            'applications as hired_count' => fn (Builder $query) => $query->where('stage', ApplicationStage::Hired->value),
+        ]);
 
         if ($filters->status === null) {
             $query->notArchived();

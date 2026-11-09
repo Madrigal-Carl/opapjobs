@@ -28,8 +28,6 @@ export function ApplyChecklist({
     const optional = questions.filter((question) => !question.required);
     const extras = [
         draft.coverLetter,
-        draft.salary,
-        draft.availability,
         ...optional.map((question) => draft.answers[question.id]),
     ].filter((value) =>
         typeof value === 'string'

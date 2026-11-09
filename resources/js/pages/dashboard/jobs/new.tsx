@@ -6,7 +6,6 @@ import {
     BriefcaseBusiness,
     CircleHelp,
     ClipboardCheck,
-    MapPin,
     Phone,
 } from 'lucide-react';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
@@ -14,6 +13,7 @@ import { useForm, type FieldErrors, type PathValue } from 'react-hook-form';
 import { toast } from 'sonner';
 import { FormSection } from '@/components/dashboard/form-section';
 import { JobPostDocumentsField } from '@/components/dashboard/job-post-documents-field';
+import { JobLocationCombobox } from '@/components/dashboard/job-location-combobox';
 import { JobPostPreviewDialog } from '@/components/dashboard/job-post-preview-dialog';
 import { JobPostQuestionsField } from '@/components/dashboard/job-post-questions-field';
 import { DashboardPage } from '@/components/dashboard/page';
@@ -492,27 +492,17 @@ export default function DashboardNewJob(props: JobPostFormProps) {
                                 required
                                 error={errors.location}
                             >
-                                <div className="relative">
-                                    <MapPin
-                                        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[var(--slate)]"
-                                        aria-hidden="true"
-                                    />
-                                    <Input
-                                        id="job-location"
-                                        required
-                                        value={form.location}
-                                        onChange={(event) =>
-                                            setField(
-                                                'location',
-                                                event.target.value,
-                                            )
-                                        }
-                                        placeholder="City, Country"
-                                        {...invalid('location', 'job-location')}
-                                        className={cn(inputClass, 'pl-9')}
-                                        data-testid="input-job-location"
-                                    />
-                                </div>
+                                <JobLocationCombobox
+                                    id="job-location"
+                                    required
+                                    value={form.location}
+                                    onChange={(value) =>
+                                        setField('location', value)
+                                    }
+                                    {...invalid('location', 'job-location')}
+                                    className={inputClass}
+                                    data-testid="input-job-location"
+                                />
                             </JobField>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <JobField

@@ -28,6 +28,8 @@ class JobPostRowResource extends JsonResource
             'recruitment_type' => $this->recruitment_type->value,
             'display_status' => $this->display_status->value,
             'applicants_count' => (int) $this->applications_count,
+            'hired_count' => (int) $this->getAttribute('hired_count'),
+            'vacant_positions' => $this->vacant_positions,
             'is_urgent' => $this->is_urgent,
         ];
     }

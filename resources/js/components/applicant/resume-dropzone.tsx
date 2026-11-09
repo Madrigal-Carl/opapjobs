@@ -10,11 +10,13 @@ export function ResumePicker({
     documents,
     invalid,
     onPatch,
+    onFileChange,
 }: {
     draft: ApplicationDraftRecord;
     documents: ResumeDocument[];
     invalid: boolean;
     onPatch: (next: Partial<ApplicationDraftRecord>) => void;
+    onFileChange: (file: File | null) => void;
 }) {
     const [dragging, setDragging] = useState(false);
     const [fileError, setFileError] = useState('');
@@ -33,8 +35,13 @@ export function ResumePicker({
 
             return;
         }
+        if (file.size > 10 * 1024 * 1024) {
+            setFileError('Choose a file no larger than 10 MB.');
+            return;
+        }
 
         setFileError('');
+        onFileChange(file);
         onPatch({
             resumeId: null,
             uploadedResume: {
@@ -67,6 +74,7 @@ export function ResumePicker({
                             aria-describedby={errorId}
                             onChange={() => {
                                 setFileError('');
+                                onFileChange(null);
                                 onPatch({
                                     resumeId: document.id,
                                     uploadedResume: null,
@@ -99,12 +107,13 @@ export function ResumePicker({
                         checked={Boolean(draft.uploadedResume)}
                         aria-invalid={invalid || undefined}
                         aria-describedby={errorId}
-                        onChange={() =>
+                        onChange={() => {
+                            onFileChange(null);
                             onPatch({
                                 resumeId: null,
                                 uploadedResume: { name: '', size: '' },
-                            })
-                        }
+                            });
+                        }}
                         data-testid="radio-resume-upload"
                     />
                     <Upload size={20} aria-hidden="true" />
@@ -168,6 +177,7 @@ export function ResumePicker({
                                 className="apply-text-action"
                                 onClick={() => {
                                     setFileError('');
+                                    onFileChange(null);
                                     onPatch({
                                         uploadedResume: { name: '', size: '' },
                                     });

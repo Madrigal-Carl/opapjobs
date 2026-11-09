@@ -2,10 +2,14 @@
 
 namespace App\Repositories\Site;
 
+use App\Enums\DocumentType;
+use App\Models\ApplicantDocument;
 use App\Models\Application;
+use App\Models\JobPost;
 use App\Models\JobPostQuestion;
 use App\Models\SavedJobPost;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -14,6 +18,34 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ApplicantRepository
 {
+    public function lockJob(int $jobId): void
+    {
+        JobPost::query()->whereKey($jobId)->lockForUpdate()->firstOrFail();
+    }
+
+    public function hasApplication(int $userId, int $jobId): bool
+    {
+        return Application::query()->where('applicant_user_id', $userId)->where('job_post_id', $jobId)->exists();
+    }
+
+    public function resumeDocument(int $userId, int $documentId): ?ApplicantDocument
+    {
+        return ApplicantDocument::query()->whereKey($documentId)->where('applicant_user_id', $userId)
+            ->where('document_type', DocumentType::Resume)->lockForUpdate()->first();
+    }
+
+    /** @param array{job_post_id: int, applicant_user_id: int, resume_document_id: int, cover_letter: ?string, stage: string, submitted_at: CarbonImmutable} $attributes */
+    public function createApplication(array $attributes): Application
+    {
+        return Application::query()->create($attributes);
+    }
+
+    /** @param list<array{job_post_question_id: int, answer_text: string}> $answers */
+    public function createAnswers(Application $application, array $answers): void
+    {
+        $application->answers()->createMany($answers);
+    }
+
     /**
      * Job post ids by My Jobs tab. An archived application (the applicant's
      * own `applicant_archived_at`) leaves the Applied tab for Archived.
@@ -67,7 +99,7 @@ class ApplicantRepository
     {
         return JobPostQuestion::query()
             ->where('job_post_id', $jobPostId)
-            ->select(['id', 'job_post_id', 'question_text', 'answer_type', 'is_required', 'sort_order'])
+            ->select(['id', 'job_post_id', 'question_text', 'answer_type', 'options', 'is_required', 'sort_order'])
             ->orderBy('sort_order')->orderBy('id')
             ->get();
     }

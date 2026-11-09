@@ -11,12 +11,18 @@ export type EducationLevel =
     | 'master';
 export type LanguageProficiency = 'basic' | 'conversational' | 'fluent';
 
-export type QuestionAnswerType = 'yesno' | 'short' | 'paragraph';
+export type QuestionAnswerType =
+    | 'yesno'
+    | 'short'
+    | 'selection'
+    | 'number'
+    | 'paragraph';
 
 export type JobQuestion = {
     id: string;
     label: string;
     type: QuestionAnswerType;
+    options?: string[];
     /** The agency's example answer, shown to staff in the preview. */
     answer: string;
     /** Applicants cannot continue past this question without an answer. */
@@ -48,6 +54,7 @@ export type Job = {
 
     /** Free-text blurb shown on the listing. */
     description?: string;
+    requiredDocuments?: string[];
     otherRequirements?: string;
     /** ISO date the listing closes for applications. */
     closingDate?: string;

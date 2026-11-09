@@ -278,6 +278,20 @@ export function JobDetailPanel({
                         measure themselves against. */}
                     <JobFacts job={job} omit={JOB_FACT_OVERVIEW} />
                 </section>
+                {job.requiredDocuments?.length > 0 && (
+                    <section
+                        className="job-detail-section"
+                        aria-label="Required documents"
+                    >
+                        <h3>Required documents</h3>
+                        <ul>
+                            {job.requiredDocuments.map((name) => (
+                                <li key={name}>{name}</li>
+                            ))}
+                        </ul>
+                        <p>Upload a PDF for each document when applying.</p>
+                    </section>
+                )}
                 {job.otherRequirements && (
                     <section className="job-detail-section">
                         <h3>Other requirements</h3>

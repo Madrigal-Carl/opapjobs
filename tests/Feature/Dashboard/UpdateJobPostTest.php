@@ -112,7 +112,7 @@ test('updates preserve answered questions and update submitted questions in plac
     $input['questions'] = [
         ['id' => $questions[0]->id, 'question_text' => 'Updated question', 'answer_type' => 'yesno', 'is_required' => true],
         ['id' => $questions[3]->id, 'question_text' => 'Moved question', 'answer_type' => 'short'],
-        ['question_text' => 'New question', 'answer_type' => 'paragraph'],
+        ['question_text' => 'New question', 'answer_type' => 'short'],
     ];
 
     $this->actingAs($user)->put("/dashboard/jobs/{$post->id}", $input)->assertRedirect(route('dashboard.jobs'));
@@ -120,6 +120,7 @@ test('updates preserve answered questions and update submitted questions in plac
     expect($questions[0]->fresh()->question_text)->toBe('Updated question');
     expect($questions[1]->fresh()->deleted_at)->toBeNull();
     expect($questions[3]->fresh()->sort_order)->toBe(1);
+    expect($questions[3]->fresh()->expected_answer)->toBeNull();
     $this->assertSoftDeleted($questions[2]);
     expect($post->questions()->count())->toBe(4);
     $this->assertDatabaseCount('application_answers', 2);

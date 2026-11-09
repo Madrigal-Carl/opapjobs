@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\ApplicantApplicationController;
 use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
@@ -35,6 +36,9 @@ Route::middleware(['auth', 'verified', 'redirect.staff'])->group(function () {
     Route::get('job/{job}/apply', [ViewController::class, 'jobApply'])
         ->where('job', '[a-z0-9-]+')
         ->name('jobs.apply');
+
+    Route::post('job/{job}/apply', [ApplicantApplicationController::class, 'store'])
+        ->whereNumber('job')->middleware('throttle:10,1')->name('jobs.submit');
 
     Route::get('resume', [ViewController::class, 'resume'])->name('resume');
 

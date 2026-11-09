@@ -104,7 +104,7 @@ test('filters are normalized and only the safe job post row fields are returned'
     $post = JobPost::factory()->forPoster($user)->create([
         'job_title' => 'Welder', 'work_location' => 'Riyadh',
         'salary_currency' => 'SAR', 'monthly_salary_min' => '2500.00', 'monthly_salary_max' => '3200.00',
-        'created_at' => '2026-10-01 09:30:00', 'is_urgent' => true,
+        'created_at' => '2026-10-01 09:30:00', 'is_urgent' => true, 'vacant_positions' => 4,
         'job_description' => 'Private description', 'contact_email' => 'private@example.test',
     ]);
 
@@ -116,8 +116,27 @@ test('filters are normalized and only the safe job post row fields are returned'
             'created_at' => '2026-10-01T09:30:00.000000Z', 'closing_date' => null,
             'salary_currency' => 'SAR', 'monthly_salary_min' => '2500.00', 'monthly_salary_max' => '3200.00',
             'recruitment_type' => 'joborder', 'display_status' => 'active',
-            'applicants_count' => 0, 'is_urgent' => true,
+            'applicants_count' => 0, 'hired_count' => 0, 'vacant_positions' => 4, 'is_urgent' => true,
         ]]));
+});
+
+test('job rows count only hired applicants against the original vacancies', function () {
+    $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
+    $post = JobPost::factory()->forPoster($user)->create(['vacant_positions' => 4]);
+    Application::factory()->for($post)->hired()->count(2)->create();
+    Application::factory()->for($post)->pending()->create();
+    Application::factory()->for($post)->reviewed()->create();
+    Application::factory()->for($post)->shortlisted()->create();
+    Application::factory()->for($post)->interviewed()->create();
+    Application::factory()->for($post)->rejected()->create();
+    Application::factory()->hired()->create();
+
+    $this->actingAs($user)->get(route('dashboard.jobs'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->has('jobPosts.data', 1)
+        ->where('jobPosts.data.0.id', $post->id)
+        ->where('jobPosts.data.0.hired_count', 2)
+        ->where('jobPosts.data.0.vacant_positions', 4)
+        ->where('jobPosts.data.0.applicants_count', 7));
 });
 
 test('display status filtering respects manual status and app timezone dates', function () {

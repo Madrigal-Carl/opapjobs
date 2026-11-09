@@ -176,12 +176,16 @@ const jobPostColumns: Column<JobPostRow>[] = [
     },
     {
         key: 'applicants',
-        header: 'Applicants',
+        header: 'Hired / Vacancies',
         width: '11%',
         align: 'right',
         cell: (post) => (
-            <span className="inline-flex items-center gap-1.5 font-bold text-[var(--navy-deep)] tabular-nums">
-                {post.applicants_count}
+            <span
+                className="inline-flex items-center gap-1.5 font-bold text-[var(--navy-deep)] tabular-nums"
+                aria-label={`${post.hired_count} hired / ${post.vacant_positions} vacancies`}
+                title={`${post.hired_count} hired / ${post.vacant_positions} vacancies`}
+            >
+                {`${post.hired_count}/${post.vacant_positions}`}
                 <Users
                     className="size-4 text-[var(--slate)]"
                     aria-hidden="true"

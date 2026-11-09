@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\DocumentType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -36,6 +37,12 @@ class ApplicantDocument extends Model
     public function applicant(): BelongsTo
     {
         return $this->belongsTo(User::class, 'applicant_user_id')->withTrashed();
+    }
+
+    /** @return BelongsToMany<Application, $this> */
+    public function supportingApplications(): BelongsToMany
+    {
+        return $this->belongsToMany(Application::class, 'application_documents')->withPivot('requirement_name');
     }
 
     /** @return HasMany<Application, $this> */
