@@ -1,5 +1,6 @@
 import { CircleCheck, FileText, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { AttachmentFeedback } from '@/components/applicant/attachment-feedback';
 import { FieldError } from '@/components/applicant/match-blocks';
 import { formatFileSize } from '@/data/applicant-profile';
 import type { ApplicationDraftRecord } from '@/data/application-draft-store';
@@ -20,6 +21,7 @@ export function ResumePicker({
 }) {
     const [dragging, setDragging] = useState(false);
     const [fileError, setFileError] = useState('');
+    const [attachmentVersion, setAttachmentVersion] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const errorId = invalid ? 'apply-resume-error' : undefined;
 
@@ -41,6 +43,7 @@ export function ResumePicker({
         }
 
         setFileError('');
+        setAttachmentVersion((version) => version + 1);
         onFileChange(file);
         onPatch({
             resumeId: null,
@@ -164,13 +167,18 @@ export function ResumePicker({
                         }}
                     />
                     {draft.uploadedResume.name ? (
-                        <div className="apply-upload-file">
+                        <div
+                            className="apply-upload-file"
+                            key={attachmentVersion}
+                        >
                             <FileText size={22} aria-hidden="true" />
                             <span className="apply-doc-copy">
                                 <strong>{draft.uploadedResume.name}</strong>
                                 <span className="apply-doc-meta">
-                                    {draft.uploadedResume.size} · Selected
+                                    {draft.uploadedResume.size} · Uploads with
+                                    your application
                                 </span>
+                                <AttachmentFeedback />
                             </span>
                             <button
                                 type="button"

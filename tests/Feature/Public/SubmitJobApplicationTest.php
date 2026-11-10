@@ -258,6 +258,33 @@ test('a new resume is stored privately with the application', function (string $
     Storage::disk('local')->assertExists($document->storage_path);
 })->with([['pdf', 'application/pdf'], ['docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']]);
 
+test('readable application uploads are stored even when the temporary path cannot be canonicalized', function (string $type) {
+    Storage::fake('local');
+    $user = User::factory()->applicant()->create();
+    $post = PublicCatalog::post(PublicCatalog::agency(), ['required_documents' => $type === 'supporting document' ? ['NBI clearance'] : []]);
+    $content = "%PDF-1.4\nApplication attachment\n%%EOF";
+    $source = UploadedFile::fake()->createWithContent('attachment.pdf', $content);
+    $upload = new class($source->getPathname(), 'attachment.pdf', 'application/pdf', UPLOAD_ERR_OK, true) extends UploadedFile
+    {
+        public function getRealPath(): string|false
+        {
+            return false;
+        }
+    };
+    $input = $type === 'resume'
+        ? ['resume' => $upload]
+        : ['resume_document_id' => submissionResume($user)->id, 'documents' => [['name' => 'NBI clearance', 'file' => $upload]]];
+
+    $this->actingAs($user)->post("/job/{$post->id}/apply", $input)
+        ->assertRedirect(route('jobs.apply', $post->id))->assertSessionHasNoErrors();
+
+    $application = Application::sole();
+    $document = $type === 'resume' ? $application->resumeDocument : $application->supportingDocuments->sole();
+    expect($document->applicant_user_id)->toBe($user->id);
+    expect($document->original_file_name)->toBe('attachment.pdf');
+    expect(Storage::disk('local')->get($document->storage_path))->toBe($content);
+})->with(['resume', 'supporting document']);
+
 test('invalid and oversized resume uploads never create applications', function (string $case) {
     Storage::fake('local');
     $user = User::factory()->applicant()->create();

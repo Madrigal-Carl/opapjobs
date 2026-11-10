@@ -20,6 +20,15 @@ function load(path, overrides = {}, cache = new Map()) {
         'lucide-react': new Proxy({}, { get: () => () => null }),
         '@/components/ui/button': { Button: 'button' },
         '@/components/ui/textarea': { Textarea: 'textarea' },
+        '@/components/ui/skeleton': { Skeleton: 'div' },
+        '@/components/ui/dialog': {
+            Dialog: ({ open, children }) => (open ? children : null),
+            DialogContent: 'section',
+            DialogHeader: 'header',
+            DialogTitle: 'h2',
+            DialogDescription: 'p',
+            DialogFooter: 'footer',
+        },
         '@/components/form/form-select': {
             FormSelect: ({ options, placeholder, selectClassName, ...props }) =>
                 React.createElement(
@@ -114,6 +123,7 @@ function wizard(
         submission = 'success',
         applicantId = '42',
         requiredDocuments = [],
+        restoreOnMount = true,
     } = {},
 ) {
     const state = [];
@@ -232,6 +242,7 @@ function wizard(
     };
     render();
     state[0] = structuredClone(initial);
+    if (restoreOnMount) effects[0]();
     return {
         render,
         requests,
@@ -254,6 +265,40 @@ function wizard(
         },
     };
 }
+
+await test('loading the application hides the wrong step until the saved draft is restored', () => {
+    for (const savedStep of [1, 2, 3, 4]) {
+        const page = wizard(
+            {
+                ...empty,
+                resumeId: 'doc-7',
+                furthestStep: savedStep,
+                answers: { license: 'Yes', experience: 'Five years' },
+            },
+            { restoreOnMount: false },
+        );
+
+        const loading = renderToStaticMarkup(page.render());
+        assert.match(loading, /aria-busy="true"/);
+        assert.match(loading, /Loading your application/);
+        assert.doesNotMatch(loading, /aria-current="step"/);
+        assert.doesNotMatch(loading, /button-apply-submit/);
+
+        page.restore();
+
+        assert.doesNotMatch(
+            renderToStaticMarkup(page.render()),
+            /skeleton-apply-page/,
+        );
+        assert.equal(
+            find(
+                page.render(),
+                (node) => node.props?.['aria-current'] === 'step',
+            ).props['data-testid'],
+            `apply-step-${savedStep}`,
+        );
+    }
+});
 
 await test('jobs without questions show three steps and skip Q&A in both directions and restored drafts', () => {
     const page = wizard({ ...empty, resumeId: 'doc-7' }, { jobQuestions: [] });
@@ -462,6 +507,225 @@ await test('a new upload sends the actual file and skips an absent Q&A step', ()
     assert.equal(page.requests[0].data.resume, file);
     assert.equal(page.requests[0].data.resume_document_id, null);
     assert.deepEqual(page.requests[0].data.answers, {});
+});
+
+await test('submission has no progress loader and prevents duplicate submits until a failed request finishes', () => {
+    const page = wizard(empty, { jobQuestions: [], submission: 'pending' });
+    page.click('button-apply-next-1');
+    const form = find(page.render(), (node) => node.props?.onFileChange);
+    const file = new File(['%PDF-1.4 resume'], 'resume.pdf', {
+        type: 'application/pdf',
+    });
+    form.props.onFileChange(file);
+    form.props.onPatch({ uploadedResume: { name: file.name, size: '1 KB' } });
+    page.click('button-apply-next-2');
+    assert.equal(
+        find(page.render(), (node) => node.props?.role === 'progressbar'),
+        null,
+    );
+
+    page.click('button-apply-submit');
+    assert.equal(
+        find(page.render(), (node) => node.props?.role === 'progressbar'),
+        null,
+    );
+    assert.equal(
+        find(
+            page.render(),
+            (node) => node.props?.['data-testid'] === 'button-apply-submit',
+        ).props.disabled,
+        true,
+    );
+    page.click('button-apply-submit');
+    assert.equal(page.requests.length, 1);
+
+    page.requests[0].options.onError({ application: 'Please try again.' });
+    page.requests[0].options.onFinish();
+    assert.equal(
+        find(
+            page.render(),
+            (node) => node.props?.['data-testid'] === 'button-apply-submit',
+        ).props.disabled,
+        false,
+    );
+    const dialog = find(
+        page.render(),
+        (node) => node.props?.variant === 'error' && node.props?.open,
+    );
+    assert.ok(dialog);
+    dialog.props.onOpenChange(false);
+    page.click('button-apply-submit');
+    assert.equal(page.requests.length, 2);
+    assert.equal(page.requests[1].data.resume, file);
+});
+
+await test('confirmed submission opens a dismissible reusable success dialog', () => {
+    const page = wizard({ ...empty, resumeId: 'doc-7' }, { jobQuestions: [] });
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    page.click('button-apply-submit');
+
+    const dialog = find(
+        page.render(),
+        (node) => node.props?.variant === 'success' && node.props?.open,
+    );
+    assert.ok(dialog, 'Confirmed success should open a result dialog');
+    assert.match(dialog.props.title, /submitted/i);
+    dialog.props.onOpenChange(false);
+    assert.equal(
+        find(
+            page.render(),
+            (node) => node.props?.variant === 'success' && node.props?.open,
+        ),
+        null,
+    );
+});
+
+await test('validation errors open the error dialog while preserving files and answers', () => {
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7', coverLetter: 'Keep my letter' },
+        { jobQuestions: [], submission: 'pending' },
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    page.click('button-apply-submit');
+    page.requests[0].options.onError({
+        cover_letter: 'Please shorten your cover letter.',
+    });
+    page.requests[0].options.onFinish();
+
+    const dialog = find(
+        page.render(),
+        (node) => node.props?.variant === 'error' && node.props?.open,
+    );
+    assert.ok(dialog, 'Validation failure should open a result dialog');
+    assert.match(dialog.props.description, /Please shorten your cover letter/);
+    dialog.props.onOpenChange(false);
+    assert.equal(
+        find(page.render(), (node) => node.props?.onPatch).props.draft
+            .coverLetter,
+        'Keep my letter',
+    );
+    assert.equal(
+        find(page.render(), (node) => node.props?.onPatch).props.draft.resumeId,
+        'doc-7',
+    );
+});
+
+await test('unconfirmed responses, network failures, and HTTP failures show an error without clearing the draft', () => {
+    for (const failure of ['unconfirmed', 'network', 'http']) {
+        const cleared = [];
+        const page = wizard(
+            { ...empty, resumeId: 'doc-7' },
+            {
+                jobQuestions: [],
+                submission: 'pending',
+                draftStore: { clearApplicationDraft: (id) => cleared.push(id) },
+            },
+        );
+        page.click('button-apply-next-1');
+        page.click('button-apply-next-2');
+        page.click('button-apply-submit');
+        const options = page.requests[0].options;
+        if (failure === 'unconfirmed') {
+            options.onSuccess({
+                props: { jobId: '1', submittedApplicationId: null },
+            });
+        } else if (failure === 'network') {
+            assert.equal(typeof options.onNetworkError, 'function');
+            assert.equal(
+                options.onNetworkError(new Error('Disconnected')),
+                false,
+            );
+        } else {
+            assert.equal(typeof options.onHttpException, 'function');
+            assert.equal(options.onHttpException({ status: 500 }), false);
+        }
+        options.onFinish();
+
+        assert.deepEqual(cleared, []);
+        assert.ok(
+            find(
+                page.render(),
+                (node) => node.props?.variant === 'error' && node.props?.open,
+            ),
+            `${failure} should open an error dialog`,
+        );
+        assert.equal(
+            find(
+                page.render(),
+                (node) => node.props?.['data-testid'] === 'button-apply-submit',
+            ).props.disabled,
+            false,
+        );
+    }
+});
+
+await test('submitting a saved resume has no progress loader', () => {
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7' },
+        { jobQuestions: [], submission: 'pending' },
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    page.click('button-apply-submit');
+
+    const progress = find(
+        page.render(),
+        (node) => node.props?.role === 'progressbar',
+    );
+    assert.equal(progress, null);
+});
+
+await test('result dialogs render caller-provided messages safely and close through their action', () => {
+    const { ResultDialog } = load(
+        'resources/js/components/system/result-dialog.tsx',
+    );
+
+    for (const variant of ['success', 'error']) {
+        const changes = [];
+        const props = {
+            open: true,
+            variant,
+            title: 'Application result',
+            description: '<script>unsafe()</script>',
+            closeLabel: 'Back to application',
+            onOpenChange: (open) => changes.push(open),
+        };
+        const tree = ResultDialog(props);
+        const html = renderToStaticMarkup(tree);
+        assert.match(html, /Application result/);
+        assert.match(html, /&lt;script&gt;/);
+        assert.doesNotMatch(html, /<script>/);
+        find(tree, (node) => node.type === 'button').props.onClick();
+        assert.deepEqual(changes, [false]);
+        assert.equal(
+            renderToStaticMarkup(ResultDialog({ ...props, open: false })),
+            '',
+        );
+    }
+});
+
+await test('expired sessions show recovery instructions without discarding the application draft', () => {
+    const page = wizard(
+        { ...empty, resumeId: 'doc-7' },
+        { jobQuestions: [], submission: 'pending' },
+    );
+    page.click('button-apply-next-1');
+    page.click('button-apply-next-2');
+    page.click('button-apply-submit');
+    assert.equal(
+        page.requests[0].options.onHttpException({ status: 419 }),
+        false,
+    );
+    page.requests[0].options.onFinish();
+
+    const dialog = find(
+        page.render(),
+        (node) => node.props?.variant === 'error' && node.props?.open,
+    );
+    assert.match(dialog.props.description, /session expired/);
+    assert.match(dialog.props.description, /select files again/);
 });
 
 await test('step 2 requires all job documents and preserves the actual PDFs on submission failure', () => {
@@ -1108,7 +1372,10 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
                     return [
                         state[index],
                         (value) => {
-                            state[index] = value;
+                            state[index] =
+                                typeof value === 'function'
+                                    ? value(state[index])
+                                    : value;
                         },
                     ];
                 },
@@ -1139,6 +1406,19 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
         size: '2 KB',
     });
     assert.equal(selectedFile.name, 'resume.PDF');
+    const firstAttachment = find(
+        render(),
+        (node) => node.props?.className === 'apply-upload-file',
+    ).key;
+    control('input-apply-upload').props.onChange({
+        target: { files: [{ name: 'resume.PDF', size: 3072 }], value: '' },
+    });
+    assert.notEqual(
+        find(render(), (node) => node.props?.className === 'apply-upload-file')
+            .key,
+        firstAttachment,
+        'Accepting a same-name replacement must replay its attachment feedback',
+    );
     control('dropzone-apply-resume').props.onDrop({
         preventDefault() {},
         dataTransfer: { files: [{ name: 'unsafe.html', size: 500 }] },
@@ -1167,23 +1447,32 @@ await test('upload browse and drop accept PDF/DOCX metadata, reject other files,
 
 await test('required document controls reject non-PDF and oversized files and allow selecting and removing PDFs', () => {
     const files = new Map();
-    let errors = {};
+    const state = [];
+    let cursor = 0;
     const { RequiredDocumentUploads } = load(
         'resources/js/components/applicant/required-document-uploads.tsx',
         {
             react: {
                 ...React,
-                useState: () => [
-                    errors,
-                    (next) => {
-                        errors = next(errors);
-                    },
-                ],
+                useState(initial) {
+                    const index = cursor++;
+                    if (!(index in state)) state[index] = initial;
+                    return [
+                        state[index],
+                        (next) => {
+                            state[index] =
+                                typeof next === 'function'
+                                    ? next(state[index])
+                                    : next;
+                        },
+                    ];
+                },
             },
         },
     );
-    const render = () =>
-        RequiredDocumentUploads({
+    const render = () => {
+        cursor = 0;
+        return RequiredDocumentUploads({
             names: ['NBI clearance', 'Police clearance'],
             files,
             blocked: true,
@@ -1192,8 +1481,19 @@ await test('required document controls reject non-PDF and oversized files and al
                 else files.delete(name);
             },
         });
+    };
     const input = () =>
         find(render(), (node) => node.props?.id === 'apply-document-0');
+    const dropzone = () =>
+        find(
+            render(),
+            (node) =>
+                node.props?.['data-testid'] === 'dropzone-required-document-0',
+        );
+    assert.ok(
+        dropzone(),
+        'Required documents must offer the resume-style dropzone',
+    );
     assert.equal(input().props.accept, '.pdf,application/pdf');
     assert.equal(input().props['aria-invalid'], true);
     const html = renderToStaticMarkup(
@@ -1202,6 +1502,16 @@ await test('required document controls reject non-PDF and oversized files and al
     assert.match(html, /NBI clearance/);
     assert.match(html, /Police clearance/);
     assert.match(html, /Upload NBI clearance before continuing/);
+    dropzone().props.onDragOver({ preventDefault() {} });
+    assert.match(dropzone().props.className, /is-dragging/);
+    dropzone().props.onDrop({
+        preventDefault() {},
+        dataTransfer: {
+            files: [{ name: 'unsafe.html', type: 'text/html', size: 10 }],
+        },
+    });
+    assert.equal(files.size, 0);
+    assert.doesNotMatch(dropzone().props.className, /is-dragging/);
     for (const file of [
         {
             name: 'nbi.docx',
@@ -1219,12 +1529,46 @@ await test('required document controls reject non-PDF and oversized files and al
             target: { files: [file], value: 'selected' },
         });
         assert.equal(files.size, 0);
-        assert.ok(errors[0]);
+        assert.ok(
+            find(
+                render(),
+                (node) => node.props?.id === 'apply-document-0-error',
+            ),
+        );
     }
     const pdf = new File(['%PDF-1.4'], 'nbi.PDF', { type: 'application/pdf' });
-    input().props.onChange({ target: { files: [pdf], value: 'selected' } });
+    dropzone().props.onDrop({
+        preventDefault() {},
+        dataTransfer: { files: [pdf] },
+    });
     assert.equal(files.get('NBI clearance'), pdf);
-    assert.equal(errors[0], '');
+    const firstAttachment = find(
+        render(),
+        (node) => node.props?.className === 'apply-upload-file',
+    ).key;
+    const replacement = new File(['%PDF-1.4 updated'], 'nbi.PDF', {
+        type: 'application/pdf',
+    });
+    dropzone().props.onDrop({
+        preventDefault() {},
+        dataTransfer: { files: [replacement] },
+    });
+    assert.equal(files.get('NBI clearance'), replacement);
+    assert.notEqual(
+        find(render(), (node) => node.props?.className === 'apply-upload-file')
+            .key,
+        firstAttachment,
+        'Accepting a same-name replacement must replay its attachment feedback',
+    );
+    assert.equal(
+        find(render(), (node) => node.props?.id === 'apply-document-0-error'),
+        null,
+    );
+    assert.equal(
+        input().props.type,
+        'file',
+        'The labelled file control stays mounted after selection',
+    );
     assert.match(
         renderToStaticMarkup(
             React.createElement(React.Fragment, null, render()),

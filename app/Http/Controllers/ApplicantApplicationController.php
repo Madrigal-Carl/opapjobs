@@ -30,7 +30,9 @@ class ApplicantApplicationController extends Controller
                 $uploads["documents.{$index}.file"] = $request->file("documents.{$index}.file");
             }
             foreach ($uploads as $key => $file) {
-                $path = $file->store('applicants/'.$request->user()->id.'/applications', 'local');
+                $path = Storage::disk('local')->putFileAs(
+                    'applicants/'.$request->user()->id.'/applications', $file->getPathname(), $file->hashName(),
+                );
                 if ($path === false) {
                     throw new RuntimeException('Could not store the application file.');
                 }

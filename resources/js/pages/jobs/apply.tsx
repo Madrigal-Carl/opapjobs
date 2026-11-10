@@ -15,12 +15,14 @@ import { JobNotFound } from '@/components/applicant/job-not-found';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { focusApplyField } from '@/components/applicant/apply-field';
 import { ApplicationStepForm } from '@/components/applicant/apply-form';
+import { ApplyPageSkeleton } from '@/components/applicant/apply-page-skeleton';
 import { ReviewStep } from '@/components/applicant/apply-review';
 import {
     ApplyRailRow,
     MatchBlockList,
 } from '@/components/applicant/match-blocks';
 import { Button } from '@/components/ui/button';
+import { ResultDialog } from '@/components/system/result-dialog';
 import { useApplications } from '@/contexts/applications-context';
 import { useApplicantProfile } from '@/contexts/applicant-profile-context';
 import {
@@ -127,6 +129,7 @@ function JobApplyBody({
     const [draft, setDraft] = useState<ApplicationDraftRecord>(newDraftRecord);
     const [step, setStep] = useState<ApplicationStep>(1);
     const [restored, setRestored] = useState(false);
+    const [draftReady, setDraftReady] = useState(false);
     const [blocked, setBlocked] = useState<string[]>([]);
     const [submitted, setSubmitted] = useState(() => isApplied(jobId));
     const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -134,6 +137,9 @@ function JobApplyBody({
         () => new Map(),
     );
     const [processing, setProcessing] = useState(false);
+    const [submissionResult, setSubmissionResult] = useState<
+        'success' | 'error' | null
+    >(null);
     const [submissionErrors, setSubmissionErrors] = useState<
         Record<string, string>
     >({});
@@ -213,6 +219,7 @@ function JobApplyBody({
         }
 
         hasLoadedDraft.current = true;
+        setDraftReady(true);
     }, [draftKey, required, hasQuestions, resumeFile, missingDocuments.length]);
 
     const isFirstWrite = useRef(true);
@@ -309,6 +316,15 @@ function JobApplyBody({
         return <JobNotFound title="This job is no longer available" />;
     }
 
+    if (!draftReady) {
+        return (
+            <>
+                <Head title={`Apply — ${job.title} | OPAP Job Abroad`} />
+                <ApplyPageSkeleton stepCount={steps.length} />
+            </>
+        );
+    }
+
     const isClosed = !jobPost?.isAcceptingApplications;
 
     const startApplication = () => {
@@ -375,6 +391,7 @@ function JobApplyBody({
         submitting.current = true;
         setProcessing(true);
         setSubmissionErrors({});
+        setSubmissionResult(null);
         router.post(
             submitJob.url(job.id),
             {
@@ -407,16 +424,19 @@ function JobApplyBody({
                             application:
                                 'Submission could not be confirmed. Your draft is still saved.',
                         });
+                        setSubmissionResult('error');
                         return;
                     }
                     markApplied(job.id);
                     clearApplicationDraft(draftKey);
                     setSubmitted(true);
+                    setSubmissionResult('success');
                     setResumeFile(null);
                     setSupportingFiles(new Map());
                 },
                 onError: (errors) => {
                     setSubmissionErrors(errors);
+                    setSubmissionResult('error');
                     if (
                         errors.resume ||
                         Object.keys(errors).some((key) =>
@@ -434,6 +454,24 @@ function JobApplyBody({
                         setStep(hasQuestions ? 3 : 2);
                     }
                     setBlocked(Object.values(errors));
+                },
+                onNetworkError: () => {
+                    setSubmissionErrors({
+                        application:
+                            'The connection was interrupted, so we couldn’t confirm submission. Your draft has been kept. Check My Jobs before retrying.',
+                    });
+                    setSubmissionResult('error');
+                    return false;
+                },
+                onHttpException: (response) => {
+                    setSubmissionErrors({
+                        application:
+                            response.status === 419
+                                ? 'Your session expired. Refresh this page and sign in again. Your typed answers are saved, but you’ll need to select files again.'
+                                : 'We couldn’t confirm submission. Your draft and selected files have been kept. Check My Jobs before trying again.',
+                    });
+                    setSubmissionResult('error');
+                    return false;
                 },
                 onFinish: () => {
                     submitting.current = false;
@@ -460,6 +498,36 @@ function JobApplyBody({
     return (
         <>
             <Head title={`Apply — ${job.title} | OPAP Job Abroad`} />
+            <ResultDialog
+                open={submissionResult !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSubmissionResult(null);
+                    }
+                }}
+                variant={submissionResult ?? 'success'}
+                title={
+                    submissionResult === 'success'
+                        ? 'Application submitted'
+                        : 'Application needs your attention'
+                }
+                description={
+                    submissionResult === 'success'
+                        ? `Your application for ${job.title} with ${job.agency} has been submitted. You can track it in My Jobs.`
+                        : Object.values(submissionErrors).join(' ')
+                }
+                closeLabel={
+                    submissionResult === 'success'
+                        ? 'View confirmation'
+                        : 'Review application'
+                }
+                onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    columnRef.current
+                        ?.querySelector<HTMLElement>('.apply-card h2')
+                        ?.focus();
+                }}
+            />
 
             <section className="apply-body">
                 <div className="shell">
@@ -727,10 +795,12 @@ function JobApplyBody({
                                                     {processing
                                                         ? 'Submitting…'
                                                         : 'Submit application'}{' '}
-                                                    <Check
-                                                        size={15}
-                                                        aria-hidden="true"
-                                                    />
+                                                    {!processing && (
+                                                        <Check
+                                                            size={15}
+                                                            aria-hidden="true"
+                                                        />
+                                                    )}
                                                 </Button>
                                             )}
                                         </div>
