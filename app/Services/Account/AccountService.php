@@ -10,7 +10,6 @@ use App\Events\StaffAccountCreated;
 use App\Exceptions\Account\AccountLimitReachedException;
 use App\Exceptions\Account\AgencyRequiredException;
 use App\Exceptions\Account\DuplicateAccountEmailException;
-use App\Exceptions\Account\DuplicateEmployeeIdException;
 use App\Models\User;
 use App\Repositories\Account\AccountRepository;
 use App\Repositories\AuditLogRepository;
@@ -58,10 +57,6 @@ class AccountService
             throw new DuplicateAccountEmailException;
         }
 
-        if ($this->accounts->employeeIdExistsInAgency($agency->id, $data->employeeId)) {
-            throw new DuplicateEmployeeIdException;
-        }
-
         if ($agency->agency_user_limit > 0 && $this->accounts->seatCountForAgency($agency->id) >= $agency->agency_user_limit) {
             throw new AccountLimitReachedException;
         }
@@ -78,12 +73,11 @@ class AccountService
 
         $user->syncRoles([Role::Agency->value]);
         $user->staffProfile()->create([
-            'employee_id' => trim($data->employeeId),
             'phone' => $this->nullable($data->phone),
             'notes' => $this->notes($data->notes),
         ]);
 
-        $this->auditLogs->log($actor, 'account.created', $user, ['name', 'email', 'employee_id'], $data->ipAddress);
+        $this->auditLogs->log($actor, 'account.created', $user, ['name', 'email'], $data->ipAddress);
         StaffAccountCreated::dispatch($user);
 
         return $user;
@@ -99,10 +93,6 @@ class AccountService
 
         if ($this->accounts->emailExists($data->email, $user->id)) {
             throw new DuplicateAccountEmailException;
-        }
-
-        if ($this->accounts->employeeIdExistsInAgency((int) $actor->agency_id, $data->employeeId, $user->id)) {
-            throw new DuplicateEmployeeIdException;
         }
 
         $changed = [];
@@ -126,15 +116,14 @@ class AccountService
         $profile = $user->staffProfile;
         $phone = $this->nullable($data->phone);
         $notes = $this->notes($data->notes);
-        $employeeId = trim($data->employeeId);
 
-        foreach (['employee_id' => $employeeId, 'phone' => $phone, 'notes' => $notes] as $field => $value) {
+        foreach (['phone' => $phone, 'notes' => $notes] as $field => $value) {
             if ($profile?->{$field} !== $value) {
                 $changed[] = $field;
             }
         }
 
-        $user->staffProfile()->updateOrCreate([], ['employee_id' => $employeeId, 'phone' => $phone, 'notes' => $notes]);
+        $user->staffProfile()->updateOrCreate([], ['phone' => $phone, 'notes' => $notes]);
 
         if ($changed !== []) {
             $this->auditLogs->log($actor, 'account.updated', $user, $changed, $data->ipAddress);

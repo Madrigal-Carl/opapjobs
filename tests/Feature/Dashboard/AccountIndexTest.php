@@ -25,7 +25,7 @@ test('the accounts page returns filtered staff rows with meta and seats', functi
     $agency = Agency::factory()->create(['agency_user_limit' => 5]);
     $admin = accountAdmin($agency);
     $active = accountStaff($admin, ['name' => 'Maria Santos', 'email' => 'maria@example.test']);
-    $suspended = accountStaff($admin, ['name' => 'Jose Rizal', 'email' => 'jose@example.test'], ['employee_id' => 'OPAP-7777']);
+    $suspended = accountStaff($admin, ['name' => 'Jose Rizal', 'email' => 'jose@example.test']);
     $suspended->forceFill(['suspended_at' => now()])->save();
 
     $this->actingAs($admin)
@@ -51,7 +51,7 @@ test('staff rows expose only the safe fields', function () {
     $agency = Agency::factory()->create();
     $admin = accountAdmin($agency);
     $staff = accountStaff($admin, ['name' => 'Ana Cruz', 'email' => 'ana@example.test'], [
-        'employee_id' => 'OPAP-4321', 'phone' => '+63 917 123 4567', 'notes' => 'Morning shift',
+        'phone' => '+63 917 123 4567', 'notes' => 'Morning shift',
     ]);
 
     $this->actingAs($admin)
@@ -64,7 +64,6 @@ test('staff rows expose only the safe fields', function () {
                 'name' => 'Ana Cruz',
                 'email' => 'ana@example.test',
                 'phone' => '+63 917 123 4567',
-                'employee_id' => 'OPAP-4321',
                 'notes' => 'Morning shift',
                 'status' => 'active',
                 'jobs_created' => 0,
@@ -74,11 +73,11 @@ test('staff rows expose only the safe fields', function () {
         );
 });
 
-test('the search matches name, email and employee id case insensitively', function (string $term, string $expected) {
+test('the search matches name and email case insensitively', function (string $term, string $expected) {
     $agency = Agency::factory()->create();
     $admin = accountAdmin($agency);
-    $maria = accountStaff($admin, ['name' => 'Maria Santos', 'email' => 'maria@example.test'], ['employee_id' => 'OPAP-1111']);
-    accountStaff($admin, ['name' => 'Jose Rizal', 'email' => 'jose@example.test'], ['employee_id' => 'OPAP-2222']);
+    $maria = accountStaff($admin, ['name' => 'Maria Santos', 'email' => 'maria@example.test']);
+    accountStaff($admin, ['name' => 'Jose Rizal', 'email' => 'jose@example.test']);
 
     $this->actingAs($admin)
         ->get(route('dashboard.accounts', ['q' => $term]))
@@ -91,7 +90,6 @@ test('the search matches name, email and employee id case insensitively', functi
 })->with([
     'name' => ['MARIA', 'MARIA'],
     'email' => ['MARIA@EXAMPLE', 'MARIA@EXAMPLE'],
-    'employee id' => ['opap-1111', 'opap-1111'],
 ]);
 
 test('the status filter only returns matching accounts', function (string $status, bool $expectSuspended) {

@@ -26,8 +26,7 @@ class AccountRepository
 
             $query->where(function ($sub) use ($term): void {
                 $sub->whereRaw('lower(users.name) like ?', [$term])
-                    ->orWhereRaw('lower(users.email) like ?', [$term])
-                    ->orWhereHas('staffProfile', fn ($profile) => $profile->whereRaw('lower(employee_id) like ?', [$term]));
+                    ->orWhereRaw('lower(users.email) like ?', [$term]);
             });
         }
 
@@ -102,17 +101,6 @@ class AccountRepository
         return User::withTrashed()
             ->whereRaw('lower(email) = ?', [mb_strtolower(trim($email))])
             ->when($excludeUserId !== null, fn ($query) => $query->whereKeyNot($excludeUserId))
-            ->exists();
-    }
-
-    public function employeeIdExistsInAgency(int $agencyId, string $employeeId, ?int $excludeUserId = null): bool
-    {
-        return User::query()
-            ->join('staff_profiles', 'staff_profiles.user_id', '=', 'users.id')
-            ->where('users.agency_id', $agencyId)
-            ->whereNull('users.deleted_at')
-            ->whereRaw('lower(staff_profiles.employee_id) = ?', [mb_strtolower(trim($employeeId))])
-            ->when($excludeUserId !== null, fn ($query) => $query->where('users.id', '!=', $excludeUserId))
             ->exists();
     }
 

@@ -292,7 +292,7 @@ test('an application moves through hiring and the applicant and the public pages
 test('an admin manages a staff account from adding it to removing it', function () {
     Event::fake([StaffAccountCreated::class]);
     $admin = workingFeaturesUser('admin');
-    $payload = ['name' => 'New Staff', 'email' => 'new.staff@example.test', 'employee_id' => 'OPAP-1000', 'phone' => '+63 917 123 4567', 'notes' => null];
+    $payload = ['name' => 'New Staff', 'email' => 'new.staff@example.test', 'phone' => '+63 917 123 4567', 'notes' => null];
 
     $this->actingAs($admin)->from(route('dashboard.accounts'))->post(route('dashboard.accounts.store'), $payload)
         ->assertInertiaFlash('toast.message', 'Staff account added.');

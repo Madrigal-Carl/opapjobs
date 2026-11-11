@@ -22,7 +22,6 @@ class AccountRowResource extends JsonResource
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $profile?->phone,
-            'employee_id' => $profile->employee_id ?? '',
             'notes' => $profile?->notes,
             'status' => $user->suspended_at ? 'suspended' : 'active',
             'jobs_created' => (int) ($user->job_posts_posted_count ?? 0),

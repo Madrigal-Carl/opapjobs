@@ -72,7 +72,6 @@ function accountsPage(canManageAccounts = true) {
         id: 2,
         name: 'Maria Santos',
         email: 'maria@example.test',
-        employee_id: 'STAFF-001',
         status: 'active',
         jobs_created: 1,
     };

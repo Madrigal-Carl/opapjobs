@@ -51,8 +51,8 @@ test('admins only see staff from their own agency', function () {
     $ownStaff = User::factory()->agency()->forAgency($agency)->create();
     $otherStaff = User::factory()->agency()->forAgency($otherAgency)->create();
 
-    StaffProfile::factory()->for($ownStaff, 'user')->create(['employee_id' => 'OPAP-0001']);
-    StaffProfile::factory()->for($otherStaff, 'user')->create(['employee_id' => 'OPAP-0002']);
+    StaffProfile::factory()->for($ownStaff, 'user')->create();
+    StaffProfile::factory()->for($otherStaff, 'user')->create();
 
     $this->actingAs($admin)
         ->get(route('dashboard.accounts'))
@@ -75,7 +75,6 @@ test('admins never see or change their own account or other roles', function () 
 
     $payload = [
         'name' => 'Changed', 'email' => 'changed@example.test',
-        'employee_id' => 'OPAP-9999',
     ];
 
     $this->actingAs($admin)
@@ -102,7 +101,6 @@ test('admins cannot update or suspend staff from another agency', function () {
     $this->actingAs($admin)
         ->put(route('dashboard.accounts.update', $foreignStaff), [
             'name' => 'Changed', 'email' => 'changed@example.test',
-            'employee_id' => 'OPAP-1234',
         ])
         ->assertNotFound();
 

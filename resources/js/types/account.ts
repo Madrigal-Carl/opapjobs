@@ -5,7 +5,6 @@ export type AccountRow = {
     name: string;
     email: string;
     phone?: string | null;
-    employee_id: string;
     notes?: string | null;
     status: 'active' | 'suspended';
     jobs_created: number;
@@ -18,7 +17,6 @@ export type Account = {
     fullName: string;
     email: string;
     phone?: string | null;
-    employeeId: string;
     notes?: string | null;
     status: AccountStatus;
     jobsCreated: number;

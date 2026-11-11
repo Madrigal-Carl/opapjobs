@@ -15,7 +15,6 @@ function updateStaff(User $admin, array $attributes = [], array $profile = []): 
     $staff = User::factory()->agency()->forAgency($admin->agency)->create($attributes);
 
     StaffProfile::factory()->for($staff, 'user')->create(array_merge([
-        'employee_id' => 'OPAP-1000',
         'phone' => '+63 917 000 0000',
         'notes' => 'Original notes',
     ], $profile));
@@ -28,7 +27,6 @@ function updatePayload(array $overrides = []): array
     return array_merge([
         'name' => 'Updated Name',
         'email' => 'updated@example.test',
-        'employee_id' => 'OPAP-2000',
         'phone' => '+63 917 123 4567',
         'notes' => 'Updated notes.',
     ], $overrides);
@@ -48,7 +46,6 @@ test('an admin can update an editable staff account', function () {
 
     expect($staff->name)->toBe('Updated Name')
         ->and($staff->email)->toBe('updated@example.test')
-        ->and($staff->staffProfile->employee_id)->toBe('OPAP-2000')
         ->and($staff->staffProfile->phone)->toBe('+63 917 123 4567')
         ->and($staff->staffProfile->notes)->toBe('Updated notes.');
 });
@@ -64,26 +61,24 @@ test('updating keeps the email lowercased and trimmed', function () {
     expect($staff->fresh()->email)->toBe('mixed@example.test');
 });
 
-test('a staff account can keep its own email and employee id', function () {
+test('a staff account can keep its own email', function () {
     $admin = updateAdmin();
     $staff = updateStaff($admin, ['email' => 'same@example.test']);
 
     $this->actingAs($admin)
         ->put(route('dashboard.accounts.update', $staff), updatePayload([
             'email' => 'same@example.test',
-            'employee_id' => 'OPAP-1000',
         ]))
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect($staff->fresh()->email)->toBe('same@example.test')
-        ->and($staff->fresh()->staffProfile->employee_id)->toBe('OPAP-1000');
+    expect($staff->fresh()->email)->toBe('same@example.test');
 });
 
-test('updating rejects an email or employee id used by a colleague', function (string $field, string $value, string $error) {
+test('updating rejects an email used by a colleague', function (string $field, string $value, string $error) {
     $admin = updateAdmin();
     $staff = updateStaff($admin);
-    $colleague = updateStaff($admin, ['email' => 'colleague@example.test'], ['employee_id' => 'OPAP-3000']);
+    $colleague = updateStaff($admin, ['email' => 'colleague@example.test']);
 
     $this->actingAs($admin)
         ->from(route('dashboard.accounts'))
@@ -95,7 +90,6 @@ test('updating rejects an email or employee id used by a colleague', function (s
     expect($colleague->id)->not->toBe($staff->id);
 })->with([
     'email' => ['email', 'COLLEAGUE@example.test', 'email'],
-    'employee id' => ['employee_id', 'opap-3000', 'employee_id'],
 ]);
 
 test('updating cannot change the role, agency or status from the payload', function () {
@@ -133,7 +127,6 @@ test('updating validates the submitted fields', function (string $field, mixed $
 })->with([
     'missing name' => ['name', ''],
     'invalid email' => ['email', 'nope'],
-    'missing employee id' => ['employee_id', ''],
     'long notes' => ['notes', str_repeat('x', 1001)],
 ]);
 
@@ -145,7 +138,6 @@ test('updating records the changed field names in the audit log', function () {
         ->put(route('dashboard.accounts.update', $staff), updatePayload([
             'name' => 'Only The Name Changed',
             'email' => $staff->email,
-            'employee_id' => 'OPAP-1000',
             'phone' => '+63 917 000 0000',
             'notes' => 'Original notes',
         ]))
@@ -167,7 +159,6 @@ test('an unchanged update does not write an audit log', function () {
         ->put(route('dashboard.accounts.update', $staff), updatePayload([
             'name' => $staff->name,
             'email' => $staff->email,
-            'employee_id' => 'OPAP-1000',
             'phone' => '+63 917 000 0000',
             'notes' => 'Original notes',
         ]))

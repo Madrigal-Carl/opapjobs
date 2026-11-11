@@ -57,16 +57,16 @@ test('admins can archive active or suspended staff without deleting their record
             ->loadDeferredProps(fn (Assert $reload) => $reload->where('kpis.total_staff', 0)));
 })->with(['active' => false, 'suspended' => true]);
 
-test('archiving a staff account makes its seat and employee id available for a replacement', function () {
+test('archiving a staff account makes its seat available for a replacement', function () {
     Event::fake([StaffAccountCreated::class]);
     $agency = Agency::factory()->create(['agency_user_limit' => 1]);
     $admin = User::factory()->admin()->forAgency($agency)->create();
     $staff = User::factory()->agency()->forAgency($agency)->create();
-    StaffProfile::factory()->for($staff, 'user')->create(['employee_id' => 'STAFF-001']);
+    StaffProfile::factory()->for($staff, 'user')->create();
 
     $this->actingAs($admin)->patch(route('dashboard.accounts.archive', $staff))->assertRedirect();
     $this->post(route('dashboard.accounts.store'), [
-        'name' => 'Replacement Staff', 'email' => 'replacement@example.test', 'employee_id' => 'staff-001',
+        'name' => 'Replacement Staff', 'email' => 'replacement@example.test',
     ])->assertRedirect()->assertSessionHasNoErrors();
 
     $this->assertSoftDeleted($staff);

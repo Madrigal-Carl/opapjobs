@@ -20,7 +20,6 @@ class StaffProfileFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'employee_id' => 'OPAP-'.str_pad((string) fake()->unique()->numberBetween(1000, 9999), 4, '0', STR_PAD_LEFT),
             'phone' => '+63 9'.fake()->numberBetween(10, 99).' '.fake()->numberBetween(100, 999).' '.fake()->numberBetween(1000, 9999),
             'notes' => null,
         ];

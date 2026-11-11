@@ -144,7 +144,6 @@ class DemoAgencySeeder extends Seeder
                         ], Role::Agency, $password);
 
                     $staffUser->staffProfile()->firstOrCreate([], [
-                        'employee_id' => sprintf('OPAP-%04d', 100 + $index * 10 + $staffIndex + 1),
                         'phone' => '+63 9'.sprintf('%02d', 10 + $index).sprintf('%03d', 100 + $staffIndex).' '.sprintf('%04d', 1000 + $staffIndex),
                         'notes' => null,
                     ]);

@@ -71,31 +71,26 @@ const accountColumns: Column<AccountRow>[] = [
     {
         key: 'staff',
         header: 'Staff member',
-        width: '40%',
+        width: '28%',
         cell: (account) => (
-            <div className="min-w-0">
-                <span
-                    className="block max-w-[22rem] truncate font-bold text-[var(--navy-deep)]"
-                    title={account.name}
-                >
-                    {account.name}
-                </span>
-                <span
-                    className="block max-w-[22rem] truncate text-xs text-[var(--slate)]"
-                    title={account.email}
-                >
-                    {account.email}
-                </span>
-            </div>
+            <span
+                className="block max-w-[18rem] truncate font-bold text-[var(--navy-deep)]"
+                title={account.name}
+            >
+                {account.name}
+            </span>
         ),
     },
     {
-        key: 'employeeId',
-        header: 'Employee ID',
-        width: '20%',
+        key: 'email',
+        header: 'Email',
+        width: '32%',
         cell: (account) => (
-            <span className="text-[var(--navy-deep)]">
-                {account.employee_id}
+            <span
+                className="block max-w-[20rem] truncate text-[var(--navy)]"
+                title={account.email}
+            >
+                {account.email}
             </span>
         ),
     },
@@ -133,7 +128,6 @@ function mapAccountRow(row: AccountRow): Account {
         fullName: row.name,
         email: row.email,
         phone: row.phone,
-        employeeId: row.employee_id,
         notes: row.notes,
         status: row.status === 'active' ? 'Active' : 'Suspended',
         jobsCreated: row.jobs_created,
@@ -515,6 +509,14 @@ export default function DashboardAccounts({
                 open={viewOpen}
                 account={viewingAccount}
                 onOpenChange={setViewOpen}
+                onEdit={
+                    canManageAccounts
+                        ? (account) => {
+                              setViewOpen(false);
+                              beginEdit(account);
+                          }
+                        : undefined
+                }
             />
             <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
                 <DialogContent>
