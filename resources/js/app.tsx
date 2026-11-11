@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
+import { ApplicantPageSkeleton } from '@/components/applicant/applicant-page-skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
@@ -94,6 +95,8 @@ void createInertiaApp({
         return (
             <TooltipProvider delayDuration={0}>
                 {app}
+                {/* Outside the page so it survives the swap it covers. */}
+                <ApplicantPageSkeleton />
                 <Toaster />
             </TooltipProvider>
         );

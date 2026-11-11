@@ -5965,6 +5965,10 @@ select.field-control {
         animation: none;
     }
 
+    .apply-upload-progress span {
+        transition: none;
+    }
+
     .apply-body * {
         transition: none;
     }
