@@ -36,7 +36,6 @@ import { SystemRowMenu } from '@/components/system/system-row-menu';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import type { AgencyDisplayStatus } from '@/data/system/selectors';
 import {
     AGENCY_STATUS_LABELS,
@@ -170,7 +169,6 @@ function mutateAgency(
 
 export default function SystemAgencies() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
 
     const [q, setQ] = useState('');
@@ -609,7 +607,6 @@ export default function SystemAgencies() {
                     <KpiCard
                         label="Agencies"
                         value={stats.total}
-                        loading={loading}
                         caption="Active and suspended"
                         icon={Building2}
                         tone="blue"
@@ -618,7 +615,6 @@ export default function SystemAgencies() {
                     <KpiCard
                         label="Verified"
                         value={stats.verified}
-                        loading={loading}
                         caption="Licence confirmed"
                         icon={ShieldCheck}
                         tone="emerald"
@@ -627,7 +623,6 @@ export default function SystemAgencies() {
                     <KpiCard
                         label="Suspended"
                         value={stats.suspended}
-                        loading={loading}
                         caption="Staff cannot sign in"
                         icon={ShieldAlert}
                         tone="amber"
@@ -636,7 +631,6 @@ export default function SystemAgencies() {
                     <KpiCard
                         label="Staff seats"
                         value={`${stats.seatsUsed} / ${stats.seatsLimit}`}
-                        loading={loading}
                         caption="Seats in use across all Agencies"
                         icon={Users}
                         tone="teal"
@@ -684,7 +678,6 @@ export default function SystemAgencies() {
                 <DataTable<AgencyRecord>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(agency) => String(agency.id)}
                     getRowTestId={(agency) => `row-agency-${agency.id}`}
                     getRowAccent={(agency) =>
@@ -784,7 +777,6 @@ export default function SystemAgencies() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-agencies"
                             />
                         </DataTableToolbar>

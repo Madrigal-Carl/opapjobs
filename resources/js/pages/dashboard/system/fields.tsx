@@ -57,11 +57,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { useFormChanges } from '@/hooks/use-form-changes';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import { OPTION_LIST_KEYS } from '@/data/system/seeds/config';
 import {
     commitSystemChange,
@@ -389,26 +387,6 @@ function optionUsage(
     }
 }
 
-/** Skeleton rows so a pane paints in the same beat as the tables do. */
-function ListSkeleton({ rows = 4 }: { rows?: number }) {
-    return (
-        <ul
-            className="flex flex-col gap-1.5"
-            data-testid="list-skeleton"
-            aria-hidden="true"
-        >
-            {Array.from({ length: rows }).map((_, index) => (
-                <li
-                    key={`skeleton-${index}`}
-                    className="rounded-lg border border-[var(--line)] bg-white px-3 py-3"
-                >
-                    <Skeleton className="h-4 w-1/2 motion-reduce:animate-none" />
-                </li>
-            ))}
-        </ul>
-    );
-}
-
 const optionRowClasses =
     'group flex items-center gap-2 rounded-lg border border-[var(--line)] bg-white px-2.5 py-2 transition-colors hover:border-[var(--teal)] focus-within:border-[var(--teal)] motion-reduce:transition-none';
 
@@ -543,11 +521,9 @@ function ArchivedOptionRow({
 /** Area 1: pick an option list, then edit its options inline. */
 function OptionListsPane({
     state,
-    loading,
     addSignal,
 }: {
     state: SystemState;
-    loading: boolean;
     addSignal: number;
 }) {
     const [selectedKey, setSelectedKey] =
@@ -938,35 +914,31 @@ function OptionListsPane({
                         </p>
                     </header>
 
-                    {loading ? (
-                        <ListSkeleton rows={6} />
-                    ) : (
-                        <ul className="flex flex-col gap-1.5">
-                            {lists.map((list) => (
-                                <li key={list.key}>
-                                    <button
-                                        type="button"
-                                        onClick={() => selectList(list.key)}
-                                        aria-pressed={selectedKey === list.key}
-                                        data-testid={`button-option-list-${list.key}`}
-                                        className={cn(
-                                            'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40 focus-visible:outline-none motion-reduce:transition-none',
-                                            selectedKey === list.key
-                                                ? 'border-[var(--teal)] bg-[var(--teal-light)]/40 text-[var(--navy)]'
-                                                : 'border-[var(--line)] bg-white text-[var(--slate)] hover:border-[var(--teal)] hover:text-[var(--navy)]',
-                                        )}
-                                    >
-                                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                                            {list.label}
-                                        </span>
-                                        <span className="shrink-0 text-xs text-[var(--slate)] tabular-nums">
-                                            {list.active}
-                                        </span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
+                    <ul className="flex flex-col gap-1.5">
+                        {lists.map((list) => (
+                            <li key={list.key}>
+                                <button
+                                    type="button"
+                                    onClick={() => selectList(list.key)}
+                                    aria-pressed={selectedKey === list.key}
+                                    data-testid={`button-option-list-${list.key}`}
+                                    className={cn(
+                                        'flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40 focus-visible:outline-none motion-reduce:transition-none',
+                                        selectedKey === list.key
+                                            ? 'border-[var(--teal)] bg-[var(--teal-light)]/40 text-[var(--navy)]'
+                                            : 'border-[var(--line)] bg-white text-[var(--slate)] hover:border-[var(--teal)] hover:text-[var(--navy)]',
+                                    )}
+                                >
+                                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                                        {list.label}
+                                    </span>
+                                    <span className="shrink-0 text-xs text-[var(--slate)] tabular-nums">
+                                        {list.active}
+                                    </span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
                 </section>
 
                 {/* ---------- Right pane: the options ---------- */}
@@ -1015,102 +987,92 @@ function OptionListsPane({
                         />
                     )}
 
-                    {loading ? (
-                        <ListSkeleton rows={5} />
-                    ) : (
-                        <>
-                            <ul className="flex flex-col gap-1.5">
-                                {filteredOptions.map((option, index) => (
-                                    <OptionRow
-                                        key={option.value}
-                                        option={option}
-                                        index={index}
-                                        total={filteredOptions.length}
-                                        usage={usageOf(option.value)}
-                                        noun={usageNoun}
-                                        editing={editingValue === option.value}
-                                        editName={editLabel}
-                                        editError={editError}
-                                        onStartEdit={() =>
-                                            startEdit(
-                                                option.value,
-                                                option.label,
-                                            )
-                                        }
-                                        onEditChange={setEditLabel}
-                                        onCommitEdit={() =>
-                                            commitEdit(
-                                                option.value,
-                                                option.label,
-                                            )
-                                        }
-                                        onCancelEdit={cancelEdit}
-                                        onMove={(targetIndex) =>
-                                            reorderOptions(
-                                                filteredOptions,
-                                                option.value,
-                                                targetIndex,
-                                            )
-                                        }
-                                        onArchive={() =>
-                                            setArchiving({
-                                                value: option.value,
-                                                label: option.label,
-                                                usage: usageOf(option.value),
-                                            })
-                                        }
-                                    />
-                                ))}
-                            </ul>
-
-                            {filteredOptions.length === 0 && (
-                                <DashboardEmptyState
-                                    icon={needle ? SearchX : ListChecks}
-                                    title={
-                                        needle
-                                            ? 'No matching options'
-                                            : 'No options yet'
+                    <>
+                        <ul className="flex flex-col gap-1.5">
+                            {filteredOptions.map((option, index) => (
+                                <OptionRow
+                                    key={option.value}
+                                    option={option}
+                                    index={index}
+                                    total={filteredOptions.length}
+                                    usage={usageOf(option.value)}
+                                    noun={usageNoun}
+                                    editing={editingValue === option.value}
+                                    editName={editLabel}
+                                    editError={editError}
+                                    onStartEdit={() =>
+                                        startEdit(option.value, option.label)
                                     }
-                                    message={
-                                        needle
-                                            ? 'Clear the search to see every option in this list.'
-                                            : 'Add the first option applicants and agencies will pick from.'
+                                    onEditChange={setEditLabel}
+                                    onCommitEdit={() =>
+                                        commitEdit(option.value, option.label)
                                     }
-                                    onReset={
-                                        needle ? () => setSearch('') : undefined
+                                    onCancelEdit={cancelEdit}
+                                    onMove={(targetIndex) =>
+                                        reorderOptions(
+                                            filteredOptions,
+                                            option.value,
+                                            targetIndex,
+                                        )
+                                    }
+                                    onArchive={() =>
+                                        setArchiving({
+                                            value: option.value,
+                                            label: option.label,
+                                            usage: usageOf(option.value),
+                                        })
                                     }
                                 />
-                            )}
+                            ))}
+                        </ul>
 
-                            {archivedOptions.length > 0 && needle === '' && (
-                                <ArchivedSection
-                                    count={archivedOptions.length}
-                                    open={showArchived}
-                                    onToggle={() =>
-                                        setShowArchived((current) => !current)
-                                    }
-                                >
-                                    <ul className="flex flex-col gap-1.5">
-                                        {archivedOptions.map((option) => (
-                                            <ArchivedOptionRow
-                                                key={option.value}
-                                                label={option.label}
-                                                usage={usageOf(option.value)}
-                                                noun={usageNoun}
-                                                onRestore={() =>
-                                                    restoreOption(
-                                                        option.value,
-                                                        option.label,
-                                                        usageOf(option.value),
-                                                    )
-                                                }
-                                            />
-                                        ))}
-                                    </ul>
-                                </ArchivedSection>
-                            )}
-                        </>
-                    )}
+                        {filteredOptions.length === 0 && (
+                            <DashboardEmptyState
+                                icon={needle ? SearchX : ListChecks}
+                                title={
+                                    needle
+                                        ? 'No matching options'
+                                        : 'No options yet'
+                                }
+                                message={
+                                    needle
+                                        ? 'Clear the search to see every option in this list.'
+                                        : 'Add the first option applicants and agencies will pick from.'
+                                }
+                                onReset={
+                                    needle ? () => setSearch('') : undefined
+                                }
+                            />
+                        )}
+
+                        {archivedOptions.length > 0 && needle === '' && (
+                            <ArchivedSection
+                                count={archivedOptions.length}
+                                open={showArchived}
+                                onToggle={() =>
+                                    setShowArchived((current) => !current)
+                                }
+                            >
+                                <ul className="flex flex-col gap-1.5">
+                                    {archivedOptions.map((option) => (
+                                        <ArchivedOptionRow
+                                            key={option.value}
+                                            label={option.label}
+                                            usage={usageOf(option.value)}
+                                            noun={usageNoun}
+                                            onRestore={() =>
+                                                restoreOption(
+                                                    option.value,
+                                                    option.label,
+                                                    usageOf(option.value),
+                                                )
+                                            }
+                                        />
+                                    ))}
+                                </ul>
+                            </ArchivedSection>
+                        )}
+                    </>
                 </section>
             </div>
 
@@ -1497,11 +1459,9 @@ function FormFieldSheet({
 /** Area 2: the seeded fields on the four forms, edited in a sheet. */
 function FormFieldsPane({
     state,
-    loading,
     onAddCustomField,
 }: {
     state: SystemState;
-    loading: boolean;
     onAddCustomField: () => void;
 }) {
     const [ownerFilter, setOwnerFilter] = useState<FieldOwnerFilter>('all');
@@ -1619,7 +1579,6 @@ function FormFieldsPane({
             <DataTable<FormFieldRecord>
                 columns={columns}
                 data={rows}
-                loading={loading}
                 getRowId={(field) => field.id}
                 getRowTestId={(field) => `row-form-field-${field.id}`}
                 renderRowActions={(field) => (
@@ -1665,7 +1624,6 @@ function FormFieldsPane({
                         </DataTableField>
                         <DataTableRefreshButton
                             onClick={resetFilters}
-                            spinning={loading}
                             data-testid="button-refresh-form-fields"
                         />
                     </DataTableToolbar>
@@ -2200,11 +2158,9 @@ type CustomFieldPending =
 /** Area 3: superadmin-defined fields, sheet editing, bulk archive. */
 function CustomFieldsPane({
     state,
-    loading,
     addSignal,
 }: {
     state: SystemState;
-    loading: boolean;
     addSignal: number;
 }) {
     const selection = useRowSelection();
@@ -2484,7 +2440,6 @@ function CustomFieldsPane({
             <DataTable<CustomFieldRecord>
                 columns={columns}
                 data={rows}
-                loading={loading}
                 getRowId={(field) => field.id}
                 getRowTestId={(field) => `row-custom-field-${field.id}`}
                 renderRowActions={rowMenu}
@@ -2545,7 +2500,6 @@ function CustomFieldsPane({
                         </DataTableField>
                         <DataTableRefreshButton
                             onClick={resetFilters}
-                            spinning={loading}
                             data-testid="button-refresh-custom-fields"
                         />
                     </DataTableToolbar>
@@ -2569,7 +2523,7 @@ function CustomFieldsPane({
                 data-testid="table-custom-fields"
             />
 
-            {!loading && archivedRows.length > 0 && (
+            {archivedRows.length > 0 && (
                 <ArchivedSection
                     count={archivedRows.length}
                     open={showArchived}
@@ -2621,7 +2575,6 @@ function CustomFieldsPane({
 
 export default function FieldsPage() {
     const state = useSystemState();
-    const loading = useSystemLoading();
 
     const [area, setArea] = useState<Area>('options');
     const [optionAddSignal, setOptionAddSignal] = useState(0);
@@ -2668,7 +2621,6 @@ export default function FieldsPage() {
                 {area === 'options' && (
                     <OptionListsPane
                         state={state}
-                        loading={loading}
                         addSignal={optionAddSignal}
                     />
                 )}
@@ -2676,7 +2628,6 @@ export default function FieldsPage() {
                 {area === 'form_fields' && (
                     <FormFieldsPane
                         state={state}
-                        loading={loading}
                         onAddCustomField={() => {
                             setArea('custom_fields');
                             setCustomFieldAddSignal((count) => count + 1);
@@ -2687,7 +2638,6 @@ export default function FieldsPage() {
                 {area === 'custom_fields' && (
                     <CustomFieldsPane
                         state={state}
-                        loading={loading}
                         addSignal={customFieldAddSignal}
                     />
                 )}

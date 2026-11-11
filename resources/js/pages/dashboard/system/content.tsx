@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SegmentedControl } from '@/components/ui/segmented-control';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
     commitSystemChange,
     popAuditEntry,
@@ -22,7 +21,6 @@ import {
 } from '@/data/system/store';
 import type { AuditChange, SiteContentState } from '@/data/system/types';
 import { useFormChanges } from '@/hooks/use-form-changes';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import { home } from '@/routes';
 import * as system from '@/routes/dashboard/system';
 
@@ -1007,28 +1005,6 @@ function FooterPane({ draft, setValue, setMany, errors }: PaneProps) {
     );
 }
 
-/** Skeleton beat so the panes paint like every other console screen. */
-function ContentSkeleton() {
-    return (
-        <ul
-            className="flex flex-col gap-3"
-            data-testid="content-skeleton"
-            aria-hidden="true"
-        >
-            {Array.from({ length: 3 }).map((_, index) => (
-                <li
-                    key={`skeleton-${index}`}
-                    className="rounded-lg border border-[var(--line)] bg-white p-5"
-                >
-                    <Skeleton className="mb-4 h-4 w-40 motion-reduce:animate-none" />
-                    <Skeleton className="mb-2 h-10 w-full motion-reduce:animate-none" />
-                    <Skeleton className="h-10 w-full motion-reduce:animate-none" />
-                </li>
-            ))}
-        </ul>
-    );
-}
-
 /**
  * The form itself. Seeded from the store content on mount; an Undo bumps
  * the parent's form key so this remounts with the restored originals as
@@ -1169,7 +1145,6 @@ function ContentForm({
 
 export default function ContentPage() {
     const state = useSystemState();
-    const loading = useSystemLoading();
 
     const [area, setArea] = useState<Area>('announcement');
     // Bumped by an Undo so the form remounts on the restored originals.
@@ -1206,19 +1181,13 @@ export default function ContentPage() {
                     data-testid="header-content"
                 />
 
-                {loading ? (
-                    <ContentSkeleton />
-                ) : (
-                    <ContentForm
-                        key={formVersion}
-                        content={state.content}
-                        area={area}
-                        onAreaChange={setArea}
-                        onReverted={() =>
-                            setFormVersion((version) => version + 1)
-                        }
-                    />
-                )}
+                <ContentForm
+                    key={formVersion}
+                    content={state.content}
+                    area={area}
+                    onAreaChange={setArea}
+                    onReverted={() => setFormVersion((version) => version + 1)}
+                />
             </SystemPage>
         </>
     );

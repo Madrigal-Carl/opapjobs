@@ -356,7 +356,8 @@ export default function DashboardAccounts({
                 <KpiGrid>
                     <KpiCard
                         label="Total Staff"
-                        value={kpis ? kpis.total_staff : '—'}
+                        value={kpis?.total_staff ?? 0}
+                        loading={!kpis}
                         caption={
                             seats.limit > 0
                                 ? `${seats.used} of ${seats.limit} seats used`
@@ -367,21 +368,24 @@ export default function DashboardAccounts({
                     />
                     <KpiCard
                         label="Active"
-                        value={kpis ? kpis.active : '—'}
+                        value={kpis?.active ?? 0}
+                        loading={!kpis}
                         caption="Can sign in to the workspace"
                         icon={UserCheck}
                         tone="emerald"
                     />
                     <KpiCard
                         label="Suspended"
-                        value={kpis ? kpis.suspended : '—'}
+                        value={kpis?.suspended ?? 0}
+                        loading={!kpis}
                         caption="Access temporarily disabled"
                         icon={UserX}
                         tone="red"
                     />
                     <KpiCard
                         label="Jobs Created"
-                        value={kpis ? kpis.jobs_created : '—'}
+                        value={kpis?.jobs_created ?? 0}
+                        loading={!kpis}
                         caption="Posted by all staff"
                         icon={BriefcaseBusiness}
                         tone="violet"
@@ -390,6 +394,7 @@ export default function DashboardAccounts({
                 <DataTable<AccountRow>
                     columns={accountColumns}
                     data={staff.data ?? []}
+                    loading={table.loading}
                     getRowId={(account) => String(account.id)}
                     getRowTestId={(account) => `row-staff-${account.id}`}
                     getRowAccent={(account) =>

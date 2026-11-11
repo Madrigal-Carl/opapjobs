@@ -47,7 +47,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useFormChanges } from '@/hooks/use-form-changes';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import {
     agencyAdmin,
     agencySeatsUsed,
@@ -852,7 +851,6 @@ type SheetState = { mode: 'create' } | { mode: 'edit' | 'view'; id: number };
 
 export default function SystemAccounts() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
 
     const [q, setQ] = useState('');
@@ -1375,7 +1373,6 @@ export default function SystemAccounts() {
                     <KpiCard
                         label="Total accounts"
                         value={stats.total}
-                        loading={loading}
                         caption="Active and suspended"
                         icon={Users}
                         tone="blue"
@@ -1384,7 +1381,6 @@ export default function SystemAccounts() {
                     <KpiCard
                         label="Active"
                         value={stats.active}
-                        loading={loading}
                         caption="Can sign in"
                         icon={ShieldCheck}
                         tone="emerald"
@@ -1393,7 +1389,6 @@ export default function SystemAccounts() {
                     <KpiCard
                         label="Suspended"
                         value={stats.suspended}
-                        loading={loading}
                         caption="Cannot sign in"
                         icon={ShieldAlert}
                         tone="amber"
@@ -1402,7 +1397,6 @@ export default function SystemAccounts() {
                     <KpiCard
                         label="Agencies represented"
                         value={stats.agenciesRepresented}
-                        loading={loading}
                         caption="With at least one live staff account"
                         icon={Building2}
                         tone="teal"
@@ -1450,7 +1444,6 @@ export default function SystemAccounts() {
                 <DataTable<UserRecord>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(account) => String(account.id)}
                     getRowTestId={(account) => `row-account-${account.id}`}
                     getRowAccent={(account) =>
@@ -1552,7 +1545,6 @@ export default function SystemAccounts() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-accounts"
                             />
                         </DataTableToolbar>

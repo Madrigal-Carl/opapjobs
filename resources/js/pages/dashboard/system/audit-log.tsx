@@ -29,7 +29,6 @@ import { EntitySheet } from '@/components/system/entity-sheet';
 import { SystemPageHeader } from '@/components/system/system-page-header';
 import { SystemRowMenu } from '@/components/system/system-row-menu';
 import { Button } from '@/components/ui/button';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import { useSystemState } from '@/data/system/store';
 import * as system from '@/routes/dashboard/system';
 import type {
@@ -348,7 +347,6 @@ function AuditRowMenu({
 
 export default function SystemAuditLog() {
     const state = useSystemState();
-    const loading = useSystemLoading();
 
     const [search, setSearch] = useState('');
     const [actionFilter, setActionFilter] = useState('all');
@@ -577,7 +575,6 @@ export default function SystemAuditLog() {
                     <KpiCard
                         label="Total entries"
                         value={kpis.total}
-                        loading={loading}
                         caption="Recorded changes"
                         icon={History}
                         tone="navy"
@@ -586,7 +583,6 @@ export default function SystemAuditLog() {
                     <KpiCard
                         label="Entries today"
                         value={kpis.today}
-                        loading={loading}
                         caption="Since midnight"
                         icon={CalendarDays}
                         tone="teal"
@@ -595,7 +591,6 @@ export default function SystemAuditLog() {
                     <KpiCard
                         label="Actors"
                         value={kpis.actors}
-                        loading={loading}
                         caption="Distinct console users"
                         icon={UserRound}
                         tone="amber"
@@ -604,7 +599,6 @@ export default function SystemAuditLog() {
                     <KpiCard
                         label="Record types touched"
                         value={kpis.subjects}
-                        loading={loading}
                         caption="Distinct subject types"
                         icon={Layers}
                         tone="blue"
@@ -615,7 +609,6 @@ export default function SystemAuditLog() {
                 <DataTable<AuditEntry>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(entry) => entry.id}
                     getRowTestId={(entry) => `row-audit-${entry.id}`}
                     onRowClick={(entry) => setSelected(entry)}

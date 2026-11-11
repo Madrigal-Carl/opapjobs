@@ -51,7 +51,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useFormChanges } from '@/hooks/use-form-changes';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import type { SystemState } from '@/data/system/store';
 import {
     commitSystemChange,
@@ -553,7 +552,6 @@ function JobPostEditSheet({
 
 export default function SystemJobPosts() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
     const today = todayIso();
 
@@ -1115,7 +1113,6 @@ export default function SystemJobPosts() {
                     <KpiCard
                         label="Job posts"
                         value={stats.total}
-                        loading={loading}
                         caption="Active, expired and closed"
                         icon={BriefcaseBusiness}
                         tone="blue"
@@ -1124,7 +1121,6 @@ export default function SystemJobPosts() {
                     <KpiCard
                         label="Active"
                         value={stats.active}
-                        loading={loading}
                         caption="Accepting applications"
                         icon={CircleCheck}
                         tone="emerald"
@@ -1133,7 +1129,6 @@ export default function SystemJobPosts() {
                     <KpiCard
                         label="Closing soon"
                         value={stats.closingSoon}
-                        loading={loading}
                         caption="Closing within 7 days"
                         icon={Clock}
                         tone="amber"
@@ -1142,7 +1137,6 @@ export default function SystemJobPosts() {
                     <KpiCard
                         label="Expired"
                         value={stats.expired}
-                        loading={loading}
                         caption="Past the closing date"
                         icon={CalendarX2}
                         tone="red"
@@ -1198,7 +1192,6 @@ export default function SystemJobPosts() {
                 <DataTable<JobPostRecord>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(post) => String(post.id)}
                     getRowTestId={(post) => `row-job-post-${post.id}`}
                     getRowAccent={(post) =>
@@ -1302,7 +1295,6 @@ export default function SystemJobPosts() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-job-posts"
                             />
                         </DataTableToolbar>

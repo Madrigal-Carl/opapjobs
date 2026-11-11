@@ -45,7 +45,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useFormChanges } from '@/hooks/use-form-changes';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import type { SystemState } from '@/data/system/store';
 import {
     commitSystemChange,
@@ -763,7 +762,6 @@ type SheetState = { mode: 'view' | 'edit'; id: number };
 
 export default function SystemApplications() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
 
     const [q, setQ] = useState('');
@@ -1281,7 +1279,6 @@ export default function SystemApplications() {
                     <KpiCard
                         label="Applications"
                         value={stats.total}
-                        loading={loading}
                         caption="Active — not archived"
                         icon={ClipboardList}
                         tone="blue"
@@ -1290,7 +1287,6 @@ export default function SystemApplications() {
                     <KpiCard
                         label="In interview"
                         value={stats.interview}
-                        loading={loading}
                         caption="Currently at the interview stage"
                         icon={CalendarClock}
                         tone="teal"
@@ -1299,7 +1295,6 @@ export default function SystemApplications() {
                     <KpiCard
                         label="Hired"
                         value={stats.hired}
-                        loading={loading}
                         caption="Contracts signed"
                         icon={BadgeCheck}
                         tone="emerald"
@@ -1308,7 +1303,6 @@ export default function SystemApplications() {
                     <KpiCard
                         label="Archived"
                         value={stats.archived}
-                        loading={loading}
                         caption="Hidden until restored"
                         icon={Archive}
                         tone="navy"
@@ -1380,7 +1374,6 @@ export default function SystemApplications() {
                 <DataTable<ApplicationRecord>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(application) => String(application.id)}
                     getRowTestId={(application) =>
                         `row-application-${application.id}`
@@ -1511,7 +1504,6 @@ export default function SystemApplications() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-applications"
                             />
                         </DataTableToolbar>

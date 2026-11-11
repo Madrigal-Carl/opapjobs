@@ -45,7 +45,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useRowSelection } from '@/hooks/use-row-selection';
 import { useFormChanges } from '@/hooks/use-form-changes';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import { agencyRating } from '@/data/system/selectors';
 import {
     commitSystemChange,
@@ -478,7 +477,6 @@ function ReviewEditSheet({
 
 export default function SystemReviews() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
 
     const [q, setQ] = useState('');
@@ -1069,7 +1067,6 @@ export default function SystemReviews() {
                             key={kpi.testId}
                             label={kpi.label}
                             value={kpi.value}
-                            loading={loading}
                             caption={kpi.caption}
                             icon={kpi.icon}
                             tone={kpi.tone}
@@ -1129,7 +1126,6 @@ export default function SystemReviews() {
                 <DataTable<AgencyReviewRecord>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(review) => String(review.id)}
                     getRowTestId={(review) => `row-review-${review.id}`}
                     getRowAccent={(review) =>
@@ -1233,7 +1229,6 @@ export default function SystemReviews() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-reviews"
                             />
                         </DataTableToolbar>

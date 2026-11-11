@@ -1,5 +1,4 @@
 import { createInertiaApp } from '@inertiajs/react';
-import { ApplicantPageSkeleton } from '@/components/applicant/applicant-page-skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
@@ -83,7 +82,12 @@ void createInertiaApp({
             case name === 'applicant/applications':
                 return [PublicLayout, { className: 'applicant-page' }];
             case name === 'applicant/resume':
-                return [PublicLayout, { className: 'applicant-page' }];
+                // An editor, not a page read to the end: the marketing
+                // footer would only sit below the last resume section.
+                return [
+                    PublicLayout,
+                    { className: 'applicant-page', footer: false },
+                ];
             case name === 'contact':
                 return [PublicLayout, { className: 'contact-page' }];
             default:
@@ -95,8 +99,6 @@ void createInertiaApp({
         return (
             <TooltipProvider delayDuration={0}>
                 {app}
-                {/* Outside the page so it survives the swap it covers. */}
-                <ApplicantPageSkeleton />
                 <Toaster />
             </TooltipProvider>
         );

@@ -47,7 +47,6 @@ import {
 } from '@/components/ui/select';
 import { useFormChanges } from '@/hooks/use-form-changes';
 import { useRowSelection } from '@/hooks/use-row-selection';
-import { useSystemLoading } from '@/hooks/use-system-loading';
 import {
     commitSystemChange,
     popAuditEntry,
@@ -592,7 +591,6 @@ function ApplicantEditSheet({
 
 export default function SystemApplicants() {
     const state = useSystemState();
-    const loading = useSystemLoading();
     const selection = useRowSelection();
 
     const [q, setQ] = useState('');
@@ -1035,7 +1033,6 @@ export default function SystemApplicants() {
                     <KpiCard
                         label="Applicants"
                         value={stats.total}
-                        loading={loading}
                         caption={`${stats.activeThisWeek} active this week`}
                         icon={Users}
                         tone="blue"
@@ -1044,7 +1041,6 @@ export default function SystemApplicants() {
                     <KpiCard
                         label="Available immediately"
                         value={stats.availableNow}
-                        loading={loading}
                         caption="Availability set to immediately"
                         icon={CalendarCheck}
                         tone="teal"
@@ -1053,7 +1049,6 @@ export default function SystemApplicants() {
                     <KpiCard
                         label="Pathway split"
                         value={`${stats.landbased} / ${stats.seabased}`}
-                        loading={loading}
                         caption="Land-based / Sea-based"
                         icon={RouteIcon}
                         tone="violet"
@@ -1062,7 +1057,6 @@ export default function SystemApplicants() {
                     <KpiCard
                         label="Archived"
                         value={stats.archived}
-                        loading={loading}
                         caption="Hidden until restored"
                         icon={Archive}
                         tone="navy"
@@ -1118,7 +1112,6 @@ export default function SystemApplicants() {
                 <DataTable<ApplicantRow>
                     columns={columns}
                     data={pageRows}
-                    loading={loading}
                     getRowId={(row) => String(row.profile.userId)}
                     getRowTestId={(row) =>
                         `row-applicant-${row.profile.userId}`
@@ -1233,7 +1226,6 @@ export default function SystemApplicants() {
                             </DataTableField>
                             <DataTableRefreshButton
                                 onClick={resetFilters}
-                                spinning={loading}
                                 data-testid="button-refresh-applicants"
                             />
                         </DataTableToolbar>
