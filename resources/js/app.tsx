@@ -7,7 +7,8 @@ import PublicLayout from '@/layouts/public-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { jobs } from '@/routes/dashboard';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+/** Every page shares one browser-tab title; per-page `<Head title>` values are ignored. */
+const PAGE_TITLE = 'OPAP Jobs Abroad';
 
 const fullBleedAuthPages = [
     'auth/login',
@@ -17,7 +18,7 @@ const fullBleedAuthPages = [
 ];
 
 void createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    title: () => PAGE_TITLE,
     defaults: {
         visitOptions: (href, options) => {
             // A late deferred KPI response must not undo a newer Jobs filter URL.
