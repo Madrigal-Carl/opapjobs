@@ -3,11 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\Permission;
-use App\Models\ApplicantCertification;
 use App\Models\ApplicantDocument;
-use App\Models\ApplicantEducation;
-use App\Models\ApplicantExperience;
-use App\Models\ApplicantSkill;
 use App\Models\Application;
 use App\Models\ApplicationStageHistory;
 use App\Models\JobPostQuestion;
@@ -46,7 +42,6 @@ class ApplicationDetailResource extends JsonResource
                 'phone' => $profile?->phone_number,
                 'headline' => $profile?->headline,
                 'location' => $profile?->current_location,
-                'summary' => $profile?->professional_summary,
                 'pathway' => $profile?->preferred_pathway?->value,
             ],
             'job' => [
@@ -85,36 +80,6 @@ class ApplicationDetailResource extends JsonResource
                 ])->values()->all(),
             ],
             'questions' => $this->questions(),
-            'experiences' => $this->applicant->experiences->map(fn (ApplicantExperience $experience): array => [
-                'id' => $experience->id,
-                'role' => $experience->job_role,
-                'company' => $experience->company_name,
-                'start' => $experience->started_on?->toDateString(),
-                'end' => $experience->ended_on?->toDateString(),
-                'location' => $experience->work_location,
-                'description' => $experience->responsibilities,
-            ])->values()->all(),
-            'education' => $this->applicant->education->map(fn (ApplicantEducation $education): array => [
-                'id' => $education->id,
-                'school' => $education->school_name,
-                'degree' => $education->degree,
-                'field' => $education->field_of_study,
-                'start' => $education->started_on?->toDateString(),
-                'end' => $education->ended_on?->toDateString(),
-            ])->values()->all(),
-            'certifications' => $this->applicant->certifications->map(fn (ApplicantCertification $certification): array => [
-                'id' => $certification->id,
-                'name' => $certification->certification_name,
-                'issuer' => $certification->issuing_organization,
-                'issue_date' => $certification->issued_on?->toDateString(),
-                'expiry_date' => $certification->expires_on?->toDateString(),
-                'credential_url' => $certification->credential_url,
-            ])->values()->all(),
-            'skills' => $this->applicant->skills->map(fn (ApplicantSkill $skill): array => [
-                'id' => $skill->id,
-                'name' => $skill->skill_name,
-                'level' => Str::headline($skill->skill_level->value),
-            ])->values()->all(),
             'documents' => $this->documents(),
             'resume_document_id' => $this->resume_document_id,
             'history' => $this->stageHistory->map(fn (ApplicationStageHistory $history): array => [

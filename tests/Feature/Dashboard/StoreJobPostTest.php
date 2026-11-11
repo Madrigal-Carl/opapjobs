@@ -155,6 +155,32 @@ test('job post validation returns per field errors and one summary toast', funct
     ]], 'questions.1.question_text'],
 ]);
 
+test('server validation messages match the wording the form shows for client-side errors', function (array $changes, string $field, string $message) {
+    $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
+    $input = array_replace(JobPostInput::for($user), $changes);
+
+    $this->actingAs($user)->from('/dashboard/jobs/new')->post('/dashboard/jobs', $input)
+        ->assertRedirect('/dashboard/jobs/new')->assertSessionHasErrors([$field => $message]);
+    $this->assertDatabaseCount('job_posts', 0);
+})->with([
+    'missing title' => [['job_title' => null], 'job_title', 'Enter the job title.'],
+    'missing job order number' => [['job_order_number' => null], 'job_order_number', 'Enter the job order number.'],
+    'missing location' => [['work_location' => null], 'work_location', 'Enter the job location.'],
+    'zero vacancies' => [['vacant_positions' => 0], 'vacant_positions', 'Enter between 1 and 65,535 vacant positions.'],
+    'salary without currency' => [['salary_currency' => null], 'salary_currency', 'Choose a currency when entering a salary.'],
+    'unknown currency' => [['salary_currency' => 'EUR'], 'salary_currency', 'Choose a valid currency.'],
+    'salary range' => [['monthly_salary_max' => 1], 'monthly_salary_max', 'Maximum salary must be at least the minimum.'],
+    'experience range' => [['min_experience_years' => 6], 'max_experience_years', 'Maximum experience must be at least the minimum.'],
+    'experience bound' => [['min_experience_years' => 256], 'min_experience_years', 'Enter a whole number from 0 to 255.'],
+    'missing education' => [['education_level' => null], 'education_level', 'Choose an education level.'],
+    'missing description' => [['job_description' => '  '], 'job_description', 'Describe the role so applicants know what to expect.'],
+    'invalid email' => [['contact_email' => 'invalid'], 'contact_email', 'Enter a valid email address.'],
+    'past closing date' => [['closing_date' => '2000-01-01'], 'closing_date', 'Choose today or a future date.'],
+    'long document name' => [['required_documents' => [str_repeat('x', 256)]], 'required_documents.0', 'Keep each document name to 255 characters or fewer.'],
+    'blank question' => [['questions' => [['question_text' => ' ', 'answer_type' => 'short']]], 'questions.0.question_text', 'Enter the question or remove it'],
+    'duplicate language' => [['languages' => array_fill(0, 2, ['language' => 'english', 'proficiency' => 'fluent'])], 'languages.1.language', 'This language is already included.'],
+]);
+
 test('invalid employer and pathway selections have safe domain messages', function (string $case, string $message) {
     $agency = Agency::factory()->create(['pathway' => 'landbased']);
     $user = User::factory()->agency()->forAgency($agency)->create();

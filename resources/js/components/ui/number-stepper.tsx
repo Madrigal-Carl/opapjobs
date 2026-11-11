@@ -24,7 +24,7 @@ export function NumberStepper({
     ...props
 }: NumberStepperProps) {
     return (
-        <div className="flex h-9 w-fit rounded-md border border-[var(--line)] bg-white focus-within:ring-2 focus-within:ring-[var(--teal)]/40">
+        <div className="flex h-9 w-fit rounded-md border border-[var(--line)] bg-white focus-within:ring-2 focus-within:ring-[var(--teal)]/40 has-[[aria-invalid=true]]:border-destructive has-[[aria-invalid=true]]:focus-within:ring-destructive/20">
             <Button
                 type="button"
                 variant="ghost"

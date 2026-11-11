@@ -2,7 +2,12 @@ import { Head, Link, setLayoutProps } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
+    Banknote,
+    Building2,
+    CalendarDays,
+    Check,
     ChevronDown,
+    Clock,
     Download,
     ExternalLink,
     FileText,
@@ -10,6 +15,8 @@ import {
     MapPin,
     Phone,
     UserRound,
+    X,
+    type LucideIcon,
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import {
@@ -30,9 +37,9 @@ import {
 import { getQuestionAnswerType } from '@/data/job-questions';
 import { elapsedSince } from '@/lib/application-utils';
 import { applications } from '@/routes/dashboard';
-import { SKILL_LEVEL_DOTS } from '@/types/applicant-profile';
 import {
     APPLICATION_STAGE_LABELS,
+    type ApplicationStageValue,
     type DashboardApplicationDetail,
 } from '@/types/dashboard-application';
 
@@ -51,6 +58,13 @@ const DOCUMENT_LABELS = {
     passport: 'Passport',
     other: 'Other document',
 };
+const PIPELINE_STAGES: ApplicationStageValue[] = [
+    'pending',
+    'reviewed',
+    'shortlisted',
+    'interviewed',
+    'hired',
+];
 const dateFormat = new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -59,8 +73,10 @@ const dateFormat = new Intl.DateTimeFormat('en-US', {
 const sectionLabel = 'text-sm font-semibold text-[var(--navy)]';
 const bodyText =
     'text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]';
-const textLink =
-    'rounded-sm underline decoration-[var(--line)] underline-offset-4 hover:decoration-current focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring';
+const mutedText = 'text-xs leading-relaxed text-[var(--slate)]';
+const focusRing =
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
+const textLink = `rounded-sm underline decoration-[var(--line)] underline-offset-4 hover:decoration-current ${focusRing}`;
 
 /** Formats ISO timestamps and date-only values without shifting the day. */
 function formatDate(value: string | null): string | undefined {
@@ -86,6 +102,26 @@ function experienceRequired(job: DashboardApplicationDetail['job']): string {
         : '';
 }
 
+/**
+ * Index of the last pipeline stage the application reached. Rejected
+ * applications resolve to the stage they were rejected from.
+ */
+function reachedStageIndex(application: DashboardApplicationDetail): number {
+    if (application.stage !== 'rejected') {
+        return PIPELINE_STAGES.indexOf(application.stage);
+    }
+    const rejection = [...application.history]
+        .reverse()
+        .find((entry) => entry.stage === 'rejected');
+
+    return Math.max(
+        0,
+        rejection?.from_stage
+            ? PIPELINE_STAGES.indexOf(rejection.from_stage)
+            : 0,
+    );
+}
+
 function DetailSection({
     id,
     title,
@@ -101,27 +137,155 @@ function DetailSection({
 }) {
     return (
         <section
-            aria-labelledby={id}
-            className="min-w-0 rounded-xl border border-[var(--line)] bg-white"
+            id={id}
+            aria-labelledby={`${id}-title`}
+            className="min-w-0 scroll-mt-20 rounded-xl border border-[var(--line)] bg-white shadow-xs"
         >
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--line)] px-5 py-4 sm:px-6">
                 <div className="flex min-w-0 flex-col gap-1">
                     <h2
-                        id={id}
+                        id={`${id}-title`}
                         className="font-serif text-base font-bold text-[var(--navy-deep)]"
                     >
                         {title}
                     </h2>
-                    {description && (
-                        <p className="text-xs leading-relaxed text-[var(--slate)]">
-                            {description}
-                        </p>
-                    )}
+                    {description && <p className={mutedText}>{description}</p>}
                 </div>
                 {action}
             </header>
             <div className="flex flex-col gap-5 p-5 sm:p-6">{children}</div>
         </section>
+    );
+}
+
+function CountChip({ children }: { children: ReactNode }) {
+    return (
+        <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--slate)]">
+            {children}
+        </span>
+    );
+}
+
+function StageProgress({
+    application,
+}: {
+    application: DashboardApplicationDetail;
+}) {
+    const rejected = application.stage === 'rejected';
+    const reached = reachedStageIndex(application);
+
+    return (
+        <ol
+            aria-label="Application progress"
+            className="flex flex-wrap items-center gap-x-1 gap-y-3"
+        >
+            {PIPELINE_STAGES.map((stage, index) => {
+                const done =
+                    index < reached ||
+                    (rejected && index === reached) ||
+                    (stage === 'hired' && application.stage === 'hired');
+                const current = !rejected && !done && index === reached;
+                const status = done
+                    ? 'completed'
+                    : current
+                      ? 'current stage'
+                      : 'not reached';
+
+                return (
+                    <li key={stage} className="flex items-center gap-1">
+                        <span
+                            className={`flex items-center gap-2 rounded-full py-1 pr-3 pl-1 text-xs font-medium ${
+                                current
+                                    ? 'bg-[var(--navy)] text-white'
+                                    : done
+                                      ? 'bg-[var(--teal-light)] text-[var(--teal-ink)]'
+                                      : 'bg-[var(--surface-soft)] text-[var(--slate)]'
+                            }`}
+                            aria-current={current ? 'step' : undefined}
+                        >
+                            <span
+                                className={`flex size-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                                    current
+                                        ? 'bg-white text-[var(--navy)]'
+                                        : done
+                                          ? 'bg-[var(--teal)] text-white'
+                                          : 'bg-white text-[var(--slate)]'
+                                }`}
+                                aria-hidden="true"
+                            >
+                                {done ? (
+                                    <Check className="size-3" />
+                                ) : (
+                                    index + 1
+                                )}
+                            </span>
+                            {APPLICATION_STAGE_LABELS[stage]}
+                            <span className="sr-only"> ({status})</span>
+                        </span>
+                        {rejected && index === reached && (
+                            <>
+                                <span
+                                    className="hidden h-px w-4 bg-[var(--danger)] sm:block"
+                                    aria-hidden="true"
+                                />
+                                <span
+                                    className="flex items-center gap-2 rounded-full bg-[var(--danger-soft)] py-1 pr-3 pl-1 text-xs font-medium text-[var(--danger)]"
+                                    aria-current="step"
+                                >
+                                    <span
+                                        className="flex size-5 items-center justify-center rounded-full bg-[var(--danger)] text-white"
+                                        aria-hidden="true"
+                                    >
+                                        <X className="size-3" />
+                                    </span>
+                                    {APPLICATION_STAGE_LABELS.rejected}
+                                    <span className="sr-only">
+                                        {' '}
+                                        (current stage)
+                                    </span>
+                                </span>
+                            </>
+                        )}
+                        {index < PIPELINE_STAGES.length - 1 && (
+                            <span
+                                className={`hidden h-px w-4 sm:block ${index < reached ? 'bg-[var(--teal)]' : 'bg-[var(--line)]'}`}
+                                aria-hidden="true"
+                            />
+                        )}
+                    </li>
+                );
+            })}
+        </ol>
+    );
+}
+
+function KeyFact({
+    icon: Icon,
+    label,
+    value,
+    hint,
+}: {
+    icon: LucideIcon;
+    label: string;
+    value: ReactNode;
+    hint?: string;
+}) {
+    return (
+        <div className="flex min-w-0 items-start gap-3">
+            <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[var(--teal-ink)] ring-1 ring-[var(--line)]"
+                aria-hidden="true"
+            >
+                <Icon className="size-4" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+                <dt className={mutedText}>{label}</dt>
+                <dd className="text-sm font-semibold text-[var(--navy-deep)]">
+                    {value}
+                </dd>
+                {hint && <dd className={mutedText}>{hint}</dd>}
+            </div>
+        </div>
     );
 }
 
@@ -133,22 +297,36 @@ function ApplicationDocument({
     submittedResume?: boolean;
 }) {
     return (
-        <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-4 first:border-t-0 first:pt-0">
+        <div
+            className={`flex min-w-0 flex-col gap-3 rounded-lg border p-4 ${
+                submittedResume
+                    ? 'border-[var(--teal)]/40 bg-[var(--teal-light)]/30'
+                    : 'border-[var(--line)]'
+            }`}
+        >
             <div className="flex items-start gap-3">
-                <FileText
-                    className="mt-1 size-5 shrink-0 text-[var(--slate)]"
+                <span
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+                        submittedResume
+                            ? 'bg-[var(--teal)] text-white'
+                            : 'bg-[var(--surface-soft)] text-[var(--slate)]'
+                    }`}
                     aria-hidden="true"
-                />
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                >
+                    <FileText className="size-5" />
+                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className={sectionLabel}>{document.name}</p>
+                        <p className={`${sectionLabel} min-w-0`}>
+                            {document.name}
+                        </p>
                         {submittedResume && (
                             <ListingTag tone="teal">
                                 Submitted resume
                             </ListingTag>
                         )}
                     </div>
-                    <p className="text-xs leading-relaxed text-[var(--slate)]">
+                    <p className={mutedText}>
                         {DOCUMENT_LABELS[document.document_type]} ·{' '}
                         {document.size}
                         {document.uploaded_at
@@ -161,7 +339,7 @@ function ApplicationDocument({
                 </div>
             </div>
             {document.url ? (
-                <div className="flex flex-wrap gap-2 pl-8">
+                <div className="mt-auto flex flex-wrap gap-2 sm:pl-[3.25rem]">
                     <Button
                         variant="secondary"
                         size="sm"
@@ -201,7 +379,7 @@ function ApplicationDocument({
                     </Button>
                 </div>
             ) : (
-                <p className="pl-8 text-xs text-[var(--slate)]">
+                <p className={`${mutedText} sm:pl-[3.25rem]`}>
                     File unavailable
                 </p>
             )}
@@ -269,6 +447,9 @@ export default function DashboardApplicationShow({
         question.answer?.trim(),
     ).length;
     const appliedDate = formatDate(application.submitted_at);
+    const appliedAgo = elapsedSince(
+        application.submitted_at.slice(0, 10),
+    ).replace(/^Applied /, '');
     const nextStage = application.next_stage
         ? APPLICATION_STAGE_LABELS[application.next_stage]
         : null;
@@ -278,6 +459,24 @@ export default function DashboardApplicationShow({
     const supportingDocuments = application.documents.filter(
         (document) => document.id !== application.resume_document_id,
     );
+    const hasCoverLetter = Boolean(application.cover_letter?.trim());
+    const sectionLinks = [
+        {
+            href: '#application-documents',
+            label: 'Documents',
+            count: String(application.documents.length),
+        },
+        {
+            href: '#application-screening',
+            label: 'Screening answers',
+            count: `${answered}/${application.questions.length}`,
+        },
+        {
+            href: '#application-letter',
+            label: 'Cover letter',
+            count: hasCoverLetter ? null : 'None',
+        },
+    ];
     const jobFacts = [
         { label: 'Recruitment agency', value: job.agency },
         {
@@ -340,16 +539,14 @@ export default function DashboardApplicationShow({
                             applications
                         </Link>
                     </Button>
-                    <p className="text-xs text-[var(--slate)]">
-                        Application #{application.id}
-                    </p>
+                    <p className={mutedText}>Application #{application.id}</p>
                 </div>
 
                 <section
                     aria-label="Candidate overview"
-                    className="rounded-xl border border-[var(--line)] bg-white"
+                    className="overflow-hidden rounded-xl border border-[var(--line)] bg-white shadow-xs"
                 >
-                    <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_auto]">
+                    <div className="flex flex-col gap-6 p-5 sm:p-6 lg:flex-row lg:items-start lg:justify-between">
                         <div className="flex min-w-0 items-start gap-4">
                             <Avatar
                                 className="size-14 shrink-0 sm:size-16"
@@ -359,10 +556,19 @@ export default function DashboardApplicationShow({
                                     {applicant.initials}
                                 </AvatarFallback>
                             </Avatar>
-                            <div className="flex min-w-0 flex-1 flex-col gap-2">
-                                <h1 className="font-serif text-2xl leading-tight font-bold tracking-tight text-[var(--navy-deep)] sm:text-3xl">
-                                    {applicant.name}
-                                </h1>
+                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <h1 className="font-serif text-2xl leading-tight font-bold tracking-tight text-[var(--navy-deep)] sm:text-3xl">
+                                        {applicant.name}
+                                    </h1>
+                                    <StageBadge
+                                        stage={
+                                            APPLICATION_STAGE_LABELS[
+                                                application.stage
+                                            ]
+                                        }
+                                    />
+                                </div>
                                 {applicant.headline && (
                                     <p className="text-sm font-medium text-[var(--slate)]">
                                         {applicant.headline}
@@ -370,84 +576,68 @@ export default function DashboardApplicationShow({
                                 )}
                                 <p className="text-sm leading-relaxed text-[var(--navy)]">
                                     Applied for{' '}
-                                    <span className="font-semibold">
+                                    <a
+                                        href="#application-job"
+                                        className={`font-semibold ${textLink}`}
+                                    >
                                         {job.title}
-                                    </span>
+                                    </a>
                                     {job.employer ? ` · ${job.employer}` : ''}
                                 </p>
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs leading-5 text-[var(--slate)]">
-                                    {applicant.location && (
-                                        <span className="inline-flex items-start gap-1.5">
-                                            <MapPin
-                                                className="mt-0.5 size-3.5 shrink-0"
+                                <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-2 text-sm text-[var(--navy)]">
+                                    <li className="min-w-0">
+                                        <a
+                                            href={`mailto:${applicant.email}`}
+                                            className={`inline-flex min-w-0 items-start gap-2 ${textLink}`}
+                                        >
+                                            <Mail
+                                                className="mt-0.5 size-4 shrink-0 text-[var(--slate)]"
                                                 aria-hidden="true"
                                             />
-                                            {applicant.location}
-                                        </span>
-                                    )}
-                                    {applicant.pathway && (
-                                        <PathwayBadge
-                                            pathway={applicant.pathway}
-                                        />
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-2 pt-1 text-sm text-[var(--navy)]">
-                                    <a
-                                        href={`mailto:${applicant.email}`}
-                                        className={`inline-flex min-w-0 items-start gap-2 ${textLink}`}
-                                    >
-                                        <Mail
-                                            className="mt-0.5 size-4 shrink-0"
-                                            aria-hidden="true"
-                                        />
-                                        <span className="min-w-0">
-                                            {applicant.email}
-                                        </span>
-                                    </a>
+                                            <span className="min-w-0">
+                                                {applicant.email}
+                                            </span>
+                                        </a>
+                                    </li>
                                     {applicant.phone && (
-                                        <a
-                                            href={`tel:${applicant.phone.replaceAll(' ', '')}`}
-                                            className={`inline-flex items-start gap-2 ${textLink}`}
-                                        >
-                                            <Phone
+                                        <li>
+                                            <a
+                                                href={`tel:${applicant.phone.replaceAll(' ', '')}`}
+                                                className={`inline-flex items-start gap-2 ${textLink}`}
+                                            >
+                                                <Phone
+                                                    className="mt-0.5 size-4 shrink-0 text-[var(--slate)]"
+                                                    aria-hidden="true"
+                                                />
+                                                {applicant.phone}
+                                            </a>
+                                        </li>
+                                    )}
+                                    {applicant.location && (
+                                        <li className="inline-flex items-start gap-2 text-[var(--slate)]">
+                                            <MapPin
                                                 className="mt-0.5 size-4 shrink-0"
                                                 aria-hidden="true"
                                             />
-                                            {applicant.phone}
-                                        </a>
+                                            {applicant.location}
+                                        </li>
                                     )}
-                                </div>
-                                {/* TODO: Implement the candidate detail page and its Wayfinder route before enabling:
-                                <Button variant="secondary" size="sm" asChild>
-                                    <Link href={candidateShow(applicant.id)}>View candidate</Link>
-                                </Button>
-                                */}
+                                    {applicant.pathway && (
+                                        <li>
+                                            <PathwayBadge
+                                                pathway={applicant.pathway}
+                                            />
+                                        </li>
+                                    )}
+                                </ul>
                             </div>
                         </div>
-                        <div className="flex flex-col gap-3 border-t border-[var(--line)] pt-5 xl:items-end xl:border-t-0 xl:pt-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs text-[var(--slate)]">
-                                    Application stage
-                                </span>
-                                <StageBadge
-                                    stage={
-                                        APPLICATION_STAGE_LABELS[
-                                            application.stage
-                                        ]
-                                    }
-                                />
-                            </div>
-                            <p className="text-xs text-[var(--slate)]">
-                                Time in pipeline:{' '}
-                                {elapsedSince(
-                                    application.submitted_at.slice(0, 10),
-                                ).replace(/^Applied /, '')}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-2">
+                        {(application.can_reject ||
+                            application.can_proceed) && (
+                            <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row lg:justify-end">
                                 {application.can_reject && (
                                     <Button
                                         variant="secondary"
-                                        size="sm"
                                         className="text-destructive hover:border-destructive"
                                         onClick={() => setRejectOpen(true)}
                                         disabled={processing}
@@ -458,7 +648,6 @@ export default function DashboardApplicationShow({
                                 )}
                                 {application.can_proceed && (
                                     <Button
-                                        size="sm"
                                         onClick={proceed}
                                         loading={processing}
                                         data-testid={`button-proceed-application-${application.id}`}
@@ -469,15 +658,19 @@ export default function DashboardApplicationShow({
                                     </Button>
                                 )}
                             </div>
-                        </div>
+                        )}
                     </div>
-                    <dl className="grid gap-4 border-t border-[var(--line)] bg-[var(--surface-soft)]/50 px-5 py-4 sm:grid-cols-3 sm:px-6">
-                        <div className="flex flex-col gap-1">
-                            <dt className="text-xs text-[var(--slate)]">
-                                Expected monthly salary
-                            </dt>
-                            <dd className="text-sm font-semibold text-[var(--navy)]">
-                                {application.expected_monthly_salary !== null
+
+                    <div className="border-t border-[var(--line)] px-5 py-4 sm:px-6">
+                        <StageProgress application={application} />
+                    </div>
+
+                    <dl className="grid gap-5 border-t border-[var(--line)] bg-[var(--surface-soft)]/60 px-5 py-4 sm:grid-cols-3 sm:px-6">
+                        <KeyFact
+                            icon={Banknote}
+                            label="Expected monthly salary"
+                            value={
+                                application.expected_monthly_salary !== null
                                     ? [
                                           job.salary_currency,
                                           Number(
@@ -488,56 +681,64 @@ export default function DashboardApplicationShow({
                                       ]
                                           .filter(Boolean)
                                           .join(' ')
-                                    : 'Not specified'}
-                            </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <dt className="text-xs text-[var(--slate)]">
-                                Availability
-                            </dt>
-                            <dd className="text-sm font-semibold text-[var(--navy)]">
-                                {application.availability
+                                    : 'Not specified'
+                            }
+                            hint={`Job offer: ${job.salary}`}
+                        />
+                        <KeyFact
+                            icon={Clock}
+                            label="Availability"
+                            value={
+                                application.availability
                                     ? AVAILABILITY_LABELS[
                                           application.availability
                                       ]
-                                    : 'Not specified'}
-                            </dd>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <dt className="text-xs text-[var(--slate)]">
-                                Date applied
-                            </dt>
-                            <dd className="text-sm font-semibold text-[var(--navy)]">
-                                {appliedDate}
-                            </dd>
-                        </div>
+                                    : 'Not specified'
+                            }
+                        />
+                        <KeyFact
+                            icon={CalendarDays}
+                            label="Date applied"
+                            value={appliedDate}
+                            hint={`In pipeline: ${appliedAgo}`}
+                        />
                     </dl>
                 </section>
 
-                <nav
-                    aria-label="Application sections"
-                    className="flex flex-wrap gap-x-5 gap-y-2 border-b border-[var(--line)] px-1 pb-3 text-sm font-medium text-[var(--slate)]"
-                >
-                    <a href="#application-documents" className={textLink}>
-                        Resume &amp; documents
-                    </a>
-                    <a href="#application-screening" className={textLink}>
-                        Screening answers
-                    </a>
-                    <a href="#application-profile" className={textLink}>
-                        Candidate profile
-                    </a>
-                    <a href="#application-letter" className={textLink}>
-                        Cover letter
-                    </a>
-                </nav>
+                <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                    <div className="flex min-w-0 flex-col gap-5 wrap-anywhere">
+                        <nav
+                            aria-label="Application sections"
+                            className="sticky top-0 z-10 -mx-1 flex gap-1 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                        >
+                            {sectionLinks.map((link) => (
+                                <a
+                                    key={link.href}
+                                    href={link.href}
+                                    className={`inline-flex shrink-0 items-center gap-2 rounded-full border border-[var(--line)] bg-white px-3.5 py-1.5 text-sm font-medium text-[var(--navy)] transition-colors hover:border-[var(--navy)]/40 hover:bg-[var(--surface-soft)] ${focusRing}`}
+                                >
+                                    {link.label}
+                                    {link.count && (
+                                        <span className="rounded-full bg-[var(--surface-soft)] px-1.5 text-xs text-[var(--slate)]">
+                                            {link.count}
+                                        </span>
+                                    )}
+                                </a>
+                            ))}
+                        </nav>
 
-                <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-                    <div className="flex min-w-0 flex-col gap-5 wrap-anywhere [&_h2]:scroll-mt-6">
                         <DetailSection
                             id="application-documents"
                             title="Resume & documents"
                             description="The selected resume and other files available at submission."
+                            action={
+                                <CountChip>
+                                    {application.documents.length}{' '}
+                                    {application.documents.length === 1
+                                        ? 'file'
+                                        : 'files'}
+                                </CountChip>
+                            }
                         >
                             {resume ? (
                                 <ApplicationDocument
@@ -545,23 +746,25 @@ export default function DashboardApplicationShow({
                                     submittedResume
                                 />
                             ) : (
-                                <p className="text-sm text-[var(--slate)]">
+                                <p className="rounded-lg border border-dashed border-[var(--line)] px-4 py-3 text-sm text-[var(--slate)]">
                                     {application.resume_document_id !== null
                                         ? 'The submitted resume is unavailable.'
                                         : 'No resume was selected for this application.'}
                                 </p>
                             )}
                             {supportingDocuments.length > 0 && (
-                                <div className="flex flex-col gap-4">
+                                <div className="flex flex-col gap-3">
                                     <h3 className={sectionLabel}>
                                         Supporting documents
                                     </h3>
-                                    {supportingDocuments.map((document) => (
-                                        <ApplicationDocument
-                                            key={document.id}
-                                            document={document}
-                                        />
-                                    ))}
+                                    <div className="grid gap-3 md:grid-cols-2">
+                                        {supportingDocuments.map((document) => (
+                                            <ApplicationDocument
+                                                key={document.id}
+                                                document={document}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </DetailSection>
@@ -571,56 +774,83 @@ export default function DashboardApplicationShow({
                             title="Screening answers"
                             description="Review the candidate’s responses to this job’s questions."
                             action={
-                                <span className="rounded-md bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--slate)]">
+                                <CountChip>
                                     {answered} of {application.questions.length}{' '}
                                     answered
-                                </span>
+                                </CountChip>
                             }
                         >
                             {application.questions.length ? (
-                                application.questions.map((question) => (
-                                    <div
-                                        key={question.id}
-                                        className="flex flex-col gap-2.5 border-t border-[var(--line)] pt-5 first:border-t-0 first:pt-0"
-                                    >
-                                        <div className="flex flex-wrap items-start justify-between gap-2">
-                                            <h3
-                                                className={`${sectionLabel} flex-1`}
-                                            >
-                                                {question.label}
-                                            </h3>
-                                            {question.required && (
-                                                <span className="text-xs text-[var(--slate)]">
-                                                    Required
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-xs text-[var(--slate)]">
-                                            {
-                                                getQuestionAnswerType(
-                                                    question.type,
-                                                ).label
-                                            }
-                                        </p>
-                                        {!question.answer?.trim() ? (
-                                            <p className="text-sm text-[var(--slate)]">
-                                                No answer provided
-                                            </p>
-                                        ) : question.type === 'yesno' ? (
-                                            <div>
-                                                <ListingTag tone="teal">
-                                                    {question.answer}
-                                                </ListingTag>
-                                            </div>
-                                        ) : (
-                                            <p
-                                                className={`${bodyText} rounded-lg bg-[var(--surface-soft)] px-4 py-3`}
-                                            >
-                                                {question.answer}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))
+                                <ol className="flex flex-col gap-5">
+                                    {application.questions.map(
+                                        (question, index) => {
+                                            const answer =
+                                                question.answer?.trim();
+
+                                            return (
+                                                <li
+                                                    key={question.id}
+                                                    className="flex gap-3 border-t border-[var(--line)] pt-5 first:border-t-0 first:pt-0"
+                                                >
+                                                    <span
+                                                        className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--surface-soft)] text-xs font-semibold text-[var(--navy)]"
+                                                        aria-hidden="true"
+                                                    >
+                                                        {index + 1}
+                                                    </span>
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <h3
+                                                                className={
+                                                                    sectionLabel
+                                                                }
+                                                            >
+                                                                {question.label}
+                                                            </h3>
+                                                            <p
+                                                                className={
+                                                                    mutedText
+                                                                }
+                                                            >
+                                                                {
+                                                                    getQuestionAnswerType(
+                                                                        question.type,
+                                                                    ).label
+                                                                }
+                                                                {question.required
+                                                                    ? ' · Required'
+                                                                    : ' · Optional'}
+                                                            </p>
+                                                        </div>
+                                                        {!answer ? (
+                                                            <p className="rounded-lg border border-dashed border-[var(--line)] px-4 py-2.5 text-sm text-[var(--slate)] italic">
+                                                                No answer
+                                                                provided
+                                                            </p>
+                                                        ) : question.type ===
+                                                          'yesno' ? (
+                                                            <div>
+                                                                <ListingTag tone="teal">
+                                                                    {
+                                                                        question.answer
+                                                                    }
+                                                                </ListingTag>
+                                                            </div>
+                                                        ) : (
+                                                            <p
+                                                                className={`${bodyText} rounded-lg bg-[var(--surface-soft)] px-4 py-3`}
+                                                            >
+                                                                {
+                                                                    question.answer
+                                                                }
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </li>
+                                            );
+                                        },
+                                    )}
+                                </ol>
                             ) : (
                                 <p className="text-sm text-[var(--slate)]">
                                     This job post has no screening questions.
@@ -629,264 +859,85 @@ export default function DashboardApplicationShow({
                         </DetailSection>
 
                         <DetailSection
-                            id="application-profile"
-                            title="Candidate profile"
-                            description="Professional background, qualifications, and skills."
-                        >
-                            {applicant.summary && (
-                                <p className={bodyText}>{applicant.summary}</p>
-                            )}
-                            {application.skills.length > 0 && (
-                                <section
-                                    className="flex flex-col gap-3"
-                                    aria-label="Skills"
-                                >
-                                    <h3 className={sectionLabel}>Skills</h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {application.skills.map((skill) => (
-                                            <ListingTag
-                                                key={skill.id}
-                                                tone="neutral"
-                                            >
-                                                <span className="whitespace-normal">
-                                                    {skill.name}
-                                                </span>
-                                                <span
-                                                    className="flex gap-0.5"
-                                                    role="img"
-                                                    aria-label={`${skill.level} proficiency`}
-                                                >
-                                                    {[1, 2, 3, 4].map((dot) => (
-                                                        <span
-                                                            key={dot}
-                                                            className={`size-1.5 rounded-full ${dot <= SKILL_LEVEL_DOTS[skill.level] ? 'bg-[var(--teal)]' : 'bg-[var(--line)]'}`}
-                                                            aria-hidden="true"
-                                                        />
-                                                    ))}
-                                                </span>
-                                            </ListingTag>
-                                        ))}
-                                    </div>
-                                </section>
-                            )}
-                            {application.experiences.length > 0 && (
-                                <section
-                                    className="flex flex-col gap-4"
-                                    aria-label="Work experience"
-                                >
-                                    <h3 className={sectionLabel}>
-                                        Work experience
-                                    </h3>
-                                    {application.experiences.map(
-                                        (experience) => (
-                                            <div
-                                                key={experience.id}
-                                                className="flex flex-col gap-1.5 border-t border-[var(--line)] pt-4"
-                                            >
-                                                <h4 className={sectionLabel}>
-                                                    {experience.role}
-                                                </h4>
-                                                <p className="text-sm text-[var(--navy)]">
-                                                    {experience.company}
-                                                </p>
-                                                <p className="text-xs leading-relaxed text-[var(--slate)]">
-                                                    {[
-                                                        formatDate(
-                                                            experience.start,
-                                                        ),
-                                                        formatDate(
-                                                            experience.end,
-                                                        ) ?? 'Present',
-                                                        experience.location,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(' · ')}
-                                                </p>
-                                                {experience.description && (
-                                                    <p
-                                                        className={`${bodyText} pt-1`}
-                                                    >
-                                                        {experience.description}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ),
-                                    )}
-                                </section>
-                            )}
-                            {application.education.length > 0 && (
-                                <section
-                                    className="flex flex-col gap-4"
-                                    aria-label="Education"
-                                >
-                                    <h3 className={sectionLabel}>Education</h3>
-                                    {application.education.map((entry) => (
-                                        <div
-                                            key={entry.id}
-                                            className="flex flex-col gap-1.5 border-t border-[var(--line)] pt-4"
-                                        >
-                                            <h4 className={sectionLabel}>
-                                                {[entry.degree, entry.field]
-                                                    .filter(Boolean)
-                                                    .join(' · ')}
-                                            </h4>
-                                            <p className="text-sm text-[var(--navy)]">
-                                                {entry.school}
-                                            </p>
-                                            <p className="text-xs text-[var(--slate)]">
-                                                {[
-                                                    formatDate(entry.start),
-                                                    formatDate(entry.end) ??
-                                                        'Present',
-                                                ]
-                                                    .filter(Boolean)
-                                                    .join(' – ')}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </section>
-                            )}
-                            {application.certifications.length > 0 && (
-                                <section
-                                    className="flex flex-col gap-4"
-                                    aria-label="Certifications"
-                                >
-                                    <h3 className={sectionLabel}>
-                                        Certifications
-                                    </h3>
-                                    {application.certifications.map(
-                                        (certification) => (
-                                            <div
-                                                key={certification.id}
-                                                className="flex flex-col gap-1.5 border-t border-[var(--line)] pt-4"
-                                            >
-                                                <h4 className={sectionLabel}>
-                                                    {certification.name}
-                                                </h4>
-                                                <p className="text-sm text-[var(--navy)]">
-                                                    {certification.issuer}
-                                                </p>
-                                                <p className="text-xs leading-relaxed text-[var(--slate)]">
-                                                    {[
-                                                        certification.issue_date
-                                                            ? `Issued ${formatDate(certification.issue_date)}`
-                                                            : null,
-                                                        certification.expiry_date
-                                                            ? `Expires ${formatDate(certification.expiry_date)}`
-                                                            : null,
-                                                    ]
-                                                        .filter(Boolean)
-                                                        .join(' · ')}
-                                                </p>
-                                                {certification.credential_url &&
-                                                    /^https?:\/\//i.test(
-                                                        certification.credential_url,
-                                                    ) && (
-                                                        <a
-                                                            href={
-                                                                certification.credential_url
-                                                            }
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className={`inline-flex items-center gap-1.5 self-start text-xs font-medium text-[var(--navy)] ${textLink}`}
-                                                        >
-                                                            View credential{' '}
-                                                            <ExternalLink
-                                                                className="size-3"
-                                                                aria-hidden="true"
-                                                            />
-                                                            <span className="sr-only">
-                                                                {' '}
-                                                                for{' '}
-                                                                {
-                                                                    certification.name
-                                                                }
-                                                            </span>
-                                                        </a>
-                                                    )}
-                                            </div>
-                                        ),
-                                    )}
-                                </section>
-                            )}
-                            {!applicant.summary &&
-                                !application.skills.length &&
-                                !application.experiences.length &&
-                                !application.education.length &&
-                                !application.certifications.length && (
-                                    <p className="text-sm text-[var(--slate)]">
-                                        No professional background has been
-                                        added yet.
-                                    </p>
-                                )}
-                        </DetailSection>
-
-                        <DetailSection
                             id="application-letter"
                             title="Cover letter"
                         >
-                            <p
-                                className={
-                                    application.cover_letter?.trim()
-                                        ? bodyText
-                                        : 'text-sm text-[var(--slate)]'
-                                }
-                            >
-                                {application.cover_letter?.trim()
-                                    ? application.cover_letter
-                                    : 'No cover letter was provided.'}
-                            </p>
+                            {hasCoverLetter ? (
+                                <blockquote
+                                    className={`${bodyText} border-l-4 border-[var(--teal)] bg-[var(--surface-soft)]/60 py-3 pr-4 pl-5`}
+                                >
+                                    {application.cover_letter}
+                                </blockquote>
+                            ) : (
+                                <p className="text-sm text-[var(--slate)]">
+                                    No cover letter was provided.
+                                </p>
+                            )}
                         </DetailSection>
                     </div>
 
                     <aside
                         aria-label="Job context and application history"
                         tabIndex={0}
-                        className="flex min-w-0 flex-col gap-5 wrap-anywhere focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto"
+                        className={`flex min-w-0 flex-col gap-5 wrap-anywhere xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto ${focusRing}`}
                     >
                         <DetailSection
                             id="application-job"
                             title="Job applied for"
                         >
-                            <div className="flex flex-col gap-2">
-                                <h3 className="text-base font-semibold text-[var(--navy-deep)]">
-                                    {job.title}
-                                </h3>
-                                {job.employer && (
-                                    <p className="text-sm text-[var(--slate)]">
-                                        {job.employer}
-                                    </p>
-                                )}
-                                <p className="text-sm font-medium text-[var(--navy)]">
-                                    {job.salary}
-                                </p>
-                                {job.location && (
-                                    <p className="flex items-start gap-2 text-sm text-[var(--slate)]">
-                                        <MapPin
-                                            className="mt-0.5 size-4 shrink-0"
+                            <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-1">
+                                    <h3 className="text-base font-semibold text-[var(--navy-deep)]">
+                                        {job.title}
+                                    </h3>
+                                    {job.is_urgent && (
+                                        <div className="pt-1">
+                                            <ListingTag tone="danger">
+                                                Urgent recruitment
+                                            </ListingTag>
+                                        </div>
+                                    )}
+                                </div>
+                                <ul className="flex flex-col gap-2 text-sm text-[var(--navy)]">
+                                    {job.employer && (
+                                        <li className="flex items-start gap-2">
+                                            <Building2
+                                                className="mt-0.5 size-4 shrink-0 text-[var(--slate)]"
+                                                aria-hidden="true"
+                                            />
+                                            {job.employer}
+                                        </li>
+                                    )}
+                                    <li className="flex items-start gap-2 font-medium">
+                                        <Banknote
+                                            className="mt-0.5 size-4 shrink-0 text-[var(--slate)]"
                                             aria-hidden="true"
                                         />
-                                        {job.location}
-                                    </p>
-                                )}
-                                {job.is_urgent && (
-                                    <div>
-                                        <ListingTag tone="neutral">
-                                            Urgent recruitment
-                                        </ListingTag>
-                                    </div>
-                                )}
+                                        {job.salary}
+                                    </li>
+                                    {job.location && (
+                                        <li className="flex items-start gap-2">
+                                            <MapPin
+                                                className="mt-0.5 size-4 shrink-0 text-[var(--slate)]"
+                                                aria-hidden="true"
+                                            />
+                                            {job.location}
+                                        </li>
+                                    )}
+                                </ul>
                             </div>
-                            <details className="group border-t border-[var(--line)] pt-4">
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm text-sm font-semibold text-[var(--navy)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
-                                    Full job details{' '}
+                            <details className="group -mx-5 -mb-5 border-t border-[var(--line)] sm:-mx-6 sm:-mb-6">
+                                <summary
+                                    className={`flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3.5 text-sm font-semibold text-[var(--navy)] hover:bg-[var(--surface-soft)]/60 sm:px-6 [&::-webkit-details-marker]:hidden ${focusRing}`}
+                                >
+                                    Full job details
                                     <ChevronDown
-                                        className="size-4 shrink-0 group-open:rotate-180"
+                                        className="size-4 shrink-0 transition-transform group-open:rotate-180"
                                         aria-hidden="true"
                                     />
                                 </summary>
-                                <div className="flex flex-col gap-5 pt-5">
-                                    <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                                <div className="flex flex-col gap-5 px-5 pt-2 pb-5 sm:px-6 sm:pb-6">
+                                    <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-1">
                                         {jobFacts
                                             .filter(
                                                 (fact) =>
@@ -897,9 +948,9 @@ export default function DashboardApplicationShow({
                                             .map((fact) => (
                                                 <div
                                                     key={fact.label}
-                                                    className="flex flex-col gap-1"
+                                                    className="flex flex-col gap-0.5"
                                                 >
-                                                    <dt className="text-xs text-[var(--slate)]">
+                                                    <dt className={mutedText}>
                                                         {fact.label}
                                                     </dt>
                                                     <dd className="text-sm font-medium text-[var(--navy)]">
@@ -1014,21 +1065,36 @@ export default function DashboardApplicationShow({
                         <DetailSection
                             id="application-history"
                             title="Stage history"
-                            description="Recorded changes to this application."
+                            description="Recorded changes to this application, newest first."
                         >
                             {application.history.length ? (
-                                <ol className="flex flex-col gap-5">
+                                <ol className="relative flex flex-col gap-5 before:absolute before:top-2 before:bottom-2 before:left-[5px] before:w-px before:bg-[var(--line)]">
                                     {[...application.history]
                                         .reverse()
-                                        .map((entry) => (
+                                        .map((entry, index) => (
                                             <li
                                                 key={entry.id}
-                                                className="flex flex-col gap-2 border-b border-[var(--line)] pb-5 last:border-b-0 last:pb-0"
+                                                className="relative flex flex-col gap-1.5 pl-6"
                                             >
+                                                <span
+                                                    className={`absolute top-1.5 left-0 size-[11px] rounded-full ring-4 ring-white ${
+                                                        index === 0
+                                                            ? entry.stage ===
+                                                              'rejected'
+                                                                ? 'bg-[var(--danger)]'
+                                                                : 'bg-[var(--teal)]'
+                                                            : 'bg-[var(--neutral-dot)]'
+                                                    }`}
+                                                    aria-hidden="true"
+                                                />
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     {entry.from_stage && (
                                                         <>
-                                                            <span className="text-xs text-[var(--slate)]">
+                                                            <span
+                                                                className={
+                                                                    mutedText
+                                                                }
+                                                            >
                                                                 {
                                                                     APPLICATION_STAGE_LABELS[
                                                                         entry
@@ -1050,26 +1116,29 @@ export default function DashboardApplicationShow({
                                                         }
                                                     />
                                                 </div>
-                                                {entry.changed_at && (
-                                                    <time
-                                                        dateTime={
-                                                            entry.changed_at
-                                                        }
-                                                        className="text-xs text-[var(--slate)]"
-                                                    >
-                                                        {formatDate(
-                                                            entry.changed_at,
+                                                {(entry.changed_at ||
+                                                    entry.changed_by) && (
+                                                    <p className={mutedText}>
+                                                        {entry.changed_at && (
+                                                            <time
+                                                                dateTime={
+                                                                    entry.changed_at
+                                                                }
+                                                            >
+                                                                {formatDate(
+                                                                    entry.changed_at,
+                                                                )}
+                                                            </time>
                                                         )}
-                                                    </time>
-                                                )}
-                                                {entry.changed_by && (
-                                                    <p className="text-xs text-[var(--slate)]">
-                                                        Changed by{' '}
-                                                        {entry.changed_by}
+                                                        {entry.changed_at &&
+                                                            entry.changed_by &&
+                                                            ' · '}
+                                                        {entry.changed_by &&
+                                                            `Changed by ${entry.changed_by}`}
                                                     </p>
                                                 )}
                                                 {entry.note && (
-                                                    <p className="text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
+                                                    <p className="rounded-md bg-[var(--surface-soft)] px-3 py-2 text-sm leading-relaxed whitespace-pre-line text-[var(--navy)]">
                                                         {entry.note}
                                                     </p>
                                                 )}

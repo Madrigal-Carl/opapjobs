@@ -45,7 +45,11 @@ export type DuplicateJobPost = {
     display_status: string;
 };
 
-const text = z.string().trim().max(255);
+const VACANCY_MESSAGE = 'Enter between 1 and 65,535 vacant positions.';
+const text = z
+    .string()
+    .trim()
+    .max(255, 'Keep this to 255 characters or fewer.');
 const richText = z
     .string()
     .trim()
@@ -102,7 +106,11 @@ export function createJobFormSchema(
                     'Choose a sub-category.',
                 ),
             location: text.min(1, 'Enter the job location.'),
-            quantity: z.number().int().min(1).max(65535),
+            quantity: z
+                .number({ error: VACANCY_MESSAGE })
+                .int(VACANCY_MESSAGE)
+                .min(1, VACANCY_MESSAGE)
+                .max(65535, VACANCY_MESSAGE),
             gender: z.enum(options.genders),
             salaryCurrency: z
                 .string()
@@ -142,7 +150,11 @@ export function createJobFormSchema(
                     z
                         .string()
                         .trim()
-                        .min(1, 'Enter the document name or remove it.'),
+                        .min(1, 'Enter the document name or remove it.')
+                        .max(
+                            255,
+                            'Keep each document name to 255 characters or fewer.',
+                        ),
                 )
                 .max(20, 'A job post can list at most 20 required documents.'),
             languages: z

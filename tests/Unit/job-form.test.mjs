@@ -871,3 +871,43 @@ await test('editing maps server values back and preserves database question ids 
         answer: '',
     });
 });
+
+await test('client rules reject what the server rejects with the same wording', () => {
+    const schema = exports.createJobFormSchema(
+        options,
+        '2026-10-19',
+        categories,
+    );
+    const messageFor = (overrides, path) =>
+        schema
+            .safeParse({ ...valid(), ...overrides })
+            .error?.issues.find((issue) => issue.path.join('.') === path)
+            ?.message;
+
+    for (const quantity of [Number.NaN, 0, 1.5, 65536]) {
+        assert.equal(
+            messageFor({ quantity }, 'quantity'),
+            'Enter between 1 and 65,535 vacant positions.',
+        );
+    }
+    assert.equal(
+        messageFor(
+            { requiredDocuments: ['x'.repeat(256)] },
+            'requiredDocuments.0',
+        ),
+        'Keep each document name to 255 characters or fewer.',
+    );
+    assert.equal(
+        messageFor({ location: 'x'.repeat(256) }, 'location'),
+        'Keep this to 255 characters or fewer.',
+    );
+    assert.equal(
+        messageFor({ salaryMin: '3000', salaryMax: '2000' }, 'salaryMax'),
+        'Maximum salary must be at least the minimum.',
+    );
+    assert.equal(
+        schema.safeParse({ ...valid(), requiredDocuments: ['x'.repeat(255)] })
+            .success,
+        true,
+    );
+});

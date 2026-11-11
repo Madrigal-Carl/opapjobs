@@ -315,7 +315,6 @@ await test('application detail uses the server application prop and keeps hooks 
             phone: null,
             headline: null,
             location: null,
-            summary: null,
             pathway: null,
         },
         job: {
@@ -351,10 +350,6 @@ await test('application detail uses the server application prop and keeps hooks 
             languages: [],
         },
         questions: [],
-        experiences: [],
-        education: [],
-        certifications: [],
-        skills: [],
         documents: [],
         resume_document_id: null,
         history: [],

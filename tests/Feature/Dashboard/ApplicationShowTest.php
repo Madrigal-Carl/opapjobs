@@ -107,7 +107,7 @@ test('screening answers keep answered questions that were later deleted', functi
         ->where('application.questions.0.answer', 'Kept'));
 });
 
-test('application details include stored job requirements and document context without private paths', function () {
+test('application details include stored job requirements and document context without private paths or profile history', function () {
     Storage::fake('local');
     [$poster, $post, $applicant] = applicationDetailContext();
     $post->update([
@@ -116,10 +116,6 @@ test('application details include stored job requirements and document context w
         'application_instructions' => 'Bring original certificates to the interview.',
         'contact_person_name' => 'Hiring coordinator', 'contact_email' => 'hiring@example.test',
         'contact_phone' => '+63 917 555 0200', 'is_urgent' => true,
-    ]);
-    $certificate = $applicant->certifications()->create([
-        'certification_name' => 'Welding NC II', 'issuing_organization' => 'TESDA',
-        'credential_url' => 'https://example.test/credentials/welding', 'sort_order' => 0,
     ]);
     $resume = ApplicantDocument::create([
         'applicant_user_id' => $applicant->id, 'document_type' => 'resume',
@@ -145,13 +141,16 @@ test('application details include stored job requirements and document context w
         ->where('application.job.contact_phone', '+63 917 555 0200')
         ->where('application.job.status', 'active')
         ->where('application.job.is_urgent', true)
-        ->where('application.certifications.0.id', $certificate->id)
-        ->where('application.certifications.0.credential_url', 'https://example.test/credentials/welding')
         ->where('application.resume_document_id', $resume->id)
         ->where('application.documents.0.document_type', 'resume')
         ->missing('application.documents.0.storage_path')
         ->missing('application.applicant.default_cover_letter')
-        ->missing('application.applicant.avatar_path'));
+        ->missing('application.applicant.avatar_path')
+        ->missing('application.applicant.summary')
+        ->missing('application.experiences')
+        ->missing('application.education')
+        ->missing('application.certifications')
+        ->missing('application.skills'));
 });
 
 test('documents are limited to files uploaded before submission and only link files that exist', function () {

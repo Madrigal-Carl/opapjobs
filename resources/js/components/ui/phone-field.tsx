@@ -69,7 +69,7 @@ export function PhoneField({
                 onChange={(event) =>
                     onChange(`${country.dial} ${event.target.value}`.trimEnd())
                 }
-                className="h-9 min-w-0 flex-1 rounded-l-none border-l-0 px-3 py-0 text-[var(--navy)] focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40"
+                className="h-9 min-w-0 flex-1 rounded-l-none border-l-0 px-3 py-0 text-[var(--navy)] focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40 aria-invalid:border-destructive aria-invalid:focus:border-destructive aria-invalid:focus-visible:ring-destructive/20"
                 placeholder="50 123 4567"
                 data-testid="input-job-contact-phone"
             />

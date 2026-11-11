@@ -111,12 +111,12 @@ const imports = {
     '@/routes/dashboard': {
         applications: () => ({ url: '/dashboard/applications' }),
     },
-    '@/types/applicant-profile': { SKILL_LEVEL_DOTS: { Advanced: 3 } },
     '@/types/dashboard-application': {
         APPLICATION_STAGE_LABELS: {
             pending: 'Pending',
             reviewed: 'Reviewed',
             shortlisted: 'Shortlisted',
+            interviewed: 'Interviewed',
             hired: 'Hired',
             rejected: 'Rejected',
         },
@@ -156,7 +156,6 @@ function detail(overrides = {}) {
             phone: null,
             headline: 'Welder',
             location: 'Cebu',
-            summary: 'Structural welding specialist.',
             pathway: null,
         },
         job: {
@@ -198,19 +197,6 @@ function detail(overrides = {}) {
                 type: 'short',
                 required: true,
                 answer: 'Ten years',
-            },
-        ],
-        experiences: [],
-        education: [],
-        skills: [],
-        certifications: [
-            {
-                id: 1,
-                name: 'Welding NC II',
-                issuer: 'TESDA',
-                issue_date: null,
-                expiry_date: null,
-                credential_url: 'https://example.test/credential',
             },
         ],
         documents: [
@@ -268,7 +254,7 @@ await test('the resume chosen for this application is shown before other documen
     assert.match(html, /button-download-resume/);
 });
 
-await test('stored job context and credentials are visible without enabling candidate navigation', () => {
+await test('stored job context is visible without the candidate profile or candidate navigation', () => {
     const html = render();
     for (const value of [
         'JO-2026-100',
@@ -279,8 +265,7 @@ await test('stored job context and credentials are visible without enabling cand
     ]) {
         assert.ok(html.includes(value), value);
     }
-    assert.match(html, /href="https:\/\/example.test\/credential"/);
-    assert.doesNotMatch(html, /View candidate/);
+    assert.doesNotMatch(html, /Candidate profile|View candidate/);
 });
 
 await test('terminal applications have no decision buttons and unavailable files have no dead links', () => {
@@ -310,12 +295,30 @@ await test('terminal applications have no decision buttons and unavailable files
     assert.doesNotMatch(html, /Soon/);
 });
 
-await test('credential links never navigate to an unsafe URL scheme', () => {
-    const application = detail();
-    application.certifications[0].credential_url = 'javascript:alert(1)';
-    const html = render(application);
-    assert.doesNotMatch(html, /href="javascript:/);
-    assert.match(html, /Welding NC II/);
+await test('stage progress marks the current stage and where a rejection happened', () => {
+    assert.match(render(), /Reviewed<span class="sr-only"> \(current stage\)/);
+
+    const rejected = render(
+        detail({
+            stage: 'rejected',
+            can_proceed: false,
+            can_reject: false,
+            next_stage: null,
+            history: [
+                {
+                    id: 1,
+                    from_stage: 'reviewed',
+                    stage: 'rejected',
+                    changed_at: null,
+                    changed_by: null,
+                    note: null,
+                },
+            ],
+        }),
+    );
+    assert.match(rejected, /Reviewed<span class="sr-only"> \(completed\)/);
+    assert.match(rejected, /Rejected<span class="sr-only"> \(current stage\)/);
+    assert.match(rejected, /Shortlisted<span class="sr-only"> \(not reached\)/);
 });
 
 await test('a previously selected but missing resume is not described as never selected', () => {

@@ -37,10 +37,6 @@ class ApplicationRepository
     {
         return [
             'applicant.applicantProfile',
-            'applicant.experiences' => fn ($query) => $query->orderBy('sort_order'),
-            'applicant.education' => fn ($query) => $query->orderBy('sort_order'),
-            'applicant.certifications' => fn ($query) => $query->orderBy('sort_order'),
-            'applicant.skills' => fn ($query) => $query->orderBy('sort_order'),
             'applicant.documents' => fn ($query) => $query->whereDoesntHave('supportingApplications')->orderByDesc('is_primary')->orderBy('uploaded_at')->orderBy('id'),
             'supportingDocuments',
             'jobPost.employer',

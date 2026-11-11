@@ -1,6 +1,5 @@
 import type { Pathway } from '@/types/agency';
 import type { ApplicationStage } from '@/types/application';
-import type { SkillLevel } from '@/types/applicant-profile';
 
 export type ApplicationStageValue =
     | 'pending'
@@ -69,7 +68,6 @@ export type DashboardApplicationDetail = {
         phone: string | null;
         headline: string | null;
         location: string | null;
-        summary: string | null;
         pathway: Pathway | null;
     };
     job: {
@@ -111,32 +109,6 @@ export type DashboardApplicationDetail = {
         required: boolean;
         answer: string | null;
     }[];
-    experiences: {
-        id: number;
-        role: string;
-        company: string;
-        start: string | null;
-        end: string | null;
-        location: string | null;
-        description: string | null;
-    }[];
-    education: {
-        id: number;
-        school: string;
-        degree: string;
-        field: string;
-        start: string | null;
-        end: string | null;
-    }[];
-    certifications: {
-        id: number;
-        name: string;
-        issuer: string;
-        issue_date: string | null;
-        expiry_date: string | null;
-        credential_url: string | null;
-    }[];
-    skills: { id: number; name: string; level: SkillLevel }[];
     documents: {
         id: number;
         name: string;

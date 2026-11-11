@@ -90,14 +90,70 @@ abstract class JobPostFormRequest extends FormRequest
         ];
     }
 
+    /**
+     * Mirrors the client-side zod messages in resources/js/data/job-form.ts so
+     * a field reads the same whether the browser or the server rejects it.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        $salary = __('Enter a salary from 0 to 9,999,999,999.99 with at most two decimal places.');
+        $experience = __('Enter a whole number from 0 to 255.');
+        $vacancies = __('Enter between 1 and 65,535 vacant positions.');
+        $tooLong = __('Keep this to 255 characters or fewer.');
+
+        return [
+            'recruitment_type' => __('Choose a recruitment type.'),
+            'job_order_number.required' => __('Enter the job order number.'),
+            'job_order_number.max' => $tooLong,
+            'required_documents.max' => __('A job post can list at most 20 required documents.'),
+            'required_documents.*.required' => __('Enter the document name or remove it.'),
+            'required_documents.*.max' => __('Keep each document name to 255 characters or fewer.'),
+            'job_title.required' => __('Enter the job title.'),
+            'job_title.max' => $tooLong,
+            'job_subcategory_id' => __('Choose a sub-category.'),
+            'work_location.required' => __('Enter the job location.'),
+            'work_location.max' => $tooLong,
+            'vacant_positions' => $vacancies,
+            'contract_type' => __('Choose a job type / duration.'),
+            'salary_currency.required_with' => __('Choose a currency when entering a salary.'),
+            'salary_currency' => __('Choose a valid currency.'),
+            'monthly_salary_min' => $salary,
+            'monthly_salary_max' => $salary,
+            'education_level' => __('Choose an education level.'),
+            'min_experience_years' => $experience,
+            'max_experience_years' => $experience,
+            'gender_requirement' => __('Choose a gender requirement.'),
+            'job_description.required' => __('Describe the role so applicants know what to expect.'),
+            'contact_person_name.max' => $tooLong,
+            'contact_email.email' => __('Enter a valid email address.'),
+            'contact_email.max' => $tooLong,
+            'contact_phone.max' => $tooLong,
+            'closing_date.date_format' => __('Enter a valid date.'),
+            'closing_date.after_or_equal' => __('Choose today or a future date.'),
+            'languages.*.language.distinct' => __('This language is already included.'),
+            'questions.max' => __('A job post can have at most 20 screening questions.'),
+            'questions.*.question_text.required' => __('Enter the question or remove it'),
+            'questions.*.question_text.max' => $tooLong,
+            'questions.*.answer_type' => __('Choose Short answer, Yes / No, Selection, or Number.'),
+            'questions.*.expected_answer.prohibited_unless' => __('Expected answers are only available for Yes / No questions.'),
+            'questions.*.options' => __('Enter 2–20 choices with 1–255 characters each.'),
+            'questions.*.options.*' => __('Enter 2–20 choices with 1–255 characters each.'),
+        ];
+    }
+
     /** @return list<\Closure(Validator): void> */
     public function after(): array
     {
         return [function (Validator $validator): void {
-            foreach ([['monthly_salary_min', 'monthly_salary_max'], ['min_experience_years', 'max_experience_years']] as [$min, $max]) {
+            foreach ([
+                ['monthly_salary_min', 'monthly_salary_max', __('Maximum salary must be at least the minimum.')],
+                ['min_experience_years', 'max_experience_years', __('Maximum experience must be at least the minimum.')],
+            ] as [$min, $max, $message]) {
                 if (! $validator->errors()->hasAny([$min, $max]) && $this->input($min) !== null && $this->input($max) !== null
                     && $this->input($max) < $this->input($min)) {
-                    $validator->errors()->add($max, __('The maximum must be at least the minimum.'));
+                    $validator->errors()->add($max, $message);
                 }
             }
 
