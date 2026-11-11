@@ -1,5 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApplicantPageLoading } from '@/hooks/use-applicant-page-loading';
+import { useEffect, useRef } from 'react';
 
 /**
  * A full-screen stand-in for an applicant page while the server renders it.
@@ -12,6 +13,17 @@ import { useApplicantPageLoading } from '@/hooks/use-applicant-page-loading';
  */
 export function ApplicantPageSkeleton() {
     const loading = useApplicantPageLoading();
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!loading) {
+            return;
+        }
+
+        // Move focus into the stand-in so a screen reader is not left parked on
+        // the content that is about to be swapped out for the real page.
+        containerRef.current?.focus();
+    }, [loading]);
 
     if (!loading) {
         return null;
@@ -19,6 +31,8 @@ export function ApplicantPageSkeleton() {
 
     return (
         <div
+            ref={containerRef}
+            tabIndex={-1}
             className="fixed inset-0 z-[1030] overflow-y-auto bg-[var(--cream)]"
             aria-busy="true"
             data-testid="applicant-page-skeleton"
