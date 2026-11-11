@@ -10,7 +10,7 @@ import {
     Trash2,
     Upload,
 } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
 import { toast } from '@/components/ui/sonner';
@@ -82,7 +82,7 @@ function ResumeEditorBody() {
             <section className="resume-hero">
                 <div className="shell resume-hero-inner">
                     <div>
-                        <div className="eyebrow">
+                        <div className="eyebrow eyebrow-light">
                             <span className="eyebrow-rule" /> YOUR RESUME
                         </div>
                         <h1>
@@ -971,9 +971,79 @@ function SkillsCard() {
     );
 }
 
+/** The document being read in, and how far along its bar is. */
+type UploadingDocument = {
+    name: string;
+    percent: number;
+};
+
 function DocumentsCard() {
     const { profile, addDocument, removeDocument } = useApplicantProfile();
     const fileInput = useRef<HTMLInputElement | null>(null);
+    const [uploading, setUploading] = useState<UploadingDocument | null>(null);
+    const frame = useRef<number | null>(null);
+    const settle = useRef<number | null>(null);
+
+    // A card left behind mid-read must not keep the bar running.
+    useEffect(
+        () => () => {
+            if (frame.current !== null) {
+                cancelAnimationFrame(frame.current);
+            }
+            if (settle.current !== null) {
+                window.clearTimeout(settle.current);
+            }
+        },
+        [],
+    );
+
+    function commit(file: File): void {
+        addDocument({
+            id: newEntryId(),
+            name: file.name,
+            uploadedAt: new Date().toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+            }),
+            size: formatFileSize(file.size),
+            url: '',
+            primary: false,
+        });
+        toast(`${file.name} added to your documents`);
+        setUploading(null);
+    }
+
+    /**
+     * Runs the bar across the file before it lands in the list. The profile
+     * keeps documents in memory only, so the duration stands in for reading
+     * the file rather than for bytes going over a wire, and the last beat is
+     * held until the bar's own 160ms fill has landed. Reduced motion drops
+     * the ramp and keeps the confirmation.
+     */
+    function startUpload(file: File): void {
+        const reduced = window.matchMedia(
+            '(prefers-reduced-motion: reduce)',
+        ).matches;
+        const duration = reduced ? 0 : 800;
+        const startedAt = performance.now();
+
+        const step = (now: number) => {
+            const t =
+                duration === 0 ? 1 : Math.min(1, (now - startedAt) / duration);
+
+            setUploading({ name: file.name, percent: Math.round(t * 100) });
+
+            if (t < 1) {
+                frame.current = requestAnimationFrame(step);
+                return;
+            }
+
+            settle.current = window.setTimeout(() => commit(file), 220);
+        };
+
+        frame.current = requestAnimationFrame(step);
+    }
 
     return (
         <Section
@@ -992,21 +1062,12 @@ function DocumentsCard() {
                 data-testid="input-resume-upload"
                 onChange={(event) => {
                     const file = event.target.files?.[0];
+                    // Cleared at once so the same file can be chosen again
+                    // once this one has landed.
+                    event.target.value = '';
 
                     if (file) {
-                        addDocument({
-                            id: newEntryId(),
-                            name: file.name,
-                            uploadedAt: new Date().toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                            }),
-                            size: formatFileSize(file.size),
-                            url: '',
-                            primary: false,
-                        });
-                        toast(`${file.name} added to your documents`);
+                        startUpload(file);
                     }
                 }}
             />
@@ -1016,12 +1077,42 @@ function DocumentsCard() {
                 variant="secondary"
                 size="sm"
                 onClick={() => fileInput.current?.click()}
+                disabled={uploading !== null}
                 data-testid="button-upload-document"
             >
                 <Upload size={14} aria-hidden="true" /> Upload a document
             </Button>
 
             <div className="resume-doc-list">
+                {uploading && (
+                    <div
+                        className="resume-entry"
+                        data-testid="resume-upload-progress"
+                    >
+                        <p className="sr-only" role="status">
+                            Uploading {uploading.name}
+                        </p>
+                        <div className="resume-entry-head" aria-hidden="true">
+                            <div className="min-w-0 flex-1">
+                                <p className="resume-entry-title">
+                                    {uploading.name}
+                                </p>
+                                <div className="mt-2 grid gap-2">
+                                    <span className="apply-upload-progress">
+                                        <span
+                                            style={{
+                                                transform: `scaleX(${uploading.percent / 100})`,
+                                            }}
+                                        />
+                                    </span>
+                                    <p className="resume-entry-sub">
+                                        Uploading… {uploading.percent}%
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {profile.documents.map((document) => (
                     <div className="resume-entry" key={document.id}>
                         <div className="resume-entry-head">
