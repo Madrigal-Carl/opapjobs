@@ -559,13 +559,16 @@
     box-shadow: 0 12px 30px rgba(4, 17, 29, 0.22);
 }
 
+/* The input only fills this field's content box, so on touch the real target
+   was 18px tall. Padding drops 15→12 as the input grows 18→24, which keeps the
+   field at 48px with the text on the same line but clears the 24px minimum. */
 .search-field {
     position: relative;
     display: flex;
     align-items: center;
     gap: 9px;
     min-width: 0;
-    padding: 15px 13px;
+    padding: 12px 13px;
     border-right: 1px solid #e3e8e8;
 }
 
@@ -578,6 +581,7 @@
 .search-field select {
     width: 100%;
     min-width: 0;
+    min-height: 24px;
     padding: 0;
     border: 0;
     outline: 0;
@@ -1237,7 +1241,12 @@
 .bookmark-button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    /* Sized by its icon alone this was 18x18 — below the 24px target minimum
+       for the save action, which is one of the main things to tap on a card. */
+    min-width: 24px;
+    min-height: 24px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -2470,6 +2479,12 @@
     transition:
         border-color 0.2s ease,
         box-shadow 0.2s ease;
+}
+
+/* Same 24px floor as .search-field. The country field is a <div> rather than a
+   <label> (it owns the options list), so the input is the entire tap target. */
+.agency-search-field input {
+    min-height: 24px;
 }
 
 .agency-country-field {
@@ -5304,9 +5319,14 @@ select.field-control {
 }
 
 .review-edit {
+    min-width: 24px;
+    min-height: 24px;
     border: 0;
     background: transparent;
-    color: var(--teal);
+    /* --teal-ink matches the override .apply-body already applied to this
+       same button; the bare --teal was 3.19:1 at 11px and failed AA on the
+       resume page, which has no .apply-body wrapper. */
+    color: var(--teal-ink);
     cursor: pointer;
     font-size: 11px;
     font-weight: 700;
@@ -5958,7 +5978,7 @@ select.field-control {
    RESUME — the editor the apply wizard and the match report both read
    ========================================================================== */
 .resume-hero {
-    padding: 52px 0 46px;
+    padding: 62px 0 56px;
     background: var(--navy-deep);
 }
 
@@ -5969,24 +5989,28 @@ select.field-control {
     align-items: end;
 }
 
-.resume-hero .eyebrow {
-    color: #7fd4cd;
-}
-
 .resume-hero h1 {
-    margin: 12px 0 0;
+    margin: 14px 0 0;
     color: #fff;
     font-family: var(--app-font-serif);
-    font-size: clamp(30px, 4.4vw, 52px);
-    letter-spacing: -0.05em;
-    line-height: 1.05;
+    font-size: clamp(34px, 5.4vw, 64px);
+    letter-spacing: -0.058em;
+    line-height: 1;
+}
+
+/* The agencies hero gives its emphasised words the same treatment. Without
+   this the <em> was white italic on white, so the emphasis never read. */
+.resume-hero h1 em {
+    color: var(--teal);
+    font-style: normal;
 }
 
 .resume-hero p {
+    max-width: 54ch;
     margin: 0;
-    color: #b9cbd6;
-    font-size: 13px;
-    line-height: 1.75;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 15px;
+    line-height: 1.7;
 }
 
 .resume-section {
@@ -6268,6 +6292,10 @@ select.field-control {
 
 .resume-skill-level {
     border: 0;
+    /* 15px tall before — a <select> is a real form control and needs the same
+       24px floor as everything else here. */
+    min-height: 24px;
+    padding: 0 4px;
     background: transparent;
     color: var(--slate);
     cursor: pointer;
@@ -6301,7 +6329,9 @@ select.field-control {
 
 .resume-rail-title {
     margin: 0;
-    color: var(--teal);
+    /* --teal-ink rather than --teal: at this size --teal is 3.08:1 on the
+       card and fails AA, while --teal-ink clears it at 5.76:1. */
+    color: var(--teal-ink);
     font-family: var(--app-font-mono);
     font-size: 8px;
     letter-spacing: 0.07em;
@@ -6362,11 +6392,15 @@ select.field-control {
 
 .resume-check.is-done svg,
 .resume-check.is-done strong {
-    color: var(--teal);
+    /* --teal-ink keeps the "Done" label readable at 9px (5.76:1). */
+    color: var(--teal-ink);
 }
 
 .resume-check:not(.is-done) strong {
-    color: #9aa9b3;
+    /* --slate rather than the old #9aa9b3 literal, which was 2.33:1 at 9px
+       and failed AA outright. --slate reads quieter than the --teal-ink
+       "Done" but still clears 4.5:1 on the card. */
+    color: var(--slate);
 }
 
 .resume-check-blank {
@@ -6391,6 +6425,35 @@ select.field-control {
 @media (max-width: 575.98px) {
     .resume-skill-row {
         grid-template-columns: 1fr;
+    }
+
+    /* Phone widths only. A card head (icon + title + count badge + a
+       non-wrapping action button) has a min-content of ~368px, and with the
+       card's own 27px padding that is 424px against a 315px shell at 360 —
+       because `1fr` sizes to min-content and the single track is shared by
+       every row, the whole page was pushed 94px past the viewport. Let the
+       rows wrap and the items shrink below their intrinsic width. */
+    .resume-columns > *,
+    .resume-card {
+        min-width: 0;
+    }
+
+    .resume-card-head {
+        flex-wrap: wrap;
+    }
+
+    .resume-card-head h2 {
+        min-width: 0;
+    }
+
+    .resume-skill,
+    .resume-check,
+    .resume-identity {
+        flex-wrap: wrap;
+    }
+
+    .resume-skill-name {
+        min-width: 0;
     }
 }
 

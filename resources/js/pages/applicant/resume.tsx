@@ -82,7 +82,7 @@ function ResumeEditorBody() {
             <section className="resume-hero">
                 <div className="shell resume-hero-inner">
                     <div>
-                        <div className="eyebrow">
+                        <div className="eyebrow eyebrow-light">
                             <span className="eyebrow-rule" /> YOUR RESUME
                         </div>
                         <h1>

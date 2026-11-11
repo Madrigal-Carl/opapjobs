@@ -178,7 +178,9 @@ export default function Register({ passwordRules }: Props) {
                                 />
 
                                 <div className="text-sm">
-                                    <label className="flex items-start gap-2.5 text-[var(--slate)]">
+                                    {/* min-h-6 keeps this label at 24px tall even
+                                        when the terms text sits on one line. */}
+                                    <label className="flex min-h-6 items-start gap-2.5 text-[var(--slate)]">
                                         <input
                                             className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--line)] accent-[var(--teal)]"
                                             type="checkbox"

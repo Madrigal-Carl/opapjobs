@@ -155,7 +155,9 @@ export default function Login({ status, canResetPassword }: Props) {
                                 />
 
                                 <div className="flex items-center justify-between gap-4 text-sm">
-                                    <label className="flex items-center gap-2 text-[var(--slate)]">
+                                    {/* min-h-6 keeps the label box at 24px so the
+                                        whole line is a valid tap target. */}
+                                    <label className="flex min-h-6 items-center gap-2 text-[var(--slate)]">
                                         <input
                                             className="h-4 w-4 rounded border-[var(--line)] accent-[var(--teal)]"
                                             type="checkbox"
