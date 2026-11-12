@@ -1,10 +1,12 @@
 import { createInertiaApp } from '@inertiajs/react';
+import { ResumePageSkeleton } from '@/components/applicant/resume-page-skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import PublicLayout from '@/layouts/public-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { useResumePageLoading } from '@/hooks/use-applicant-page-loading';
 import { jobs } from '@/routes/dashboard';
 
 /** Every page shares one browser-tab title; per-page `<Head title>` values are ignored. */
@@ -16,6 +18,20 @@ const fullBleedAuthPages = [
     'auth/forgot-password',
     'auth/verify-email',
 ];
+
+/**
+ * Stand-in for the resume editor while the router is still fetching it, so
+ * the skeleton can cover the viewport from outside the page it replaces.
+ */
+function ResumePageSkeletonLoader() {
+    const loading = useResumePageLoading();
+
+    if (!loading) {
+        return null;
+    }
+
+    return <ResumePageSkeleton />;
+}
 
 void createInertiaApp({
     title: () => PAGE_TITLE,
@@ -100,6 +116,8 @@ void createInertiaApp({
         return (
             <TooltipProvider delayDuration={0}>
                 {app}
+                {/* Outside the page so it survives the swap it covers. */}
+                <ResumePageSkeletonLoader />
                 <Toaster />
             </TooltipProvider>
         );
