@@ -1,4 +1,4 @@
-import { router, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     CircleHelp,
@@ -76,7 +76,7 @@ export function SignedInMenu({
                         <small>{user.email}</small>
                     </div>
                     {accountLinks.map(({ label, icon: Icon, href }) => (
-                        <a
+                        <Link
                             className="account-menu-item"
                             href={href}
                             key={label}
@@ -86,7 +86,7 @@ export function SignedInMenu({
                         >
                             <Icon aria-hidden="true" />
                             {label}
-                        </a>
+                        </Link>
                     ))}
                     <div className="account-menu-divider" role="separator" />
                     {accountSupportLinks.map(({ label, icon: Icon, href }) => (

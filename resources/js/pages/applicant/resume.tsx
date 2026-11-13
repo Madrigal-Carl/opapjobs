@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     Award,
     BriefcaseBusiness,
@@ -167,9 +167,9 @@ function ResumeEditorBody() {
                                     </a>
                                 </Button>
                                 <Button asChild variant="ghost" size="sm">
-                                    <a href={applications.url()}>
+                                    <Link href={applications.url()}>
                                         See my applications
-                                    </a>
+                                    </Link>
                                 </Button>
                             </div>
                         </aside>

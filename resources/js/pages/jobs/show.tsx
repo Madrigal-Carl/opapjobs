@@ -1,4 +1,4 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft, Check, Info, ShieldCheck } from 'lucide-react';
 import { JobDetailPanel } from '@/components/applicant/job-detail-panel';
 import { JobListingCard } from '@/components/site/job-listing-card';
@@ -123,7 +123,8 @@ function JobShowContent({
                             >
                                 <Check size={15} aria-hidden="true" />
                                 You have already applied to this role. Track it
-                                from <a href={applications.url()}>My Jobs</a>.
+                                from{' '}
+                                <Link href={applications.url()}>My Jobs</Link>.
                             </p>
                         )}
 
