@@ -3,6 +3,8 @@
 namespace App\Services\Application;
 
 use App\Enums\ApplicationStage;
+use App\Enums\DataScope;
+use App\Events\ApplicationStageChanged;
 use App\Exceptions\Application\IllegalApplicationTransitionException;
 use App\Models\ApplicantDocument;
 use App\Models\Application;
@@ -11,6 +13,7 @@ use App\Models\User;
 use App\Repositories\Application\ApplicationRepository;
 use App\Repositories\AuditLogRepository;
 use App\Support\ApplicationIndexFilters;
+use App\Support\DataScopeResolver;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -47,6 +50,24 @@ class ApplicationService
         return $this->transition($application, $user, $next, null, $ipAddress);
     }
 
+    /**
+     * Moves a pending application to Reviewed when an eligible viewer opens it. Anything
+     * else (another stage, an ineligible viewer, a repeated open) is a silent no-op.
+     */
+    public function autoReview(User $user, int $id, string $ipAddress): bool
+    {
+        $application = $this->applications->findVisibleForUpdate($user, $id);
+        $application->loadMissing('jobPost.poster');
+
+        if (! $this->canAutoReview($application, $user)) {
+            return false;
+        }
+
+        $this->transition($application, $user, ApplicationStage::Reviewed, null, $ipAddress);
+
+        return true;
+    }
+
     public function reject(User $user, int $id, string $ipAddress, ?string $note): ApplicationStage
     {
         $application = $this->applications->findVisibleForUpdate($user, $id);
@@ -55,7 +76,7 @@ class ApplicationService
             throw IllegalApplicationTransitionException::terminal($application->stage);
         }
 
-        return $this->transition($application, $user, ApplicationStage::Rejected, $note, $ipAddress);
+        return $this->transition($application, $user, ApplicationStage::NotSelected, $note, $ipAddress);
     }
 
     public function document(User $user, int $id, int $documentId): ApplicantDocument
@@ -68,6 +89,28 @@ class ApplicationService
         }
 
         return $document;
+    }
+
+    /**
+     * Only pending applications are auto-reviewed, and only by the job post's poster or,
+     * when an Agency-role user posted it, by an admin (agency-scoped staff) of that same
+     * agency. Posts by admins and superadmins are auto-reviewed by their poster alone.
+     */
+    private function canAutoReview(Application $application, User $user): bool
+    {
+        if ($application->stage !== ApplicationStage::Pending) {
+            return false;
+        }
+
+        $post = $application->jobPost;
+
+        if ($post->posted_by_user_id === $user->id) {
+            return true;
+        }
+
+        return DataScopeResolver::for($user) === DataScope::Agency
+            && $user->agency_id === $post->agency_id
+            && $post->isPostedByAgencyStaff();
     }
 
     private function transition(Application $application, User $user, ApplicationStage $to, ?string $note, string $ipAddress): ApplicationStage
@@ -84,6 +127,7 @@ class ApplicationService
             'created_at' => now(),
         ]);
         $this->audit->recordApplicationStageChange($application, $user, $from, $to, $ipAddress);
+        ApplicationStageChanged::dispatch($application, $to);
 
         return $to;
     }

@@ -20,12 +20,13 @@ return new class extends Migration
             $table->text('expected_answer')->nullable();
             $table->boolean('is_required')->default(false);
             $table->unsignedInteger('sort_order');
+            $table->json('options')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });
 
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE job_post_questions ADD CONSTRAINT job_post_questions_answer_type_check CHECK (answer_type IN ('yesno', 'short', 'paragraph'))");
+            DB::statement("ALTER TABLE job_post_questions ADD CONSTRAINT job_post_questions_answer_type_check CHECK (answer_type IN ('yesno', 'short', 'paragraph', 'selection', 'number'))");
             DB::statement('ALTER TABLE job_post_questions ADD CONSTRAINT job_post_questions_sort_order_check CHECK (sort_order BETWEEN 0 AND 65535)');
         }
     }

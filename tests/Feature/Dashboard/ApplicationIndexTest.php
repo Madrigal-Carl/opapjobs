@@ -172,14 +172,14 @@ test('application kpis ignore filters and include all post statuses within the s
         ['archived', ApplicationStage::Reviewed, '2026-10-18 00:00:00'],
         ['closed', ApplicationStage::Shortlisted, '2026-10-18 23:59:59'],
         ['expiredByDate', ApplicationStage::Pending, '2026-10-17 23:59:59'],
-        ['neverExpires', ApplicationStage::Hired, '2026-10-19 00:00:00'],
+        ['neverExpires', ApplicationStage::Endorsed, '2026-10-19 00:00:00'],
     ] as [$state, $stage, $submittedAt]) {
         Application::factory()->for(JobPost::factory()->forPoster($poster)->{$state}())->create([
             'stage' => $stage, 'submitted_at' => $submittedAt, 'applicant_archived_at' => now(),
         ]);
     }
     Application::factory()->for(JobPost::factory()->forPoster($admin))->create(['stage' => ApplicationStage::Reviewed]);
-    Application::factory()->for(JobPost::factory()->forPoster($poster)->closed())->rejected()->create(['submitted_at' => '2026-10-16 12:00:00']);
+    Application::factory()->for(JobPost::factory()->forPoster($poster)->closed())->notSelected()->create(['submitted_at' => '2026-10-16 12:00:00']);
     Application::factory()->create(['stage' => ApplicationStage::Shortlisted]);
 
     foreach ([

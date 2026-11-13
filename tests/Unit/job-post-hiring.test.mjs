@@ -7,7 +7,7 @@ import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 
-await test('the jobs column shows hired applicants over vacancies instead of total applications', () => {
+await test('the jobs column shows endorsed applicants over vacancies instead of total applications', () => {
     const exports = {};
     const imports = {
         'react/jsx-runtime': jsxRuntime,
@@ -46,7 +46,7 @@ await test('the jobs column shows hired applicants over vacancies instead of tot
         assert.match(html, new RegExp(`>${hired}/4<`));
         assert.match(
             html,
-            new RegExp(`aria-label="${hired} hired / 4 vacancies"`),
+            new RegExp(`aria-label="${hired} endorsed / 4 vacancies"`),
         );
     }
 });

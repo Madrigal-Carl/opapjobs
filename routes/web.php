@@ -94,6 +94,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::patch('applications/{application}/proceed', [ApplicationController::class, 'proceed'])
                     ->whereNumber('application')->name('dashboard.applications.proceed');
 
+                Route::patch('applications/{application}/review', [ApplicationController::class, 'review'])
+                    ->whereNumber('application')->name('dashboard.applications.review');
+
                 Route::patch('applications/{application}/reject', [ApplicationController::class, 'reject'])
                     ->whereNumber('application')->name('dashboard.applications.reject');
             });

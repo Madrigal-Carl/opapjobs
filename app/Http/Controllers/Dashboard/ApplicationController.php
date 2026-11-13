@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Actions\Application\ListApplicationsAction;
 use App\Actions\Application\ProceedApplicationAction;
 use App\Actions\Application\RejectApplicationAction;
+use App\Actions\Application\ReviewApplicationAction;
 use App\Actions\Application\ShowApplicationAction;
 use App\Actions\Application\ShowApplicationDocumentAction;
 use App\Enums\Permission;
@@ -19,7 +20,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -68,7 +68,15 @@ class ApplicationController extends Controller
             return $this->transitionFailed($request, $exception);
         }
 
-        Toast::success(__('Application moved to :stage.', ['stage' => Str::headline($stage->value)]));
+        Toast::success(__('Application moved to :stage.', ['stage' => $stage->label()]));
+
+        return back();
+    }
+
+    /** Fired when an eligible viewer opens a pending application; silent either way. */
+    public function review(Request $request, int $application, ReviewApplicationAction $action): RedirectResponse
+    {
+        $action->execute($request->user(), $application, $request->ip() ?? '0.0.0.0');
 
         return back();
     }
@@ -81,7 +89,7 @@ class ApplicationController extends Controller
             return $this->transitionFailed($request, $exception);
         }
 
-        Toast::success(__('Application rejected.'));
+        Toast::success(__('Application marked as not selected.'));
 
         return back();
     }

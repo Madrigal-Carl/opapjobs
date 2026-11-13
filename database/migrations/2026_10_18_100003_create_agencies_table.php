@@ -32,11 +32,16 @@ return new class extends Migration
             $table->string('website_url')->nullable();
             $table->timestamp('verified_at')->nullable();
             $table->unsignedInteger('agency_user_limit');
-            $table->foreignId('admin_user_id')->nullable()->unique();
+            $table->foreignId('admin_user_id')->nullable()->unique()->constrained('users')->restrictOnDelete();
             $table->timestamp('suspended_at')->nullable();
             $table->foreignId('created_by_user_id')->constrained('users')->restrictOnDelete();
             $table->softDeletes();
             $table->timestamps();
+        });
+
+        // users is created first, so its agency link can only be constrained once agencies exists.
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('agency_id')->references('id')->on('agencies')->restrictOnDelete();
         });
 
         DB::statement('CREATE UNIQUE INDEX agencies_agency_name_unique ON agencies (agency_name) WHERE deleted_at IS NULL');
@@ -52,6 +57,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['agency_id']);
+        });
+
         Schema::dropIfExists('agencies');
     }
 };

@@ -25,7 +25,7 @@ test('the demo seeder fills every stage for every agency without exceeding hired
 
     expect(DB::table('applications')
         ->join('job_posts', 'job_posts.id', '=', 'applications.job_post_id')
-        ->where('applications.stage', ApplicationStage::Hired->value)
+        ->where('applications.stage', ApplicationStage::Endorsed->value)
         ->select('applications.job_post_id')
         ->groupBy('applications.job_post_id', 'job_posts.vacant_positions')
         ->havingRaw('count(*) > job_posts.vacant_positions')

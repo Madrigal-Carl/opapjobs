@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import {
     ArrowRight,
@@ -166,7 +167,7 @@ export function JobDetailPanel({
                                     Applied
                                 </span>
                             ) : (
-                                <a
+                                <Link
                                     className="jobs-apply-button"
                                     href={applyHref}
                                     aria-disabled={isClosed}
@@ -181,7 +182,7 @@ export function JobDetailPanel({
                                             aria-hidden="true"
                                         />
                                     )}
-                                </a>
+                                </Link>
                             )}
 
                             <button

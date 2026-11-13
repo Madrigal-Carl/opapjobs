@@ -1,12 +1,35 @@
 import { router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/system/confirm-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     proceed as proceedRoute,
     reject as rejectRoute,
+    review as reviewRoute,
 } from '@/routes/dashboard/applications';
+
+/**
+ * Marks a pending application as Reviewed when an eligible viewer opens it.
+ * Sends at most one request per page visit (StrictMode re-runs effects) and
+ * stays out of the Proceed/Reject `processing` state. The server re-checks
+ * eligibility and ignores the request when it does not apply.
+ */
+export function useAutoReviewOnOpen(applicationId: number, eligible: boolean) {
+    const requestedFor = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (!eligible || requestedFor.current === applicationId) {
+            return;
+        }
+        requestedFor.current = applicationId;
+        router.patch(
+            reviewRoute.url(applicationId),
+            {},
+            { preserveScroll: true, only: ['application'] },
+        );
+    }, [applicationId, eligible]);
+}
 
 /**
  * Shared Proceed/Reject requests. Callers pass the props to reload: the list
@@ -58,9 +81,9 @@ export function RejectApplicationDialog({
         <ConfirmDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Reject this application?"
-            description={`${applicantName} will be moved to the Rejected stage. This cannot be undone.`}
-            confirmLabel="Reject application"
+            title="Mark this application as not selected?"
+            description={`${applicantName} will be moved to the Not Selected stage and emailed that the agency is not proceeding. This cannot be undone.`}
+            confirmLabel="Mark as not selected"
             destructive
             busy={busy}
             onConfirm={() => onConfirm(note)}
@@ -75,7 +98,7 @@ export function RejectApplicationDialog({
                     value={note}
                     maxLength={500}
                     onChange={(event) => setNote(event.target.value)}
-                    placeholder="Why is this application being rejected?"
+                    placeholder="Why was this applicant not selected? Only staff see this note."
                     data-testid={`input-reject-note-${applicationId}`}
                 />
             </div>

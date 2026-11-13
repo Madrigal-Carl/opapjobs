@@ -4,12 +4,14 @@ namespace App\Models;
 
 use App\Enums\ContractType;
 use App\Enums\Currency;
+use App\Enums\DataScope;
 use App\Enums\EducationLevel;
 use App\Enums\GenderRequirement;
 use App\Enums\JobPostDisplayStatus;
 use App\Enums\JobPostStatus;
 use App\Enums\RecruitmentType;
 use App\Models\Concerns\ScopedToUser;
+use App\Support\DataScopeResolver;
 use Database\Factories\JobPostFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -148,6 +150,15 @@ class JobPost extends Model
     public function poster(): BelongsTo
     {
         return $this->belongsTo(User::class, 'posted_by_user_id')->withTrashed();
+    }
+
+    /**
+     * Whether an Agency-role user (staff scoped to their own posts) created this post,
+     * as opposed to an admin or a superadmin. Unknown posters count as not.
+     */
+    public function isPostedByAgencyStaff(): bool
+    {
+        return $this->poster !== null && DataScopeResolver::for($this->poster) === DataScope::Own;
     }
 
     /** @return BelongsTo<Employer, $this> */

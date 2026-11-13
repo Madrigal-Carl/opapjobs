@@ -5,9 +5,9 @@ export type ApplicationStageValue =
     | 'pending'
     | 'reviewed'
     | 'shortlisted'
-    | 'interviewed'
-    | 'hired'
-    | 'rejected';
+    | 'for_interview'
+    | 'endorsed'
+    | 'not_selected';
 
 export const APPLICATION_STAGE_LABELS: Record<
     ApplicationStageValue,
@@ -16,9 +16,9 @@ export const APPLICATION_STAGE_LABELS: Record<
     pending: 'Pending',
     reviewed: 'Reviewed',
     shortlisted: 'Shortlisted',
-    interviewed: 'Interviewed',
-    hired: 'Hired',
-    rejected: 'Rejected',
+    for_interview: 'For Interview',
+    endorsed: 'Endorsed',
+    not_selected: 'Not Selected',
 };
 
 export type DashboardApplicationRow = {
@@ -100,6 +100,11 @@ export type DashboardApplicationDetail = {
         contact_phone: string | null;
         status: 'active' | 'expired' | 'closed' | 'archived';
         is_urgent: boolean;
+        /** Auto-review hints only; the server decides who may auto-review. */
+        posted_by_user_id: number;
+        agency_id: number;
+        /** True for admin and superadmin posters alike. */
+        poster_is_admin: boolean;
         languages: { language: string; proficiency: string }[];
     };
     questions: {

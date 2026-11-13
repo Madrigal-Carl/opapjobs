@@ -33,7 +33,7 @@ test('applicants submit their own resume and job answers and see the application
         'resume_document_id' => $resume->id, 'cover_letter' => 'Please consider my application.',
         'expected_monthly_salary' => '2500.50', 'availability' => 'within_2_weeks',
         'answers' => [$yesno->id => 'No', $short->id => 'Three years.'],
-        'applicant_user_id' => User::factory()->applicant()->create()->id, 'stage' => 'hired',
+        'applicant_user_id' => User::factory()->applicant()->create()->id, 'stage' => 'endorsed',
     ])->assertRedirect(route('jobs.apply', $post->id))->assertSessionHasNoErrors();
 
     $application = Application::sole();

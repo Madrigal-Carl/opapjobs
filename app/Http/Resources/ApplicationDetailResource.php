@@ -74,6 +74,11 @@ class ApplicationDetailResource extends JsonResource
                 'contact_phone' => $post->contact_phone,
                 'status' => $post->display_status->value,
                 'is_urgent' => $post->is_urgent,
+                // A UX hint for the auto-review request; ApplicationService enforces the rule.
+                // poster_is_admin is true for admin and superadmin posters alike.
+                'posted_by_user_id' => $post->posted_by_user_id,
+                'agency_id' => $post->agency_id,
+                'poster_is_admin' => ! $post->isPostedByAgencyStaff(),
                 'languages' => $post->languages->map(fn ($language): array => [
                     'language' => Str::headline($language->language->value),
                     'proficiency' => Str::headline($language->proficiency->value),

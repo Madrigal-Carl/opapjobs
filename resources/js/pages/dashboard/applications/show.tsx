@@ -1,4 +1,4 @@
-import { Head, Link, setLayoutProps } from '@inertiajs/react';
+import { Head, Link, setLayoutProps, usePage } from '@inertiajs/react';
 import {
     ArrowLeft,
     ArrowRight,
@@ -22,6 +22,7 @@ import { useState, type ReactNode } from 'react';
 import {
     RejectApplicationDialog,
     useApplicationStageTransition,
+    useAutoReviewOnOpen,
 } from '@/components/dashboard/application-actions';
 import { PathwayBadge, StageBadge } from '@/components/dashboard/badges';
 import { ListingTag } from '@/components/dashboard/listing-tag';
@@ -37,6 +38,7 @@ import {
 import { getQuestionAnswerType } from '@/data/job-questions';
 import { elapsedSince } from '@/lib/application-utils';
 import { applications } from '@/routes/dashboard';
+import type { Auth } from '@/types/auth';
 import {
     APPLICATION_STAGE_LABELS,
     type ApplicationStageValue,
@@ -62,8 +64,8 @@ const PIPELINE_STAGES: ApplicationStageValue[] = [
     'pending',
     'reviewed',
     'shortlisted',
-    'interviewed',
-    'hired',
+    'for_interview',
+    'endorsed',
 ];
 const dateFormat = new Intl.DateTimeFormat('en-US', {
     month: 'short',
@@ -103,16 +105,37 @@ function experienceRequired(job: DashboardApplicationDetail['job']): string {
 }
 
 /**
- * Index of the last pipeline stage the application reached. Rejected
- * applications resolve to the stage they were rejected from.
+ * Mirrors the server rule (UX hint only): a pending application is
+ * auto-reviewed by the job post's poster, or by an admin of the same agency
+ * when the poster is not an admin.
+ */
+function canAutoReview(
+    application: DashboardApplicationDetail,
+    auth: Auth,
+): boolean {
+    const { job } = application;
+
+    return (
+        application.stage === 'pending' &&
+        (auth.user.id === job.posted_by_user_id ||
+            (auth.roles.includes('admin') &&
+                !job.poster_is_admin &&
+                auth.user.agency_id != null &&
+                auth.user.agency_id === job.agency_id))
+    );
+}
+
+/**
+ * Index of the last pipeline stage the application reached. Not selected
+ * applications resolve to the stage they were closed from.
  */
 function reachedStageIndex(application: DashboardApplicationDetail): number {
-    if (application.stage !== 'rejected') {
+    if (application.stage !== 'not_selected') {
         return PIPELINE_STAGES.indexOf(application.stage);
     }
     const rejection = [...application.history]
         .reverse()
-        .find((entry) => entry.stage === 'rejected');
+        .find((entry) => entry.stage === 'not_selected');
 
     return Math.max(
         0,
@@ -171,7 +194,7 @@ function StageProgress({
 }: {
     application: DashboardApplicationDetail;
 }) {
-    const rejected = application.stage === 'rejected';
+    const rejected = application.stage === 'not_selected';
     const reached = reachedStageIndex(application);
 
     return (
@@ -183,7 +206,7 @@ function StageProgress({
                 const done =
                     index < reached ||
                     (rejected && index === reached) ||
-                    (stage === 'hired' && application.stage === 'hired');
+                    (stage === 'endorsed' && application.stage === 'endorsed');
                 const current = !rejected && !done && index === reached;
                 const status = done
                     ? 'completed'
@@ -238,7 +261,7 @@ function StageProgress({
                                     >
                                         <X className="size-3" />
                                     </span>
-                                    {APPLICATION_STAGE_LABELS.rejected}
+                                    {APPLICATION_STAGE_LABELS.not_selected}
                                     <span className="sr-only">
                                         {' '}
                                         (current stage)
@@ -397,6 +420,11 @@ export default function DashboardApplicationShow({
         application?.id ?? 0,
     );
     const [rejectOpen, setRejectOpen] = useState(false);
+    const { auth } = usePage().props;
+    useAutoReviewOnOpen(
+        application?.id ?? 0,
+        application !== undefined && canAutoReview(application, auth),
+    );
 
     setLayoutProps({
         breadcrumbs: [
@@ -643,7 +671,7 @@ export default function DashboardApplicationShow({
                                         disabled={processing}
                                         data-testid={`button-reject-application-${application.id}`}
                                     >
-                                        Reject
+                                        Not selected
                                     </Button>
                                 )}
                                 {application.can_proceed && (
@@ -1080,7 +1108,7 @@ export default function DashboardApplicationShow({
                                                     className={`absolute top-1.5 left-0 size-[11px] rounded-full ring-4 ring-white ${
                                                         index === 0
                                                             ? entry.stage ===
-                                                              'rejected'
+                                                              'not_selected'
                                                                 ? 'bg-[var(--danger)]'
                                                                 : 'bg-[var(--teal)]'
                                                             : 'bg-[var(--neutral-dot)]'

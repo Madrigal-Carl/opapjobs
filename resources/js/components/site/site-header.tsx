@@ -24,6 +24,11 @@ import { index as jobsIndex } from '@/routes/jobs';
 const HOME_ANCHOR = `${home.url()}#top`;
 const RESOURCES_ANCHOR = `${home.url()}#resources`;
 
+/** In-page anchors stay plain links; real pages are Inertia visits. */
+function resourceLinkTag(href: string): typeof Link | 'a' {
+    return href.includes('#') ? 'a' : Link;
+}
+
 /**
  * Resources menu. "Resume Template" is a real applicant page; the rest deep
  * link into the field guide on the home page.
@@ -208,23 +213,27 @@ export function SiteHeader() {
                                         THE OPAP FIELD GUIDE
                                     </div>
                                     {resourceLinks.map(
-                                        ({ label, icon: Icon, href }) => (
-                                            <a
-                                                key={label}
-                                                href={href}
-                                                role="menuitem"
-                                                onClick={closeMenu}
-                                                data-testid={`link-nav-${label
-                                                    .toLowerCase()
-                                                    .replaceAll(' ', '-')}`}
-                                            >
-                                                <Icon
-                                                    size={16}
-                                                    aria-hidden="true"
-                                                />
-                                                {label} <span>→</span>
-                                            </a>
-                                        ),
+                                        ({ label, icon: Icon, href }) => {
+                                            const Tag = resourceLinkTag(href);
+
+                                            return (
+                                                <Tag
+                                                    key={label}
+                                                    href={href}
+                                                    role="menuitem"
+                                                    onClick={closeMenu}
+                                                    data-testid={`link-nav-${label
+                                                        .toLowerCase()
+                                                        .replaceAll(' ', '-')}`}
+                                                >
+                                                    <Icon
+                                                        size={16}
+                                                        aria-hidden="true"
+                                                    />
+                                                    {label} <span>→</span>
+                                                </Tag>
+                                            );
+                                        },
                                     )}
                                 </div>
                             )}
@@ -384,15 +393,19 @@ export function SiteHeader() {
                         </button>
                         {mobileGroup === 'resources' && (
                             <div className="mobile-subgroup">
-                                {resourceLinks.map(({ label, href }) => (
-                                    <a
-                                        key={label}
-                                        href={href}
-                                        onClick={closeMobile}
-                                    >
-                                        {label}
-                                    </a>
-                                ))}
+                                {resourceLinks.map(({ label, href }) => {
+                                    const Tag = resourceLinkTag(href);
+
+                                    return (
+                                        <Tag
+                                            key={label}
+                                            href={href}
+                                            onClick={closeMobile}
+                                        >
+                                            {label}
+                                        </Tag>
+                                    );
+                                })}
                             </div>
                         )}
                         <a

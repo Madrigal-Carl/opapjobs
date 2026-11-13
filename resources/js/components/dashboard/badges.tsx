@@ -117,16 +117,18 @@ export function StatusPill({
 /**
  * Badges use a light tint of their hue with dark text, so a table row
  * stays calm and scannable. Only genuinely terminal or alert states
- * (Hired, Urgent) use a solid fill, which keeps them standing out.
+ * (Endorsed, Urgent) use a solid fill, which keeps them standing out.
  * Every badge always carries its text label, so colour is never the
  * only signal.
  */
 const stageClasses: Record<ApplicationStage, string> = {
     Reviewed: 'border-transparent bg-[var(--teal)]/15 text-[var(--navy)]',
     Shortlisted: 'border-transparent bg-[var(--navy)]/5 text-[var(--navy)]',
-    Interviewed: 'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
-    Hired: 'border-transparent bg-[var(--teal)] text-white',
-    Rejected: 'border-transparent bg-[var(--danger-soft)] text-[var(--danger)]',
+    'For Interview':
+        'border-transparent bg-[var(--navy)]/15 text-[var(--navy)]',
+    Endorsed: 'border-transparent bg-[var(--teal)] text-white',
+    'Not Selected':
+        'border-transparent bg-[var(--danger-soft)] text-[var(--danger)]',
     Pending: 'border-transparent bg-[var(--amber)]/20 text-[var(--navy)]',
 };
 

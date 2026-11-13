@@ -176,14 +176,14 @@ const jobPostColumns: Column<JobPostRow>[] = [
     },
     {
         key: 'applicants',
-        header: 'Hired / Vacancies',
+        header: 'Endorsed / Vacancies',
         width: '11%',
         align: 'right',
         cell: (post) => (
             <span
                 className="inline-flex items-center gap-1.5 font-bold text-[var(--navy-deep)] tabular-nums"
-                aria-label={`${post.hired_count} hired / ${post.vacant_positions} vacancies`}
-                title={`${post.hired_count} hired / ${post.vacant_positions} vacancies`}
+                aria-label={`${post.hired_count} endorsed / ${post.vacant_positions} vacancies`}
+                title={`${post.hired_count} endorsed / ${post.vacant_positions} vacancies`}
             >
                 {`${post.hired_count}/${post.vacant_positions}`}
                 <Users
@@ -374,10 +374,10 @@ export default function DashboardJobs({
                         tone="orange"
                     />
                     <KpiCard
-                        label="Successful Placements"
+                        label="Endorsed"
                         value={kpis?.successful_placements ?? 0}
                         loading={!kpis}
-                        caption="Applications at the hired stage"
+                        caption="Applications at the endorsed stage"
                         icon={BadgeCheck}
                         tone="emerald"
                     />

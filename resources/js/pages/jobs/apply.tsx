@@ -876,7 +876,7 @@ function SubmittedCard({ job, contact }: { job: Job; contact: string }) {
             </p>
             <div className="apply-actions">
                 <Button asChild>
-                    <a href={applications.url()}>Track it on My Jobs</a>
+                    <Link href={applications.url()}>Track it on My Jobs</Link>
                 </Button>
                 <Button asChild variant="secondary">
                     <a href={jobsIndex.url()}>Browse more jobs</a>

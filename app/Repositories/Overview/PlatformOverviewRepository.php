@@ -8,7 +8,6 @@ use App\Models\Application;
 use App\Models\ApplicationStageHistory;
 use App\Models\JobPost;
 use App\Models\User;
-use Illuminate\Support\Str;
 
 /**
  * The aggregate numbers behind the admin's Platform overview.
@@ -56,13 +55,13 @@ class PlatformOverviewRepository
         $stageCounts = [];
 
         foreach (ApplicationStage::cases() as $stage) {
-            $stageCounts[Str::headline($stage->value)] = 0;
+            $stageCounts[$stage->label()] = 0;
         }
 
         foreach ($stageRows as $row) {
-            $key = Str::headline((string) $row->stage);
+            $key = ApplicationStage::tryFrom((string) $row->stage)?->label();
 
-            if (array_key_exists($key, $stageCounts)) {
+            if ($key !== null) {
                 $stageCounts[$key] = (int) $row->total;
             }
         }
@@ -75,7 +74,7 @@ class PlatformOverviewRepository
             'total_applications' => $totalApplications,
             'stage_counts' => $stageCounts,
             'conversion_rate' => $totalApplications > 0
-                ? (int) round(($stageCounts['Hired'] / $totalApplications) * 100)
+                ? (int) round(($stageCounts['Endorsed'] / $totalApplications) * 100)
                 : 0,
         ];
     }
@@ -123,8 +122,8 @@ class PlatformOverviewRepository
 
             $key = match ((string) $row->to_stage) {
                 ApplicationStage::Reviewed->value => 'reviewed',
-                ApplicationStage::Interviewed->value => 'interview',
-                ApplicationStage::Hired->value => 'hired',
+                ApplicationStage::ForInterview->value => 'interview',
+                ApplicationStage::Endorsed->value => 'hired',
                 default => null,
             };
 

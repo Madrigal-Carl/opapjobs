@@ -43,18 +43,18 @@ class ApplicationFactory extends Factory
         return $this->state(['stage' => ApplicationStage::Shortlisted]);
     }
 
-    public function interviewed(): static
+    public function forInterview(): static
     {
-        return $this->state(['stage' => ApplicationStage::Interviewed]);
+        return $this->state(['stage' => ApplicationStage::ForInterview]);
     }
 
-    public function hired(): static
+    public function endorsed(): static
     {
-        return $this->state(['stage' => ApplicationStage::Hired]);
+        return $this->state(['stage' => ApplicationStage::Endorsed]);
     }
 
-    public function rejected(): static
+    public function notSelected(): static
     {
-        return $this->state(['stage' => ApplicationStage::Rejected]);
+        return $this->state(['stage' => ApplicationStage::NotSelected]);
     }
 }

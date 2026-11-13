@@ -31,7 +31,7 @@ return new class extends Migration
 
         if (DB::getDriverName() === 'pgsql') {
             DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_availability_check CHECK (availability IN ('immediately', 'within_2_weeks', 'within_1_month', 'more_than_1_month'))");
-            DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_stage_check CHECK (stage IN ('pending', 'under_review', 'shortlisted', 'interviewed', 'hired'))");
+            DB::statement("ALTER TABLE applications ADD CONSTRAINT applications_stage_check CHECK (stage IN ('pending', 'reviewed', 'shortlisted', 'for_interview', 'endorsed', 'not_selected'))");
         }
     }
 
