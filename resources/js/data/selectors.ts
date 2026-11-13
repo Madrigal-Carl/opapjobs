@@ -498,9 +498,9 @@ export function getApplicationStageCounts(): Record<ApplicationStage, number> {
         Pending: 0,
         Reviewed: 0,
         Shortlisted: 0,
-        Interviewed: 0,
-        Hired: 0,
-        Rejected: 0,
+        'For Interview': 0,
+        Endorsed: 0,
+        'Not Selected': 0,
     };
 
     for (const application of applications) {

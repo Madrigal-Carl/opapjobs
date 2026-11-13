@@ -50,7 +50,7 @@ class PublicAgencyRepository
             ->select([...self::CARD_COLUMNS, ...$extraColumns])
             ->withCount([
                 'jobPosts as open_jobs_count' => $activeOnly,
-                'applications as hired_count' => fn (Builder $query) => $query->where('applications.stage', ApplicationStage::Hired->value),
+                'applications as hired_count' => fn (Builder $query) => $query->where('applications.stage', ApplicationStage::Endorsed->value),
                 'reviews',
             ])
             ->withAvg('reviews', 'rating');

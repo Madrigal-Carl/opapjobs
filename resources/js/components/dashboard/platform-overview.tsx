@@ -24,7 +24,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { OverviewDayPoint, PlatformOverviewData } from '@/types/overview';
 
-const STAGE_LABELS = ['Pending', 'Reviewed', 'Interviewed', 'Hired'] as const;
+const STAGE_LABELS = [
+    'Pending',
+    'Reviewed',
+    'For Interview',
+    'Endorsed',
+] as const;
 
 /** `YYYY-MM-DD` in local time, matching the server's `DATE()` output. */
 function toKey(date: Date): string {
@@ -233,10 +238,10 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
             ['Job posts', String(summary.total_jobs)],
             ['Active job posts', String(summary.active_jobs)],
             ['Applications', String(summary.total_applications)],
-            ['Hired', String(summary.stage_counts.Hired)],
+            ['Endorsed', String(summary.stage_counts.Endorsed)],
             ['Pending', String(summary.stage_counts.Pending)],
             [],
-            ['Date', 'Applications', 'Reviewed', 'Interview', 'Hired'],
+            ['Date', 'Applications', 'Reviewed', 'For Interview', 'Endorsed'],
             ...filteredDays.map((day) => [
                 day.date,
                 String(day.applications),
@@ -360,12 +365,12 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                         data-testid="metric-applications"
                     />
                     <KpiCard
-                        label="Hired"
-                        value={summary.stage_counts.Hired}
+                        label="Endorsed"
+                        value={summary.stage_counts.Endorsed}
                         caption={
                             summary.total_applications
                                 ? `${summary.conversion_rate}% conversion rate`
-                                : 'No hires yet'
+                                : 'No endorsements yet'
                         }
                         icon={UserRoundCheck}
                         tone="emerald"
@@ -374,7 +379,7 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                     <KpiCard
                         label="Pending"
                         value={summary.stage_counts.Pending}
-                        caption={`${summary.stage_counts.Interviewed} interviews scheduled`}
+                        caption={`${summary.stage_counts['For Interview']} for interview`}
                         icon={Clock3}
                         tone="orange"
                         data-testid="metric-pending"
@@ -482,14 +487,14 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                         />
                         <StageRow
                             index={1}
-                            label="Interview scheduled"
-                            value={summary.stage_counts.Interviewed}
+                            label="For interview"
+                            value={summary.stage_counts['For Interview']}
                             suffix="applicants"
                         />
                         <StageRow
                             index={2}
-                            label="Successful placement"
-                            value={summary.stage_counts.Hired}
+                            label="Endorsed to employer"
+                            value={summary.stage_counts.Endorsed}
                             suffix="applicants"
                         />
                     </Panel>

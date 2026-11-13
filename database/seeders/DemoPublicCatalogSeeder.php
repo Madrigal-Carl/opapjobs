@@ -30,9 +30,9 @@ class DemoPublicCatalogSeeder extends Seeder
 {
     private const APPLICANT_POOL_SIZE = 60;
 
-    private const STAGE_PATH = ['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired'];
+    private const STAGE_PATH = ['pending', 'reviewed', 'shortlisted', 'for_interview', 'endorsed'];
 
-    private const NON_HIRED_STAGES = ['pending', 'reviewed', 'shortlisted', 'interviewed', 'rejected'];
+    private const NON_HIRED_STAGES = ['pending', 'reviewed', 'shortlisted', 'for_interview', 'not_selected'];
 
     /**
      * Run the database seeds.
@@ -269,7 +269,7 @@ class DemoPublicCatalogSeeder extends Seeder
                 $rows[] = [
                     'job_post_id' => $post->id,
                     'applicant_user_id' => $applicants[($start + $offset) % self::APPLICANT_POOL_SIZE]->id,
-                    'stage' => $offset < $hires ? 'hired' : self::NON_HIRED_STAGES[($offset + $slot) % count(self::NON_HIRED_STAGES)],
+                    'stage' => $offset < $hires ? 'endorsed' : self::NON_HIRED_STAGES[($offset + $slot) % count(self::NON_HIRED_STAGES)],
                     'submitted_at' => $submitted->isAfter($now) ? $now : $submitted,
                     'actor' => $post->posted_by_user_id,
                 ];
@@ -301,7 +301,7 @@ class DemoPublicCatalogSeeder extends Seeder
 
         foreach ($rows as $row) {
             $applicationId = $ids[$row['job_post_id'].':'.$row['applicant_user_id']];
-            $path = $row['stage'] === 'rejected' ? ['pending', 'reviewed', 'rejected']
+            $path = $row['stage'] === 'not_selected' ? ['pending', 'reviewed', 'not_selected']
                 : array_slice(self::STAGE_PATH, 0, array_search($row['stage'], self::STAGE_PATH, true) + 1);
 
             foreach ($path as $step => $stage) {
@@ -367,7 +367,7 @@ class DemoPublicCatalogSeeder extends Seeder
         $public = Agency::query()->whereNull('suspended_at')->selectRaw('pathway, COUNT(*) AS total')->groupBy('pathway')->pluck('total', 'pathway');
         $active = JobPost::query()->active()->count();
         $notActive = JobPost::query()->count() - $active;
-        $hired = DB::table('applications')->where('stage', 'hired')->count();
+        $hired = DB::table('applications')->where('stage', 'endorsed')->count();
         $reviews = AgencyReview::query()->count();
 
         $this->command->info(sprintf('agencies (public): landbased %d, seabased %d', $public['landbased'] ?? 0, $public['seabased'] ?? 0));

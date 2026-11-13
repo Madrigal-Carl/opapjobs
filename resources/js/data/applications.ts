@@ -5,7 +5,7 @@ export const applications: Application[] = [
         id: 1,
         applicantId: 1,
         jobId: 'land-2',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-08',
     },
     {
@@ -26,7 +26,7 @@ export const applications: Application[] = [
         id: 4,
         applicantId: 4,
         jobId: 'land-1',
-        stage: 'Hired',
+        stage: 'Endorsed',
         appliedAt: '2026-09-15',
     },
     {
@@ -40,7 +40,7 @@ export const applications: Application[] = [
         id: 6,
         applicantId: 6,
         jobId: 'land-1',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-05',
     },
     {
@@ -54,7 +54,7 @@ export const applications: Application[] = [
         id: 8,
         applicantId: 8,
         jobId: 'land-3',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-02',
     },
     {
@@ -75,7 +75,7 @@ export const applications: Application[] = [
         id: 11,
         applicantId: 21,
         jobId: 'sea-1',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-07',
     },
     {
@@ -96,7 +96,7 @@ export const applications: Application[] = [
         id: 14,
         applicantId: 24,
         jobId: 'sea-1',
-        stage: 'Hired',
+        stage: 'Endorsed',
         appliedAt: '2026-09-18',
     },
     {
@@ -131,7 +131,7 @@ export const applications: Application[] = [
         id: 19,
         applicantId: 29,
         jobId: 'sea-3',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-06',
     },
     {
@@ -145,14 +145,14 @@ export const applications: Application[] = [
         id: 21,
         applicantId: 31,
         jobId: 'sea-3',
-        stage: 'Hired',
+        stage: 'Endorsed',
         appliedAt: '2026-09-20',
     },
     {
         id: 22,
         applicantId: 32,
         jobId: 'sea-2',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-10-09',
     },
     {
@@ -208,7 +208,7 @@ export const applications: Application[] = [
         id: 30,
         applicantId: 28,
         jobId: 'sea-1',
-        stage: 'Interviewed',
+        stage: 'For Interview',
         appliedAt: '2026-09-21',
     },
 ];

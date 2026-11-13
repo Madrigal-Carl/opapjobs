@@ -41,6 +41,7 @@ class ApplicationRepository
             'supportingDocuments',
             'jobPost.employer',
             'jobPost.agency',
+            'jobPost.poster',
             'jobPost.subcategory.category',
             'jobPost.languages',
             'jobPost.questions' => fn ($query) => $query->withTrashed()->orderBy('sort_order'),

@@ -27,7 +27,7 @@ test('the public catalog seeder meets the volume targets and is idempotent', fun
     foreach (Pathway::cases() as $pathway) {
         $public = Agency::query()->where('pathway', $pathway)->whereNull('suspended_at');
         $active = JobPost::query()->active()->whereHas('agency', fn ($agency) => $agency->where('pathway', $pathway)->whereNull('suspended_at'));
-        $hiring = (clone $public)->whereHas('jobPosts.applications', fn ($application) => $application->where('stage', ApplicationStage::Hired));
+        $hiring = (clone $public)->whereHas('jobPosts.applications', fn ($application) => $application->where('stage', ApplicationStage::Endorsed));
 
         expect($public->count())->toBeGreaterThan(PublicAgencyRules::AGENCIES_PER_PAGE)
             ->and($hiring->count())->toBeGreaterThanOrEqual(PublicAgencyRules::TOP_HIRER_RANK_LIMIT)
@@ -46,7 +46,7 @@ test('the public catalog seeder meets the volume targets and is idempotent', fun
 
     expect(DB::table('applications')
         ->join('job_posts', 'job_posts.id', '=', 'applications.job_post_id')
-        ->where('applications.stage', ApplicationStage::Hired->value)
+        ->where('applications.stage', ApplicationStage::Endorsed->value)
         ->groupBy('applications.job_post_id', 'job_posts.vacant_positions')
         ->havingRaw('count(*) > job_posts.vacant_positions')
         ->select('applications.job_post_id')->get())->toBeEmpty();

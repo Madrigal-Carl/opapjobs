@@ -23,8 +23,8 @@ return new class extends Migration
         });
 
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement("ALTER TABLE application_stage_history ADD CONSTRAINT application_stage_history_from_stage_check CHECK (from_stage IN ('pending', 'under_review', 'shortlisted', 'interviewed', 'hired'))");
-            DB::statement("ALTER TABLE application_stage_history ADD CONSTRAINT application_stage_history_to_stage_check CHECK (to_stage IN ('pending', 'under_review', 'shortlisted', 'interviewed', 'hired'))");
+            DB::statement("ALTER TABLE application_stage_history ADD CONSTRAINT application_stage_history_from_stage_check CHECK (from_stage IN ('pending', 'reviewed', 'shortlisted', 'for_interview', 'endorsed', 'not_selected'))");
+            DB::statement("ALTER TABLE application_stage_history ADD CONSTRAINT application_stage_history_to_stage_check CHECK (to_stage IN ('pending', 'reviewed', 'shortlisted', 'for_interview', 'endorsed', 'not_selected'))");
         }
     }
 

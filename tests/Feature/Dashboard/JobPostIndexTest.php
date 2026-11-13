@@ -123,13 +123,13 @@ test('filters are normalized and only the safe job post row fields are returned'
 test('job rows count only hired applicants against the original vacancies', function () {
     $user = User::factory()->agency()->forAgency(Agency::factory()->create())->create();
     $post = JobPost::factory()->forPoster($user)->create(['vacant_positions' => 4]);
-    Application::factory()->for($post)->hired()->count(2)->create();
+    Application::factory()->for($post)->endorsed()->count(2)->create();
     Application::factory()->for($post)->pending()->create();
     Application::factory()->for($post)->reviewed()->create();
     Application::factory()->for($post)->shortlisted()->create();
-    Application::factory()->for($post)->interviewed()->create();
-    Application::factory()->for($post)->rejected()->create();
-    Application::factory()->hired()->create();
+    Application::factory()->for($post)->forInterview()->create();
+    Application::factory()->for($post)->notSelected()->create();
+    Application::factory()->endorsed()->create();
 
     $this->actingAs($user)->get(route('dashboard.jobs'))->assertOk()->assertInertia(fn (Assert $page) => $page
         ->has('jobPosts.data', 1)
@@ -281,9 +281,9 @@ test('deferred kpis use the same visibility scope regardless of table filters', 
     $colleaguePost = JobPost::factory()->forPoster($admin)->closed()->create();
     $foreign = JobPost::factory()->create();
     Application::factory()->for($active)->create();
-    Application::factory()->for($archived)->hired()->create(['applicant_archived_at' => now()]);
-    Application::factory()->for($colleaguePost)->hired()->create();
-    Application::factory()->for($foreign)->count(2)->hired()->create();
+    Application::factory()->for($archived)->endorsed()->create(['applicant_archived_at' => now()]);
+    Application::factory()->for($colleaguePost)->endorsed()->create();
+    Application::factory()->for($foreign)->count(2)->endorsed()->create();
 
     foreach ([
         [$poster, ['active_jobs' => 1, 'total_applicants' => 2, 'with_job_order' => 1, 'successful_placements' => 1]],

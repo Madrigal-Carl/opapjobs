@@ -19,10 +19,10 @@ test('the platform overview reports real totals scoped to the admin agency', fun
     $pending = Application::factory()->for($nurse)->count(3)->create([
         'submitted_at' => '2026-06-12 09:00:00',
     ]);
-    Application::factory()->for($chef)->hired()->create([
+    Application::factory()->for($chef)->endorsed()->create([
         'submitted_at' => '2026-06-20 09:00:00',
     ]);
-    Application::factory()->for($chef)->rejected()->create([
+    Application::factory()->for($chef)->notSelected()->create([
         'submitted_at' => '2026-06-20 09:00:00',
     ]);
 
@@ -49,9 +49,9 @@ test('the platform overview reports real totals scoped to the admin agency', fun
                     'Pending' => 3,
                     'Reviewed' => 0,
                     'Shortlisted' => 0,
-                    'Interviewed' => 0,
-                    'Hired' => 1,
-                    'Rejected' => 1,
+                    'For Interview' => 0,
+                    'Endorsed' => 1,
+                    'Not Selected' => 1,
                 ],
                 'conversion_rate' => 20,
             ])
@@ -104,9 +104,9 @@ test('an overview with no submissions yet reports zeros and a null range', funct
                     'Pending' => 0,
                     'Reviewed' => 0,
                     'Shortlisted' => 0,
-                    'Interviewed' => 0,
-                    'Hired' => 0,
-                    'Rejected' => 0,
+                    'For Interview' => 0,
+                    'Endorsed' => 0,
+                    'Not Selected' => 0,
                 ],
                 'conversion_rate' => 0,
             ])

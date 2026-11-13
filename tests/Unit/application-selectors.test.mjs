@@ -61,9 +61,9 @@ await test('application stages filter using the new pipeline labels', () => {
         Pending: 12,
         Reviewed: 4,
         Shortlisted: 4,
-        Interviewed: 7,
-        Hired: 3,
-        Rejected: 0,
+        'For Interview': 7,
+        Endorsed: 3,
+        'Not Selected': 0,
     });
 });
 
@@ -172,9 +172,9 @@ await test('application table uses server rows, pagination, stage labels and def
         pending: 'Pending',
         reviewed: 'Reviewed',
         shortlisted: 'Shortlisted',
-        interviewed: 'Interviewed',
-        hired: 'Hired',
-        rejected: 'Rejected',
+        for_interview: 'For Interview',
+        endorsed: 'Endorsed',
+        not_selected: 'Not Selected',
     })) {
         assert.equal(
             table.columns[2].cell({ ...row, stage }).props.stage,
@@ -251,6 +251,7 @@ await test('application table uses server rows, pagination, stage labels and def
 
 await test('application detail uses the server application prop and keeps hooks before the missing-application return', () => {
     const transitionCalls = [];
+    const autoReviewCalls = [];
     let layoutProps;
     let selectedState = 0;
     const { default: ShowApplication } = loadModule(
@@ -263,6 +264,11 @@ await test('application detail uses the server application prop and keeps hooks 
                 setLayoutProps: (props) => {
                     layoutProps = props;
                 },
+                usePage: () => ({
+                    props: {
+                        auth: { user: { id: 50, agency_id: 9 }, roles: [] },
+                    },
+                }),
             },
             react: {
                 useState(initial) {
@@ -279,6 +285,9 @@ await test('application detail uses the server application prop and keeps hooks 
                         proceed: () => {},
                         reject: () => {},
                     };
+                },
+                useAutoReviewOnOpen(id, eligible) {
+                    autoReviewCalls.push([id, eligible]);
                 },
             },
             '@/data/job-attributes': {
@@ -347,6 +356,9 @@ await test('application detail uses the server application prop and keeps hooks 
             contact_phone: null,
             status: 'active',
             is_urgent: false,
+            posted_by_user_id: 50,
+            agency_id: 9,
+            poster_is_admin: false,
             languages: [],
         },
         questions: [],
@@ -355,17 +367,19 @@ await test('application detail uses the server application prop and keeps hooks 
         history: [],
         available_transitions: ['proceed', 'reject'],
         can_proceed: true,
-        next_stage: 'interviewed',
+        next_stage: 'for_interview',
         can_reject: true,
         can_manage: true,
     };
 
     ShowApplication({});
     assert.deepEqual(transitionCalls[0], [['application'], 0]);
+    assert.deepEqual(autoReviewCalls[0], [0, false]);
     assert.equal(layoutProps.breadcrumbs[1].title, 'Application not found');
 
     ShowApplication({ application });
     assert.deepEqual(transitionCalls[1], [['application'], 7]);
+    assert.deepEqual(autoReviewCalls[1], [7, false]);
     assert.equal(selectedState, 2);
     assert.deepEqual(layoutProps.breadcrumbs, [
         { title: 'Applications', href: { url: '/dashboard/applications' } },

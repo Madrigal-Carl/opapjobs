@@ -71,11 +71,11 @@ class DemoApplicationSeeder extends Seeder
                     $slot = ($agencyOrdinal * 37) % 100;
                     $stage = match (true) {
                         $slot < 25 => 'pending', $slot < 44 => 'reviewed', $slot < 59 => 'shortlisted',
-                        $slot < 74 => 'interviewed', $slot < 82 => 'hired', default => 'rejected',
+                        $slot < 74 => 'for_interview', $slot < 82 => 'endorsed', default => 'not_selected',
                     };
-                    if ($stage === 'hired') {
+                    if ($stage === 'endorsed') {
                         if (($hired[$post->id] ?? 0) >= $post->vacant_positions) {
-                            $stage = 'interviewed';
+                            $stage = 'for_interview';
                         } else {
                             $hired[$post->id] = ($hired[$post->id] ?? 0) + 1;
                         }
@@ -83,16 +83,16 @@ class DemoApplicationSeeder extends Seeder
                     $path = match ($stage) {
                         'pending' => ['pending'], 'reviewed' => ['pending', 'reviewed'],
                         'shortlisted' => ['pending', 'reviewed', 'shortlisted'],
-                        'interviewed' => ['pending', 'reviewed', 'shortlisted', 'interviewed'],
-                        'hired' => ['pending', 'reviewed', 'shortlisted', 'interviewed', 'hired'],
-                        'rejected' => [
+                        'for_interview' => ['pending', 'reviewed', 'shortlisted', 'for_interview'],
+                        'endorsed' => ['pending', 'reviewed', 'shortlisted', 'for_interview', 'endorsed'],
+                        'not_selected' => [
                             'pending', 'reviewed',
                             ...match (true) {
-                                $ordinal % 3 === 0 => ['shortlisted', 'interviewed'],
+                                $ordinal % 3 === 0 => ['shortlisted', 'for_interview'],
                                 $ordinal % 2 === 0 => ['shortlisted'],
                                 default => [],
                             },
-                            'rejected',
+                            'not_selected',
                         ],
                     };
                     $resume = $applicant->documents->firstOrFail(fn ($document): bool => $document->getRawOriginal('document_type') === 'resume' && $document->is_primary);
@@ -116,9 +116,9 @@ class DemoApplicationSeeder extends Seeder
                                 'pending' => 'Application submitted and awaiting initial review.',
                                 'reviewed' => 'Resume and screening responses checked against the job requirements.',
                                 'shortlisted' => 'Candidate shortlisted for an interview with the recruitment team.',
-                                'interviewed' => 'Candidate completed the interview with the recruitment coordinator.',
-                                'hired' => 'Written offer accepted following the final selection interview.',
-                                'rejected' => match ($ordinal % 3) {
+                                'for_interview' => 'Candidate completed the interview with the recruitment coordinator.',
+                                'endorsed' => 'Written offer accepted following the final selection interview.',
+                                'not_selected' => match ($ordinal % 3) {
                                     0 => 'Interview completed, but another candidate better matched the current requirements.',
                                     1 => 'Application closed after screening; the role needs credentials the candidate does not yet hold.',
                                     default => 'Candidate withdrew after review because the assignment dates no longer fit.',

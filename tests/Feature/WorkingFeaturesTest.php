@@ -275,15 +275,15 @@ test('an application moves through hiring and the applicant and the public pages
         ->where('applied.0.title', 'Electrician')
         ->where('applied.0.applicationStage', 'pending'));
 
-    foreach (range(1, 4) as $step) {
+    foreach (range(1, 3) as $step) {
         $this->actingAs($staff)->patch(route('dashboard.applications.proceed', $application))->assertSessionHasNoErrors();
     }
     $this->patch(route('dashboard.applications.reject', $rejected), ['reason' => 'Position filled.'])->assertSessionHasNoErrors();
 
-    expect($rejected->fresh()->stage->value)->toBe('rejected');
+    expect($rejected->fresh()->stage->value)->toBe('not_selected');
 
     $this->actingAs($applicant)->get(route('applications'))->assertInertia(fn (Assert $page) => $page
-        ->where('applied.0.applicationStage', 'hired'));
+        ->where('applied.0.applicationStage', 'endorsed'));
     $this->get(route('jobs.show', $post->id))->assertInertia(fn (Assert $page) => $page
         ->where('agency.hiredCount', 1)
         ->where('agency.topHirer', true));

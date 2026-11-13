@@ -61,7 +61,12 @@ const overviewCopy: Record<DashboardOverviewVariant, OverviewCopy> = {
     },
 };
 
-const STAGE_LABELS = ['Pending', 'Reviewed', 'Interviewed', 'Hired'] as const;
+const STAGE_LABELS = [
+    'Pending',
+    'Reviewed',
+    'For Interview',
+    'Endorsed',
+] as const;
 
 function MetricCard({
     label,
@@ -181,7 +186,7 @@ export function AgencyOverview({
     );
     const conversionRate = summary.totalApplications
         ? Math.round(
-              (summary.stageCounts.Hired / summary.totalApplications) * 100,
+              (summary.stageCounts.Endorsed / summary.totalApplications) * 100,
           )
         : 0;
     const topJobs = getTopJobs(3);
@@ -206,10 +211,10 @@ export function AgencyOverview({
             ['Total jobs', String(summary.totalJobs)],
             ['Featured jobs', String(summary.featuredJobs)],
             ['Applications', String(summary.totalApplications)],
-            ['Hired', String(summary.stageCounts.Hired)],
+            ['Endorsed', String(summary.stageCounts.Endorsed)],
             ['Pending', String(summary.stageCounts.Pending)],
             [],
-            ['Date', 'Applications', 'Reviewed', 'Interview', 'Hired'],
+            ['Date', 'Applications', 'Reviewed', 'For Interview', 'Endorsed'],
             ...filteredDays.map((day) => [
                 day.date,
                 String(day.applications),
@@ -349,19 +354,19 @@ export function AgencyOverview({
                     icon={Users}
                 />
                 <MetricCard
-                    label="Hired"
-                    value={summary.stageCounts.Hired}
+                    label="Endorsed"
+                    value={summary.stageCounts.Endorsed}
                     note={
                         summary.totalApplications
                             ? `${conversionRate}% conversion rate`
-                            : 'No hires yet'
+                            : 'No endorsements yet'
                     }
                     icon={UserRoundCheck}
                 />
                 <MetricCard
                     label="Pending"
                     value={summary.stageCounts.Pending}
-                    note={`${summary.stageCounts.Interviewed} interviews scheduled`}
+                    note={`${summary.stageCounts['For Interview']} for interview`}
                     icon={Clock3}
                 />
             </section>
@@ -452,7 +457,7 @@ export function AgencyOverview({
                             <strong className="tabular-nums">
                                 {summary.totalApplications
                                     ? `${(
-                                          (summary.stageCounts.Hired /
+                                          (summary.stageCounts.Endorsed /
                                               summary.totalApplications) *
                                           100
                                       ).toFixed(1)}%`
@@ -486,14 +491,14 @@ export function AgencyOverview({
                         />
                         <PanelRow
                             index={1}
-                            label="Interview scheduled"
-                            value={summary.stageCounts.Interviewed}
+                            label="For interview"
+                            value={summary.stageCounts['For Interview']}
                             suffix="applicants"
                         />
                         <PanelRow
                             index={2}
-                            label="Successful placement"
-                            value={summary.stageCounts.Hired}
+                            label="Endorsed to employer"
+                            value={summary.stageCounts.Endorsed}
                             suffix="applicants"
                         />
                     </CardContent>

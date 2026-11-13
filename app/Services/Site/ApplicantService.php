@@ -6,6 +6,7 @@ use App\Enums\ApplicationStage;
 use App\Enums\DocumentType;
 use App\Enums\JobPostDisplayStatus;
 use App\Enums\QuestionAnswerType;
+use App\Events\ApplicationSubmitted;
 use App\Models\ApplicantDocument;
 use App\Models\Application;
 use App\Models\JobPost;
@@ -115,6 +116,7 @@ class ApplicantService
         $application->stageHistory()->create([
             'from_stage' => null, 'to_stage' => ApplicationStage::Pending, 'changed_by_user_id' => $user->id, 'created_at' => now(),
         ]);
+        ApplicationSubmitted::dispatch($application);
 
         return $application;
     }

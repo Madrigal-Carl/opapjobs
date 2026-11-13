@@ -41,7 +41,7 @@ class PublicCatalog
     public static function hire(JobPost $post, int $count): void
     {
         if ($count > 0) {
-            Application::factory()->count($count)->hired()->for($post, 'jobPost')->create();
+            Application::factory()->count($count)->endorsed()->for($post, 'jobPost')->create();
         }
     }
 

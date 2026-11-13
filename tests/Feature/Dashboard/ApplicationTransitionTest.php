@@ -18,10 +18,9 @@ beforeEach(function () {
 test('proceeding walks the whole pipeline and records history and audit entries', function () {
     $application = Application::factory()->for($this->post)->pending()->create();
     $steps = [
-        ['reviewed', 'Application moved to Reviewed.'],
         ['shortlisted', 'Application moved to Shortlisted.'],
-        ['interviewed', 'Application moved to Interviewed.'],
-        ['hired', 'Application moved to Hired.'],
+        ['for_interview', 'Application moved to For Interview.'],
+        ['endorsed', 'Application moved to Endorsed.'],
     ];
     $from = ApplicationStage::Pending;
 
@@ -39,20 +38,35 @@ test('proceeding walks the whole pipeline and records history and audit entries'
         $from = ApplicationStage::from($stage);
     }
 
-    expect($application->stageHistory()->count())->toBe(4);
+    expect($application->stageHistory()->count())->toBe(3);
 
     $audit = AuditLog::query()->where('subject_id', $application->id)->where('action', 'application.stage_changed')->orderBy('id')->get();
-    expect($audit)->toHaveCount(4)
-        ->and($audit->first()->changes)->toEqual(['from' => 'pending', 'to' => 'reviewed'])
-        ->and($audit->last()->changes)->toEqual(['from' => 'interviewed', 'to' => 'hired'])
+    expect($audit)->toHaveCount(3)
+        ->and($audit->first()->changes)->toEqual(['from' => 'pending', 'to' => 'shortlisted'])
+        ->and($audit->last()->changes)->toEqual(['from' => 'for_interview', 'to' => 'endorsed'])
         ->and($audit->every(fn (AuditLog $log): bool => $log->actor_user_id === $this->poster->id
             && $log->subject_type === Application::class
             && $log->ip_address === '127.0.0.1'))->toBeTrue();
 });
 
+test('a reviewed application proceeds to shortlisted', function () {
+    $application = Application::factory()->for($this->post)->reviewed()->create();
+
+    $this->actingAs($this->poster)->from(route('dashboard.applications'))
+        ->patch(route('dashboard.applications.proceed', $application))
+        ->assertRedirect(route('dashboard.applications'))
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Application moved to Shortlisted.']);
+
+    expect($application->fresh()->stage)->toBe(ApplicationStage::Shortlisted);
+    $this->assertDatabaseHas('application_stage_history', [
+        'application_id' => $application->id, 'from_stage' => 'reviewed',
+        'to_stage' => 'shortlisted', 'changed_by_user_id' => $this->poster->id,
+    ]);
+});
+
 test('terminal applications refuse further transitions', function (ApplicationStage $stage) {
     $application = Application::factory()->for($this->post)->create(['stage' => $stage]);
-    $message = "Applications in the {$stage->value} stage can no longer change.";
+    $message = "Applications in the {$stage->label()} stage can no longer change.";
 
     foreach (['proceed', 'reject'] as $transition) {
         $this->actingAs($this->poster)->from(route('dashboard.applications'))
@@ -66,8 +80,8 @@ test('terminal applications refuse further transitions', function (ApplicationSt
     expect($application->stageHistory()->count())->toBe(0);
     expect(AuditLog::query()->count())->toBe(0);
 })->with([
-    'hired' => [ApplicationStage::Hired],
-    'rejected' => [ApplicationStage::Rejected],
+    'endorsed' => [ApplicationStage::Endorsed],
+    'not_selected' => [ApplicationStage::NotSelected],
 ]);
 
 test('rejecting moves any open stage to rejected and keeps the note', function (ApplicationStage $stage) {
@@ -76,12 +90,12 @@ test('rejecting moves any open stage to rejected and keeps the note', function (
     $this->actingAs($this->poster)->from(route('dashboard.applications'))
         ->patch(route('dashboard.applications.reject', $application), ['note' => 'No longer available for this assignment.'])
         ->assertRedirect(route('dashboard.applications'))
-        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Application rejected.']);
+        ->assertInertiaFlash('toast', ['type' => 'success', 'message' => 'Application marked as not selected.']);
 
-    expect($application->fresh()->stage)->toBe(ApplicationStage::Rejected);
+    expect($application->fresh()->stage)->toBe(ApplicationStage::NotSelected);
     $this->assertDatabaseHas('application_stage_history', [
         'application_id' => $application->id, 'from_stage' => $stage->value,
-        'to_stage' => 'rejected', 'note' => 'No longer available for this assignment.',
+        'to_stage' => 'not_selected', 'note' => 'No longer available for this assignment.',
         'changed_by_user_id' => $this->poster->id,
     ]);
     $this->assertDatabaseHas('audit_logs', [
@@ -91,7 +105,7 @@ test('rejecting moves any open stage to rejected and keeps the note', function (
     'pending' => [ApplicationStage::Pending],
     'reviewed' => [ApplicationStage::Reviewed],
     'shortlisted' => [ApplicationStage::Shortlisted],
-    'interviewed' => [ApplicationStage::Interviewed],
+    'for_interview' => [ApplicationStage::ForInterview],
 ]);
 
 test('reject notes longer than five hundred characters are rejected without a transition', function () {
@@ -106,14 +120,14 @@ test('reject notes longer than five hundred characters are rejected without a tr
 });
 
 test('terminal transitions return a validation response to JSON clients', function () {
-    $application = Application::factory()->for($this->post)->hired()->create();
+    $application = Application::factory()->for($this->post)->endorsed()->create();
 
     $this->actingAs($this->poster)
         ->patchJson(route('dashboard.applications.proceed', $application))
         ->assertStatus(422)
-        ->assertJson(['message' => 'Applications in the hired stage can no longer change.']);
+        ->assertJson(['message' => 'Applications in the Endorsed stage can no longer change.']);
 
-    expect($application->fresh()->stage)->toBe(ApplicationStage::Hired);
+    expect($application->fresh()->stage)->toBe(ApplicationStage::Endorsed);
 });
 
 test('staff without the manage applications permission cannot transition', function () {
@@ -150,12 +164,12 @@ test('application rows expose the transition flags for every stage', function (A
             'proceed' => $canProceed, 'reject' => $canReject,
         ]))));
 })->with([
-    'pending' => [ApplicationStage::Pending, true, 'reviewed', true],
+    'pending' => [ApplicationStage::Pending, true, 'shortlisted', true],
     'reviewed' => [ApplicationStage::Reviewed, true, 'shortlisted', true],
-    'shortlisted' => [ApplicationStage::Shortlisted, true, 'interviewed', true],
-    'interviewed' => [ApplicationStage::Interviewed, true, 'hired', true],
-    'hired' => [ApplicationStage::Hired, false, null, false],
-    'rejected' => [ApplicationStage::Rejected, false, null, false],
+    'shortlisted' => [ApplicationStage::Shortlisted, true, 'for_interview', true],
+    'for_interview' => [ApplicationStage::ForInterview, true, 'endorsed', true],
+    'endorsed' => [ApplicationStage::Endorsed, false, null, false],
+    'not_selected' => [ApplicationStage::NotSelected, false, null, false],
 ]);
 
 test('view only staff receive no application transition capability', function () {
@@ -166,7 +180,7 @@ test('view only staff receive no application transition capability', function ()
         ->assertOk()->assertInertia(fn ($page) => $page
         ->where('canManageApplications', false)
         ->where('applications.data.0.can_proceed', false)
-        ->where('applications.data.0.next_stage', 'reviewed')
+        ->where('applications.data.0.next_stage', 'shortlisted')
         ->where('applications.data.0.can_reject', false)
         ->where('applications.data.0.available_transitions', []));
 });

@@ -174,7 +174,7 @@ class JobPostRepository
             ])->first();
         $applications = Application::query()->whereIn('job_post_id', $scope->select('job_posts.id'))->toBase()
             ->selectRaw('COUNT(*) AS total_applicants')
-            ->selectRaw('SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) AS successful_placements', [ApplicationStage::Hired->value])
+            ->selectRaw('SUM(CASE WHEN stage = ? THEN 1 ELSE 0 END) AS successful_placements', [ApplicationStage::Endorsed->value])
             ->first();
 
         return [
@@ -193,7 +193,7 @@ class JobPostRepository
             'job_posts.vacant_positions',
         ])->withCount([
             'applications',
-            'applications as hired_count' => fn (Builder $query) => $query->where('stage', ApplicationStage::Hired->value),
+            'applications as hired_count' => fn (Builder $query) => $query->where('stage', ApplicationStage::Endorsed->value),
         ]);
 
         if ($filters->status === null) {

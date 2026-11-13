@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('staff_profiles', function (Blueprint $table) {
             $table->foreignId('user_id')->primary()->constrained('users')->cascadeOnDelete();
-            $table->string('employee_id', 50);
             $table->string('phone', 32)->nullable();
             $table->text('notes')->nullable();
             $table->timestamps();

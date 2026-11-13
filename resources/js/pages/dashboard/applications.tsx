@@ -68,9 +68,9 @@ const STAGE_OPTIONS = [
     { value: 'pending', label: 'Pending' },
     { value: 'reviewed', label: 'Reviewed' },
     { value: 'shortlisted', label: 'Shortlisted' },
-    { value: 'interviewed', label: 'Interviewed' },
-    { value: 'hired', label: 'Hired' },
-    { value: 'rejected', label: 'Rejected' },
+    { value: 'for_interview', label: 'For Interview' },
+    { value: 'endorsed', label: 'Endorsed' },
+    { value: 'not_selected', label: 'Not Selected' },
 ];
 
 const appliedDate = new Intl.DateTimeFormat('en-US', {
@@ -186,7 +186,7 @@ function ApplicationRowMenu({
                             data-testid={`button-reject-application-${row.id}`}
                         >
                             <CircleX className="size-4" aria-hidden="true" />
-                            Reject application
+                            Mark as not selected
                         </DropdownMenuItem>
                     )}
                 </DropdownMenuContent>

@@ -15,6 +15,8 @@ const container =
             { className, 'aria-label': props['aria-label'] },
             children,
         );
+const autoReviewCalls = [];
+let pageAuth = { user: { id: 50, agency_id: 9 }, roles: ['agency'] };
 const imports = {
     'react/jsx-runtime': jsxRuntime,
     react: { useState: (initial) => [initial, () => {}] },
@@ -24,6 +26,7 @@ const imports = {
         Link: ({ href, children }) =>
             createElement('a', { href: href.url ?? href }, children),
         setLayoutProps: () => {},
+        usePage: () => ({ props: { auth: pageAuth } }),
     },
     '@/components/dashboard/application-actions': {
         RejectApplicationDialog: () => null,
@@ -32,6 +35,8 @@ const imports = {
             proceed() {},
             reject() {},
         }),
+        useAutoReviewOnOpen: (applicationId, eligible) =>
+            autoReviewCalls.push({ applicationId, eligible }),
     },
     '@/components/dashboard/badges': {
         StageBadge: ({ stage }) => createElement('span', null, stage),
@@ -116,9 +121,9 @@ const imports = {
             pending: 'Pending',
             reviewed: 'Reviewed',
             shortlisted: 'Shortlisted',
-            interviewed: 'Interviewed',
-            hired: 'Hired',
-            rejected: 'Rejected',
+            for_interview: 'For Interview',
+            endorsed: 'Endorsed',
+            not_selected: 'Not Selected',
         },
     },
 };
@@ -189,6 +194,9 @@ function detail(overrides = {}) {
             contact_phone: null,
             status: 'active',
             is_urgent: false,
+            posted_by_user_id: 50,
+            agency_id: 9,
+            poster_is_admin: false,
         },
         questions: [
             {
@@ -270,7 +278,7 @@ await test('stored job context is visible without the candidate profile or candi
 
 await test('terminal applications have no decision buttons and unavailable files have no dead links', () => {
     const application = detail({
-        stage: 'hired',
+        stage: 'endorsed',
         can_proceed: false,
         can_reject: false,
         next_stage: null,
@@ -300,7 +308,7 @@ await test('stage progress marks the current stage and where a rejection happene
 
     const rejected = render(
         detail({
-            stage: 'rejected',
+            stage: 'not_selected',
             can_proceed: false,
             can_reject: false,
             next_stage: null,
@@ -308,7 +316,7 @@ await test('stage progress marks the current stage and where a rejection happene
                 {
                     id: 1,
                     from_stage: 'reviewed',
-                    stage: 'rejected',
+                    stage: 'not_selected',
                     changed_at: null,
                     changed_by: null,
                     note: null,
@@ -317,7 +325,10 @@ await test('stage progress marks the current stage and where a rejection happene
         }),
     );
     assert.match(rejected, /Reviewed<span class="sr-only"> \(completed\)/);
-    assert.match(rejected, /Rejected<span class="sr-only"> \(current stage\)/);
+    assert.match(
+        rejected,
+        /Not Selected<span class="sr-only"> \(current stage\)/,
+    );
     assert.match(rejected, /Shortlisted<span class="sr-only"> \(not reached\)/);
 });
 
@@ -331,4 +342,107 @@ await test('a previously selected but missing resume is not described as never s
     );
     assert.match(unselected, /No resume was selected/);
     assert.doesNotMatch(unselected, /The submitted resume is unavailable/);
+});
+
+await test('auto-review is requested only for a pending application and an eligible viewer', () => {
+    const agencyPost = (overrides = {}) =>
+        detail({ stage: 'pending', next_stage: 'shortlisted', ...overrides });
+    const adminPost = (overrides = {}) =>
+        agencyPost({
+            job: {
+                ...detail().job,
+                posted_by_user_id: 60,
+                poster_is_admin: true,
+            },
+            ...overrides,
+        });
+    const cases = [
+        [
+            'the poster',
+            { id: 50, agency_id: 9 },
+            ['agency'],
+            agencyPost(),
+            true,
+        ],
+        [
+            'a same-agency admin',
+            { id: 70, agency_id: 9 },
+            ['admin'],
+            agencyPost(),
+            true,
+        ],
+        [
+            'the admin poster',
+            { id: 60, agency_id: 9 },
+            ['admin'],
+            adminPost(),
+            true,
+        ],
+        [
+            'the superadmin poster',
+            { id: 50, agency_id: null },
+            ['superadmin'],
+            agencyPost(),
+            true,
+        ],
+        [
+            'another admin on an admin post',
+            { id: 70, agency_id: 9 },
+            ['admin'],
+            adminPost(),
+            false,
+        ],
+        [
+            'an admin of another agency',
+            { id: 70, agency_id: 4 },
+            ['admin'],
+            agencyPost(),
+            false,
+        ],
+        [
+            'an admin without an agency',
+            { id: 70, agency_id: null },
+            ['admin'],
+            agencyPost(),
+            false,
+        ],
+        [
+            'a non-poster superadmin',
+            { id: 80, agency_id: null },
+            ['superadmin'],
+            agencyPost(),
+            false,
+        ],
+        [
+            'a non-poster agency colleague',
+            { id: 71, agency_id: 9 },
+            ['agency'],
+            agencyPost(),
+            false,
+        ],
+        ...[
+            'reviewed',
+            'shortlisted',
+            'for_interview',
+            'endorsed',
+            'not_selected',
+        ].map((stage) => [
+            `the poster on a ${stage} application`,
+            { id: 50, agency_id: 9 },
+            ['agency'],
+            agencyPost({ stage }),
+            false,
+        ]),
+    ];
+
+    for (const [label, user, roles, application, eligible] of cases) {
+        autoReviewCalls.length = 0;
+        pageAuth = { user, roles };
+        render(application);
+        assert.deepEqual(
+            autoReviewCalls,
+            [{ applicationId: 7, eligible }],
+            label,
+        );
+    }
 });
