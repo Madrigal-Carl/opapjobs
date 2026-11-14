@@ -253,8 +253,9 @@ function Section({
             </div>
             <p className="apply-card-lede">{lede}</p>
 
-            {count === 0 ? <p className="resume-card-empty">{empty}</p> : null}
             <div className="resume-entries">{children}</div>
+
+            {count === 0 ? <p className="resume-card-empty">{empty}</p> : null}
         </div>
     );
 }
