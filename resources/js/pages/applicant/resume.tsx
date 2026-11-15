@@ -10,9 +10,16 @@ import {
     Trash2,
     Upload,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+    useEffect,
+    useRef,
+    useState,
+    type DragEvent,
+    type ReactNode,
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { ApplicantScope } from '@/components/applicant/applicant-scope';
+import { FieldError } from '@/components/applicant/match-blocks';
 import { toast } from '@/components/ui/sonner';
 import { Textarea } from '@/components/ui/textarea';
 import { useApplicantProfile } from '@/contexts/applicant-profile-context';
@@ -221,6 +228,10 @@ function Section({
     children,
     empty,
     count,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    dragging,
 }: {
     icon: typeof FileText;
     title: string;
@@ -230,9 +241,21 @@ function Section({
     children: ReactNode;
     empty: string;
     count: number;
+    onDragOver?: (event: DragEvent<HTMLDivElement>) => void;
+    onDragLeave?: (event: DragEvent<HTMLDivElement>) => void;
+    onDrop?: (event: DragEvent<HTMLDivElement>) => void;
+    dragging?: boolean;
 }) {
     return (
-        <div className="resume-card">
+        <div
+            className="resume-card"
+            style={
+                dragging ? { boxShadow: '0 0 0 2px var(--teal)' } : undefined
+            }
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+        >
             <div className="resume-card-head">
                 <div className="resume-card-title">
                     <Icon size={16} aria-hidden="true" />
@@ -979,8 +1002,11 @@ function DocumentsCard() {
     const { profile, addDocument, removeDocument } = useApplicantProfile();
     const fileInput = useRef<HTMLInputElement | null>(null);
     const [uploading, setUploading] = useState<UploadingDocument | null>(null);
+    const [dragging, setDragging] = useState(false);
+    const [fileError, setFileError] = useState('');
     const frame = useRef<number | null>(null);
     const settle = useRef<number | null>(null);
+    const uploadButtonRef = useRef<HTMLButtonElement | null>(null);
 
     // A card left behind mid-read must not keep the bar running.
     useEffect(
@@ -1010,6 +1036,30 @@ function DocumentsCard() {
         });
         toast(`${file.name} added to your documents`);
         setUploading(null);
+        uploadButtonRef.current?.focus();
+    }
+
+    function chooseFile(file?: File): void {
+        setDragging(false);
+
+        if (!file) {
+            return;
+        }
+
+        if (!/\.(pdf|doc|docx)$/i.test(file.name)) {
+            setFileError('Choose a PDF, DOC or DOCX file.');
+
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            setFileError('Choose a file no larger than 10 MB.');
+
+            return;
+        }
+
+        setFileError('');
+        startUpload(file);
     }
 
     /**
@@ -1050,6 +1100,25 @@ function DocumentsCard() {
             lede="The file the agency receives when you apply. Keep a PDF of your resume here and pick it in one click each time."
             count={profile.documents.length}
             empty="No documents attached. The apply wizard will ask you to upload one on every role."
+            onDragOver={(event) => {
+                event.preventDefault();
+                setDragging(true);
+            }}
+            onDragLeave={(event) => {
+                if (
+                    !event.currentTarget.contains(
+                        event.relatedTarget as Node | null,
+                    )
+                ) {
+                    setDragging(false);
+                }
+            }}
+            onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                chooseFile(event.dataTransfer.files[0]);
+            }}
+            dragging={dragging}
         >
             <input
                 ref={fileInput}
@@ -1059,18 +1128,15 @@ function DocumentsCard() {
                 aria-label="Upload a document"
                 data-testid="input-resume-upload"
                 onChange={(event) => {
-                    const file = event.target.files?.[0];
+                    chooseFile(event.target.files?.[0]);
                     // Cleared at once so the same file can be chosen again
                     // once this one has landed.
                     event.target.value = '';
-
-                    if (file) {
-                        startUpload(file);
-                    }
                 }}
             />
 
             <Button
+                ref={uploadButtonRef}
                 type="button"
                 variant="secondary"
                 size="sm"
@@ -1088,7 +1154,7 @@ function DocumentsCard() {
                         data-testid="resume-upload-progress"
                     >
                         <p className="sr-only" role="status">
-                            Uploading {uploading.name}
+                            Uploading {uploading.name} {uploading.percent}%
                         </p>
                         <div className="resume-entry-head" aria-hidden="true">
                             <div className="min-w-0 flex-1">
@@ -1136,6 +1202,8 @@ function DocumentsCard() {
                     </div>
                 ))}
             </div>
+
+            {fileError && <FieldError>{fileError}</FieldError>}
         </Section>
     );
 }
