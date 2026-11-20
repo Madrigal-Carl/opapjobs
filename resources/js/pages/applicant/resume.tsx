@@ -2,9 +2,11 @@ import { Head, Link } from '@inertiajs/react';
 import {
     Award,
     BriefcaseBusiness,
+    Camera,
     CircleCheck,
     FileText,
     GraduationCap,
+    Pencil,
     Plus,
     Sparkles,
     Trash2,
@@ -14,6 +16,7 @@ import {
     useEffect,
     useRef,
     useState,
+    type ChangeEvent,
     type DragEvent,
     type ReactNode,
 } from 'react';
@@ -285,6 +288,57 @@ function Section({
 
 function ProfileCard() {
     const { profile, replace } = useApplicantProfile();
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState({
+        name: '',
+        phone: '',
+        location: '',
+        headline: '',
+    });
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
+    const beginEdit = () => {
+        setDraft({
+            name: profile.name,
+            phone: profile.phone,
+            location: profile.location,
+            headline: profile.headline,
+        });
+        setEditing(true);
+    };
+
+    const saveDraft = () => {
+        replace({
+            ...profile,
+            name: draft.name,
+            phone: draft.phone,
+            location: draft.location,
+            headline: draft.headline,
+        });
+        setEditing(false);
+    };
+
+    const cancelDraft = () => setEditing(false);
+
+    const setDraftField =
+        (field: 'name' | 'phone' | 'location' | 'headline') =>
+        (value: string) =>
+            setDraft((current) => ({ ...current, [field]: value }));
+
+    const pickAvatar = (event: ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                replace({ ...profile, avatarUrl: reader.result });
+            }
+        };
+        reader.readAsDataURL(file);
+    };
 
     return (
         <div className="resume-card">
@@ -293,64 +347,143 @@ function ProfileCard() {
                     <Sparkles size={16} aria-hidden="true" />
                     <h2>How agencies see you</h2>
                 </div>
+                {!editing && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={beginEdit}
+                        data-testid="button-edit-resume-profile"
+                    >
+                        <Pencil size={14} aria-hidden="true" /> Edit
+                    </Button>
+                )}
             </div>
 
             <div className="resume-identity">
-                {profile.avatarUrl ? (
-                    <img
-                        src={profile.avatarUrl}
-                        alt=""
-                        className="size-14 rounded-full object-cover"
-                    />
-                ) : (
-                    <span className="resume-avatar-fallback" aria-hidden="true">
-                        {profile.name.slice(0, 1)}
-                    </span>
-                )}
+                <div className="relative size-14 shrink-0">
+                    {profile.avatarUrl ? (
+                        <img
+                            src={profile.avatarUrl}
+                            alt=""
+                            className="size-14 rounded-full object-cover"
+                        />
+                    ) : (
+                        <span
+                            className="resume-avatar-fallback"
+                            aria-hidden="true"
+                        >
+                            {profile.name.slice(0, 1)}
+                        </span>
+                    )}
+                    <button
+                        type="button"
+                        className="absolute inset-0 grid place-items-center rounded-full bg-black/40 text-white opacity-0 transition-opacity hover:opacity-70 focus-visible:opacity-100"
+                        onClick={() => avatarInputRef.current?.click()}
+                        aria-label="Change profile photo"
+                        data-testid="button-avatar-upload"
+                    >
+                        <Camera size={18} aria-hidden="true" />
+                    </button>
+                </div>
+                <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    aria-label="Upload a profile photo"
+                    data-testid="input-resume-avatar"
+                    onChange={pickAvatar}
+                />
                 <div>
-                    <p className="resume-identity-name">{profile.name}</p>
-                    <p className="resume-identity-headline">
-                        {profile.headline}
-                    </p>
+                    {editing ? (
+                        <input
+                            id="resume-name"
+                            type="text"
+                            className="field-control"
+                            value={draft.name}
+                            onChange={(event) =>
+                                setDraftField('name')(event.target.value)
+                            }
+                            data-testid="input-resume-name"
+                        />
+                    ) : (
+                        <p className="resume-identity-name">{profile.name}</p>
+                    )}
+                    {editing ? (
+                        <input
+                            id="resume-headline"
+                            type="text"
+                            className="field-control"
+                            value={draft.headline}
+                            onChange={(event) =>
+                                setDraftField('headline')(event.target.value)
+                            }
+                            data-testid="input-resume-headline"
+                        />
+                    ) : (
+                        <p className="resume-identity-headline">
+                            {profile.headline}
+                        </p>
+                    )}
                 </div>
             </div>
 
             <div className="apply-field-stack">
-                <div className="field-row">
-                    <ProfileField
-                        id="resume-phone"
-                        label="Phone"
-                        value={profile.phone}
-                        onChange={(phone) => replace({ ...profile, phone })}
-                    />
-                    <ProfileField
-                        id="resume-location"
-                        label="Location"
-                        value={profile.location}
-                        onChange={(location) =>
-                            replace({ ...profile, location })
-                        }
-                    />
-                </div>
-
-                <div className="field">
-                    <label className="field-label" htmlFor="resume-headline">
-                        Headline
-                    </label>
-                    <input
-                        id="resume-headline"
-                        type="text"
-                        className="field-control"
-                        value={profile.headline}
-                        onChange={(event) =>
-                            replace({
-                                ...profile,
-                                headline: event.target.value,
-                            })
-                        }
-                        data-testid="input-resume-headline"
-                    />
-                </div>
+                {editing ? (
+                    <>
+                        <div className="field-row">
+                            <ProfileField
+                                id="resume-phone"
+                                label="Phone"
+                                value={draft.phone}
+                                onChange={setDraftField('phone')}
+                            />
+                            <ProfileField
+                                id="resume-location"
+                                label="Location"
+                                value={draft.location}
+                                onChange={setDraftField('location')}
+                            />
+                        </div>
+                        <div className="resume-entry-form-actions">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={saveDraft}
+                                data-testid="button-save-resume-profile"
+                            >
+                                Save
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={cancelDraft}
+                                data-testid="button-cancel-resume-profile"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    <div className="field-row">
+                        <ProfileField
+                            id="resume-phone"
+                            label="Phone"
+                            value={profile.phone}
+                            onChange={() => undefined}
+                            readOnly
+                        />
+                        <ProfileField
+                            id="resume-location"
+                            label="Location"
+                            value={profile.location}
+                            onChange={() => undefined}
+                            readOnly
+                        />
+                    </div>
+                )}
 
                 <label className="apply-toggle">
                     <input
@@ -380,11 +513,13 @@ function ProfileField({
     label,
     value,
     onChange,
+    readOnly = false,
 }: {
     id: string;
     label: string;
     value: string;
     onChange: (value: string) => void;
+    readOnly?: boolean;
 }) {
     return (
         <div className="field">
@@ -397,6 +532,7 @@ function ProfileField({
                 className="field-control"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
+                readOnly={readOnly}
             />
         </div>
     );
@@ -404,6 +540,18 @@ function ProfileField({
 
 function SummaryCard() {
     const { profile, replace } = useApplicantProfile();
+    const [editing, setEditing] = useState(false);
+    const [draftSummary, setDraftSummary] = useState(profile.summary);
+
+    const beginEdit = () => {
+        setDraftSummary(profile.summary);
+        setEditing(true);
+    };
+
+    const saveSummary = () => {
+        replace({ ...profile, summary: draftSummary });
+        setEditing(false);
+    };
 
     return (
         <div className="resume-card">
@@ -415,6 +563,17 @@ function SummaryCard() {
                         {profile.summary.trim().length > 0 ? 1 : 0}
                     </span>
                 </div>
+                {!editing && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={beginEdit}
+                        data-testid="button-edit-resume-summary"
+                    >
+                        <Pencil size={14} aria-hidden="true" /> Edit
+                    </Button>
+                )}
             </div>
             <p className="apply-card-lede">
                 Three or four lines an agency reads first. Say what you do, how
@@ -422,24 +581,59 @@ function SummaryCard() {
             </p>
 
             <div className="field" style={{ marginTop: 18 }}>
-                <label className="field-label" htmlFor="resume-summary">
-                    Your summary
-                </label>
-                <Textarea
-                    id="resume-summary"
-                    className="field-control"
-                    rows={5}
-                    value={profile.summary}
-                    placeholder="What you do, how long you have done it, what you want next."
-                    onChange={(event) =>
-                        replace({ ...profile, summary: event.target.value })
-                    }
-                    data-testid="input-resume-summary"
-                />
-                <p className="field-hint">
-                    {profile.summary.trim().split(/\s+/).filter(Boolean).length}{' '}
-                    words. Under 120 reads faster.
-                </p>
+                {editing ? (
+                    <>
+                        <label className="field-label" htmlFor="resume-summary">
+                            Your summary
+                        </label>
+                        <Textarea
+                            id="resume-summary"
+                            className="field-control"
+                            rows={5}
+                            value={draftSummary}
+                            placeholder="What you do, how long you have done it, what you want next."
+                            onChange={(event) =>
+                                setDraftSummary(event.target.value)
+                            }
+                            data-testid="input-resume-summary"
+                        />
+                        <p className="field-hint">
+                            {
+                                draftSummary.trim().split(/\s+/).filter(Boolean)
+                                    .length
+                            }{' '}
+                            words. Under 120 reads faster.
+                        </p>
+                        <div className="resume-entry-form-actions">
+                            <Button
+                                type="button"
+                                size="sm"
+                                onClick={saveSummary}
+                                data-testid="button-save-resume-summary"
+                            >
+                                Save
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditing(false)}
+                                data-testid="button-cancel-resume-summary"
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <label className="field-label" htmlFor="resume-summary">
+                            Your summary
+                        </label>
+                        <p className="review-answer">
+                            {profile.summary.trim() || 'No summary yet.'}
+                        </p>
+                    </>
+                )}
             </div>
         </div>
     );
