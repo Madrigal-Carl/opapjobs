@@ -468,20 +468,24 @@ function ProfileCard() {
                     </>
                 ) : (
                     <div className="field-row">
-                        <ProfileField
-                            id="resume-phone"
-                            label="Phone"
-                            value={profile.phone}
-                            onChange={() => undefined}
-                            readOnly
-                        />
-                        <ProfileField
-                            id="resume-location"
-                            label="Location"
-                            value={profile.location}
-                            onChange={() => undefined}
-                            readOnly
-                        />
+                        <div className="field">
+                            <label
+                                className="field-label"
+                                htmlFor="resume-phone"
+                            >
+                                Phone
+                            </label>
+                            <p className="review-answer">{profile.phone}</p>
+                        </div>
+                        <div className="field">
+                            <label
+                                className="field-label"
+                                htmlFor="resume-location"
+                            >
+                                Location
+                            </label>
+                            <p className="review-answer">{profile.location}</p>
+                        </div>
                     </div>
                 )}
 
@@ -513,13 +517,11 @@ function ProfileField({
     label,
     value,
     onChange,
-    readOnly = false,
 }: {
     id: string;
     label: string;
     value: string;
     onChange: (value: string) => void;
-    readOnly?: boolean;
 }) {
     return (
         <div className="field">
@@ -532,7 +534,6 @@ function ProfileField({
                 className="field-control"
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                readOnly={readOnly}
             />
         </div>
     );

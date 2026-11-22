@@ -97,7 +97,12 @@ void createInertiaApp({
                     { className: 'applicant-page', footer: false },
                 ];
             case name === 'applicant/applications':
-                return [PublicLayout, { className: 'applicant-page' }];
+                // My Jobs is an applicant workspace, not a page read to the
+                // end, so the marketing footer has no place under it.
+                return [
+                    PublicLayout,
+                    { className: 'applicant-page', footer: false },
+                ];
             case name === 'applicant/resume':
                 // An editor, not a page read to the end: the marketing
                 // footer would only sit below the last resume section.
