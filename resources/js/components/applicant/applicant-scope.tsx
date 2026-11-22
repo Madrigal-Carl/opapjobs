@@ -13,10 +13,17 @@ import type { ProfileOwner } from '@/types/applicant-profile';
  * separation the routes already enforce.
  *
  * Both read the database: the applied / saved lists come from the shared
- * `applicantActivity` prop and the resume from the page's `resume` prop.
+ * `applicantActivity` prop and the profile from the page's `profile` prop.
  * A guest gets an empty profile and empty lists.
  */
-export function ApplicantScope({ children }: { children: ReactNode }) {
+export function ApplicantScope({
+    children,
+    persistProfile = false,
+}: {
+    children: ReactNode;
+    /** Save profile edits to the server, as the profile page does. */
+    persistProfile?: boolean;
+}) {
     const { props } = usePage();
     const user = props.auth.user;
 
@@ -29,7 +36,7 @@ export function ApplicantScope({ children }: { children: ReactNode }) {
         : null;
 
     return (
-        <ApplicantProfileProvider owner={owner}>
+        <ApplicantProfileProvider owner={owner} persist={persistProfile}>
             <ApplicationsProvider>{children}</ApplicationsProvider>
         </ApplicantProfileProvider>
     );

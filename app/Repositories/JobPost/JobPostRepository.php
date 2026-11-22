@@ -14,12 +14,14 @@ use App\Models\JobCategory;
 use App\Models\JobPost;
 use App\Models\JobPostLanguage;
 use App\Models\JobPostQuestion;
+use App\Models\JobPostQuestionOption;
 use App\Models\JobSubcategory;
 use App\Models\User;
 use App\Support\JobPostIndexFilters;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -31,7 +33,11 @@ class JobPostRepository
     /** @param array<string, mixed> $attributes */
     public function create(array $attributes): JobPost
     {
-        return JobPost::query()->create($attributes);
+        $documents = Arr::pull($attributes, 'required_documents', []);
+        $post = JobPost::query()->create($attributes);
+        $this->syncRequiredDocuments($post, $documents);
+
+        return $post;
     }
 
     public function findVisibleForUpdate(User $user, int $id): JobPost
@@ -39,22 +45,39 @@ class JobPostRepository
         return JobPost::query()->visibleTo($user)->lockForUpdate()->findOrFail($id);
     }
 
-    /** @param array<string, mixed> $attributes */
+    /** @param array<string, mixed> $attributes `required_documents`, when given, replaces the whole list. */
     public function update(JobPost $post, array $attributes): void
     {
+        $documents = Arr::pull($attributes, 'required_documents');
         $post->update($attributes);
+        if ($documents !== null) {
+            $this->syncRequiredDocuments($post, $documents);
+        }
+    }
+
+    /** @param list<string> $names */
+    private function syncRequiredDocuments(JobPost $post, array $names): void
+    {
+        $post->requiredDocuments()->delete();
+        $post->requiredDocuments()->createMany(array_map(
+            fn (string $name, int $index): array => ['document_name' => $name, 'sort_order' => $index], $names, array_keys($names),
+        ));
     }
 
     /** @return array<string, mixed> */
     public function formValues(JobPost $post): array
     {
-        $post->load(['languages', 'questions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id')]);
+        $post->load(['languages', 'requiredDocuments', 'questions' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'), 'questions.options']);
 
         return [
             ...$post->only(['id', ...(new JobPost)->getFillable()]),
             'closing_date' => $post->closing_date?->toDateString(),
+            'required_documents' => $post->requiredDocuments->pluck('document_name')->all(),
             'languages' => $post->languages->map(fn (JobPostLanguage $language): array => $language->only(['language', 'proficiency']))->all(),
-            'questions' => $post->questions->map(fn (JobPostQuestion $question): array => $question->only(['id', 'question_text', 'answer_type', 'expected_answer', 'options', 'is_required']))->all(),
+            'questions' => $post->questions->map(fn (JobPostQuestion $question): array => [
+                ...$question->only(['id', 'question_text', 'answer_type', 'expected_answer', 'is_required']),
+                'options' => $question->options->pluck('option_text')->all(),
+            ])->all(),
         ];
     }
 
@@ -63,16 +86,8 @@ class JobPostRepository
     {
         $ids = [];
         foreach ($questions as $index => $question) {
-            $attributes = $question;
-            unset($attributes['id']);
-            $attributes['sort_order'] = $index;
-            if (isset($question['id'])) {
-                $existing = $post->questions()->findOrFail($question['id']);
-                $existing->update($attributes);
-                $ids[] = $existing->id;
-            } else {
-                $ids[] = $post->questions()->create($attributes)->id;
-            }
+            $existing = isset($question['id']) ? $post->questions()->findOrFail($question['id']) : $post->questions()->make();
+            $ids[] = $this->saveQuestion($existing, $question, $index);
         }
 
         $post->questions()->whereNotIn('id', $ids)->whereDoesntHave('answers')->delete();
@@ -94,12 +109,44 @@ class JobPostRepository
             return;
         }
 
+        // A new post's questions, then all their choices, go in one insert each.
         $now = now();
         $rows = [];
         foreach ($questions as $index => $question) {
-            $rows[] = [...$question, 'options' => json_encode($question['options'], JSON_THROW_ON_ERROR), 'job_post_id' => $post->id, 'sort_order' => $index, 'created_at' => $now, 'updated_at' => $now];
+            unset($question['options']);
+            $rows[] = [...$question, 'job_post_id' => $post->id, 'sort_order' => $index, 'created_at' => $now, 'updated_at' => $now];
         }
         JobPostQuestion::query()->insert($rows);
+
+        $ids = $post->questions()->orderBy('sort_order')->pluck('id')->all();
+        $options = [];
+        foreach ($questions as $index => $question) {
+            foreach ($question['options'] as $order => $text) {
+                $options[] = ['job_post_question_id' => $ids[$index], 'option_text' => $text, 'sort_order' => $order];
+            }
+        }
+        if ($options !== []) {
+            JobPostQuestionOption::query()->insert($options);
+        }
+    }
+
+    /**
+     * Saves one question and replaces its choices.
+     *
+     * @param  QuestionData  $question
+     */
+    private function saveQuestion(JobPostQuestion $model, array $question, int $index): int
+    {
+        $options = Arr::pull($question, 'options', []);
+        unset($question['id']);
+        $model->fill([...$question, 'sort_order' => $index])->save();
+
+        $model->options()->delete();
+        $model->options()->createMany(array_map(
+            fn (string $text, int $order): array => ['option_text' => $text, 'sort_order' => $order], $options, array_keys($options),
+        ));
+
+        return $model->id;
     }
 
     public function findSubcategoryWithCategory(int $id): ?JobSubcategory

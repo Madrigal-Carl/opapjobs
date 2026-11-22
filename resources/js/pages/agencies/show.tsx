@@ -23,6 +23,10 @@ import { Pagination } from '@/components/pagination';
 import { AppLogo } from '@/components/site/app-logo';
 import { JobCard } from '@/components/site/job-card';
 import { NotFound } from '@/components/site/not-found';
+import {
+    ApplicationsProvider,
+    useApplications,
+} from '@/contexts/applications-context';
 import type {
     PublicAgencyProfile,
     PublicAgencyReview,
@@ -166,7 +170,11 @@ export default function AgencyProfilePage(props: AgencyProfileProps) {
         return <NotFound />;
     }
 
-    return <AgencyProfile {...props} />;
+    return (
+        <ApplicationsProvider>
+            <AgencyProfile {...props} />
+        </ApplicationsProvider>
+    );
 }
 
 function AgencyProfile({
@@ -177,7 +185,7 @@ function AgencyProfile({
 }: Exclude<AgencyProfileProps, { agency: null }>) {
     const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
     const [selectedJobId, setSelectedJobId] = useState('');
-    const [savedJobs, setSavedJobs] = useState<Record<string, boolean>>({});
+    const { isSaved, toggleSaved } = useApplications();
     const [currentPage, setCurrentPage] = useState(1);
     const [submittedReviews, setSubmittedReviews] = useState<LocalReview[]>([]);
     const [selectedRating, setSelectedRating] = useState(0);
@@ -215,10 +223,6 @@ function AgencyProfile({
     const primaryHref =
         agency.social.website ??
         (contact.email ? `mailto:${contact.email}` : null);
-
-    const toggleSavedJob = (jobId: string) => {
-        setSavedJobs((current) => ({ ...current, [jobId]: !current[jobId] }));
-    };
 
     const changeJobPage = (page: number) => {
         setCurrentPage(Math.min(Math.max(page, 1), totalPages));
@@ -603,18 +607,16 @@ function AgencyProfile({
                                                                         0 &&
                                                                         !selectedJobId)
                                                                 }
-                                                                isSaved={
-                                                                    !!savedJobs[
-                                                                        job.id
-                                                                    ]
-                                                                }
+                                                                isSaved={isSaved(
+                                                                    job.id,
+                                                                )}
                                                                 onSelect={() =>
                                                                     setSelectedJobId(
                                                                         job.id,
                                                                     )
                                                                 }
                                                                 onToggleSaved={() =>
-                                                                    toggleSavedJob(
+                                                                    toggleSaved(
                                                                         job.id,
                                                                     )
                                                                 }
@@ -761,18 +763,16 @@ function AgencyProfile({
                                                                 (index === 0 &&
                                                                     !selectedJobId)
                                                             }
-                                                            isSaved={
-                                                                !!savedJobs[
-                                                                    job.id
-                                                                ]
-                                                            }
+                                                            isSaved={isSaved(
+                                                                job.id,
+                                                            )}
                                                             onSelect={() =>
                                                                 setSelectedJobId(
                                                                     job.id,
                                                                 )
                                                             }
                                                             onToggleSaved={() =>
-                                                                toggleSavedJob(
+                                                                toggleSaved(
                                                                     job.id,
                                                                 )
                                                             }

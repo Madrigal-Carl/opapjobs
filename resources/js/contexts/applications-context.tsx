@@ -1,12 +1,14 @@
-import { usePage } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     createContext,
     useCallback,
     useContext,
+    useEffect,
     useMemo,
     useState,
     type ReactNode,
 } from 'react';
+import SavedJobPostController from '@/actions/App/Http/Controllers/SavedJobPostController';
 import type {
     ApplicationActivity,
     ApplicationTab,
@@ -42,32 +44,57 @@ const emptyActivity = (): ApplicationActivity => ({
  * The applicant's applied / saved / archived job post ids, read from the
  * database through the shared `applicantActivity` prop.
  *
- * `markApplied` reflects a confirmed server submission. Saving is still
- * local to the current page view. A guest (or any non-applicant) gets empty lists,
- * so no page ever claims they sent an application they did not.
+ * `markApplied` reflects a confirmed server submission. `toggleSaved` shows
+ * the bookmark at once and stores it; the reloaded `applicantActivity` (and
+ * My Jobs' own lists) then come back from the server. A guest is sent to
+ * sign in. A guest (or any non-applicant) gets empty lists, so no page ever
+ * claims they sent an application they did not.
  */
 export function ApplicationsProvider({ children }: { children: ReactNode }) {
     const { props } = usePage();
     const stored = props.applicantActivity ?? null;
 
-    const [activity, setActivity] = useState<ApplicationActivity>(() =>
-        stored
-            ? {
-                  applied: [...stored.applied],
-                  saved: [...stored.saved],
-                  archived: [...stored.archived],
-              }
-            : emptyActivity(),
+    const fromServer = useCallback(
+        (): ApplicationActivity =>
+            stored
+                ? {
+                      applied: [...stored.applied],
+                      saved: [...stored.saved],
+                      archived: [...stored.archived],
+                  }
+                : emptyActivity(),
+        [stored],
     );
 
-    const toggleSaved = useCallback((jobId: string) => {
-        setActivity((current) => ({
-            ...current,
-            saved: current.saved.includes(jobId)
-                ? withoutId(current.saved, jobId)
-                : withId(current.saved, jobId),
-        }));
-    }, []);
+    const [activity, setActivity] = useState<ApplicationActivity>(fromServer);
+
+    useEffect(() => setActivity(fromServer()), [fromServer]);
+
+    const toggleSaved = useCallback(
+        (jobId: string) => {
+            const saving = !activity.saved.includes(jobId);
+            const route = saving
+                ? SavedJobPostController.store(jobId)
+                : SavedJobPostController.destroy(jobId);
+
+            setActivity((current) => ({
+                ...current,
+                saved: saving
+                    ? withId(current.saved, jobId)
+                    : withoutId(current.saved, jobId),
+            }));
+
+            router.visit(route.url, {
+                method: route.method,
+                preserveScroll: true,
+                preserveState: true,
+                // My Jobs lists its applied and saved rows as props of its own.
+                only: ['applicantActivity', 'applied', 'saved'],
+                onError: () => setActivity(fromServer()),
+            });
+        },
+        [activity.saved, fromServer],
+    );
 
     const markApplied = useCallback((jobId: string) => {
         setActivity((current) => ({

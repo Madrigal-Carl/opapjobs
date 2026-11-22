@@ -2,19 +2,19 @@ import { Link, router, usePage } from '@inertiajs/react';
 import {
     BriefcaseBusiness,
     CircleHelp,
-    FileText,
     LogOut,
     Settings,
+    UserRound,
 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getNameInitials } from '@/lib/name-initials';
-import { applications, contact, resume } from '@/routes';
+import { applications, contact, profile } from '@/routes';
 import { edit as profileEdit } from '@/routes/profile';
 
 /** Where an applicant goes next, in the order they use it. */
 const accountLinks = [
+    { label: 'Profile', icon: UserRound, href: profile.url() },
     { label: 'My Jobs', icon: BriefcaseBusiness, href: applications.url() },
-    { label: 'Resume', icon: FileText, href: resume.url() },
 ];
 
 const accountSupportLinks = [
@@ -57,6 +57,13 @@ export function SignedInMenu({
                 }
             >
                 <Avatar className="nav-user-avatar">
+                    {user.avatar && (
+                        <AvatarImage
+                            src={user.avatar}
+                            alt=""
+                            className="object-cover"
+                        />
+                    )}
                     <AvatarFallback
                         className="bg-[var(--teal)] font-semibold text-white"
                         aria-hidden="true"

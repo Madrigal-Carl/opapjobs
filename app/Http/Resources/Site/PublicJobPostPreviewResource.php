@@ -23,7 +23,7 @@ class PublicJobPostPreviewResource extends PublicJobPostCardResource
             'jobDescription' => $this->cap($this->job_description, 20000),
             'otherRequirements' => $this->cap($this->other_requirements, 20000),
             'applicationInstructions' => $this->cap($this->application_instructions, 20000),
-            'requiredDocuments' => $this->required_documents ?? [],
+            'requiredDocuments' => $this->requiredDocuments->pluck('document_name')->all(),
             'contractType' => $this->contract_type->value,
             'educationLevel' => $this->education_level->value,
             'minExperienceYears' => $this->min_experience_years,

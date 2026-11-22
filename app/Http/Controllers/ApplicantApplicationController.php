@@ -27,6 +27,11 @@ class ApplicantApplicationController extends Controller
             }
             foreach ($request->validated('documents', []) as $index => $document) {
                 $data['documents'][$index]['name'] = $document['name'];
+                if (isset($document['document_id'])) {
+                    $data['documents'][$index]['document_id'] = (int) $document['document_id'];
+
+                    continue;
+                }
                 $uploads["documents.{$index}.file"] = $request->file("documents.{$index}.file");
             }
             foreach ($uploads as $key => $file) {

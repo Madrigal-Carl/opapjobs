@@ -25,7 +25,7 @@ class PublicJobPostQuestionResource extends JsonResource
             'id' => (string) $this->id,
             'label' => $this->cap($this->question_text, 255),
             'type' => $this->answer_type->value,
-            'options' => $this->options ?? [],
+            'options' => $this->options->pluck('option_text')->all(),
             'answer' => '',
             'required' => $this->is_required,
         ];

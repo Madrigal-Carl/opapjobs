@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * The applicant's resume in the `ApplicantProfile` shape the resume page and
+ * The applicant's profile in the `ApplicantProfile` shape the profile page and
  * the apply wizard read. Dates use the formats those forms already show
  * ("Mar 2021" for jobs, a year for schooling, ISO for certificates).
  * Documents carry no URL: files live on the private disk and no download
@@ -21,7 +21,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
  *
  * @mixin User
  */
-class ApplicantResumeResource extends JsonResource
+class ApplicantProfileResource extends JsonResource
 {
     use CapsStrings;
 
@@ -36,7 +36,7 @@ class ApplicantResumeResource extends JsonResource
             'headline' => $this->cap($profile?->headline, 200) ?? '',
             'phone' => $this->cap($profile?->phone_number, 60) ?? '',
             'location' => $this->cap($profile?->current_location, 160) ?? '',
-            'avatarUrl' => '',
+            'avatarUrl' => $profile?->avatarUrl() ?? '',
             'summary' => $this->cap($profile?->professional_summary, 5000) ?? '',
             'visibleToEmployers' => $profile === null ? true : $profile->is_visible_to_agencies,
             'coverLetter' => $this->cap($profile?->default_cover_letter, 5000) ?? '',

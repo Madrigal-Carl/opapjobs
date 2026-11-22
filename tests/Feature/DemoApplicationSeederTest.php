@@ -1,13 +1,19 @@
 <?php
 
 use App\Enums\ApplicationStage;
+use App\Models\ApplicantDocument;
 use Database\Seeders\DemoAgencySeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 test('the demo seeder fills every stage for every agency without exceeding hired slots', function () {
     app()->detectEnvironment(fn () => 'local');
+    Storage::fake('local');
 
     $this->seed();
+
+    // A seeded applicant can apply with their seeded resume only if its file exists.
+    expect(ApplicantDocument::query()->pluck('storage_path')->reject(fn (string $path): bool => Storage::disk('local')->exists($path))->all())->toBe([]);
 
     $stages = collect(ApplicationStage::cases())->map(fn (ApplicationStage $stage): string => $stage->value)->sort()->values()->all();
     $pairs = DB::table('applications')

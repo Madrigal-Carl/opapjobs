@@ -71,6 +71,7 @@ test('public pages issue a fixed number of queries however much data there is', 
     expect($large['home'])->toBeLessThanOrEqual(20)
         ->and($large['agencies'])->toBeLessThanOrEqual(10)
         ->and($large['jobs'])->toBeLessThanOrEqual(10)
-        ->and($large['job'])->toBeLessThanOrEqual(16)
+        // One constant query of these reads the applicant's header photo.
+        ->and($large['job'])->toBeLessThanOrEqual(17)
         ->and($large['agency'])->toBeLessThanOrEqual(14);
 });

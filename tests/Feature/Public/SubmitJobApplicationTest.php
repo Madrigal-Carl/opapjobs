@@ -162,7 +162,8 @@ test('applicants answer saved numeric and single selection questions', function 
     $user = User::factory()->applicant()->create();
     $post = PublicCatalog::post(PublicCatalog::agency());
     $number = $post->questions()->create(['question_text' => 'Expected salary?', 'answer_type' => 'number', 'is_required' => true, 'sort_order' => 0]);
-    $selection = $post->questions()->create(['question_text' => 'When can you start?', 'answer_type' => 'selection', 'options' => ['Immediately', 'Next month'], 'is_required' => true, 'sort_order' => 1]);
+    $selection = $post->questions()->create(['question_text' => 'When can you start?', 'answer_type' => 'selection', 'is_required' => true, 'sort_order' => 1]);
+    $selection->options()->createMany([['option_text' => 'Immediately', 'sort_order' => 0], ['option_text' => 'Next month', 'sort_order' => 1]]);
 
     $this->actingAs($user)->get(route('jobs.apply', $post->id))->assertInertia(fn (Assert $page) => $page
         ->where('questions.0.type', 'number')->where('questions.1.options', ['Immediately', 'Next month'])->missing('questions.1.expected_answer'));
@@ -180,7 +181,10 @@ test('numeric and selection answers enforce the saved question type', function (
     Storage::fake('local');
     $user = User::factory()->applicant()->create();
     $post = PublicCatalog::post(PublicCatalog::agency());
-    $question = $post->questions()->create(['question_text' => 'Question?', 'answer_type' => $type, 'options' => $type === 'selection' ? ['Now', 'Later'] : null, 'is_required' => true, 'sort_order' => 0]);
+    $question = $post->questions()->create(['question_text' => 'Question?', 'answer_type' => $type, 'is_required' => true, 'sort_order' => 0]);
+    if ($type === 'selection') {
+        $question->options()->createMany([['option_text' => 'Now', 'sort_order' => 0], ['option_text' => 'Later', 'sort_order' => 1]]);
+    }
 
     $this->actingAs($user)->post("/job/{$post->id}/apply", ['resume_document_id' => submissionResume($user)->id, 'answers' => [$question->id => $answer]])
         ->assertSessionHasErrors('answers.'.$question->id);
@@ -199,7 +203,8 @@ test('submission validates current job questions rather than trusting the browse
     if ($case === 'salary') {
         $question->update(['answer_type' => 'number']);
     } elseif ($case === 'availability') {
-        $question->update(['answer_type' => 'selection', 'options' => ['Now', 'Later']]);
+        $question->update(['answer_type' => 'selection']);
+        $question->options()->createMany([['option_text' => 'Now', 'sort_order' => 0], ['option_text' => 'Later', 'sort_order' => 1]]);
     }
     match ($case) {
         'missing answer' => $input['answers'] = [],
@@ -225,7 +230,7 @@ test('submission validates current job questions rather than trusting the browse
     ['availability', 'answers.{question}'], ['missing resume', 'resume_document_id'],
 ]);
 
-test('applicants cannot use foreign archived non-resume or missing files', function (string $case) {
+test('applicants cannot use foreign archived or missing files', function (string $case) {
     Storage::fake('local');
     $user = User::factory()->applicant()->create();
     $post = PublicCatalog::post(PublicCatalog::agency());
@@ -233,7 +238,6 @@ test('applicants cannot use foreign archived non-resume or missing files', funct
     match ($case) {
         'foreign' => null,
         'archived' => $document->delete(),
-        'non-resume' => $document->update(['document_type' => 'passport']),
         'missing file' => Storage::disk('local')->delete($document->storage_path),
     };
 
@@ -241,7 +245,77 @@ test('applicants cannot use foreign archived non-resume or missing files', funct
         ->assertSessionHasErrors('resume_document_id');
 
     $this->assertDatabaseCount('applications', 0);
-})->with(['foreign', 'archived', 'non-resume', 'missing file']);
+})->with(['foreign', 'archived', 'missing file']);
+
+test('profile files can be sent as the resume and as required PDFs without uploading again', function () {
+    Storage::fake('local');
+    $user = User::factory()->applicant()->create();
+    $post = PublicCatalog::post(PublicCatalog::agency(), ['required_documents' => ['NBI clearance', 'Police clearance']]);
+    $resume = submissionResume($user);
+    $resume->update(['document_type' => 'other', 'is_primary' => false]);
+    $nbi = submissionResume($user);
+    $nbi->update(['document_type' => 'other', 'is_primary' => false, 'original_file_name' => 'nbi.pdf']);
+
+    $this->actingAs($user)->post("/job/{$post->id}/apply", [
+        'resume_document_id' => $resume->id,
+        'documents' => [
+            ['name' => 'NBI clearance', 'document_id' => $nbi->id],
+            ['name' => 'Police clearance', 'file' => UploadedFile::fake()->create('police.pdf', 10, 'application/pdf')],
+        ],
+    ])->assertRedirect(route('jobs.apply', $post->id))->assertSessionHasNoErrors();
+
+    $application = Application::sole();
+    expect($application->resume_document_id)->toBe($resume->id);
+    expect($application->supportingDocuments->pluck('pivot.requirement_name', 'id')->all())
+        ->toHaveKey($nbi->id, 'NBI clearance')->toHaveCount(2);
+    expect(ApplicantDocument::query()->count())->toBe(3);
+});
+
+test('files removed from the profile stay with the applications that already sent them', function () {
+    Storage::fake('local');
+    $user = User::factory()->applicant()->create();
+    $post = PublicCatalog::post(PublicCatalog::agency(), ['required_documents' => ['NBI clearance']]);
+    $nbi = submissionResume($user);
+    $nbi->update(['document_type' => 'other', 'is_primary' => false, 'original_file_name' => 'nbi.pdf']);
+    $resume = submissionResume($user);
+    $this->actingAs($user)->post("/job/{$post->id}/apply", [
+        'resume_document_id' => $resume->id, 'documents' => [['name' => 'NBI clearance', 'document_id' => $nbi->id]],
+    ])->assertSessionHasNoErrors();
+    $application = Application::sole();
+
+    $this->delete(route('profile.documents.destroy', $nbi->id))->assertRedirect();
+    $this->delete(route('profile.documents.destroy', $resume->id))->assertRedirect();
+
+    $this->actingAs($post->poster)->get(route('dashboard.applications.show', $application))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('application.documents', fn ($documents) => collect($documents)->pluck('id')->sort()->values()->all() === [$nbi->id, $resume->id]));
+    $this->get(route('dashboard.applications.documents', ['application' => $application->id, 'document' => $nbi->id]))
+        ->assertOk()->assertDownload('nbi.pdf');
+    $this->get(route('dashboard.applications.documents', ['application' => $application->id, 'document' => $resume->id]))
+        ->assertOk()->assertDownload('resume.pdf');
+});
+
+test('a required document picked from the profile must be a stored PDF the applicant owns', function (string $case) {
+    Storage::fake('local');
+    $user = User::factory()->applicant()->create();
+    $post = PublicCatalog::post(PublicCatalog::agency(), ['required_documents' => ['NBI clearance']]);
+    $document = submissionResume($case === 'foreign' ? User::factory()->applicant()->create() : $user);
+    $document->update(['document_type' => 'other', 'is_primary' => false]);
+    match ($case) {
+        'foreign', 'both' => null,
+        'archived' => $document->delete(),
+        'docx' => $document->update(['mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']),
+        'missing file' => $document->update(['storage_path' => 'documents/gone.pdf']),
+    };
+    $choice = ['name' => 'NBI clearance', 'document_id' => $document->id];
+    if ($case === 'both') {
+        $choice['file'] = UploadedFile::fake()->create('nbi.pdf', 10, 'application/pdf');
+    }
+
+    $this->actingAs($user)->post("/job/{$post->id}/apply", ['resume_document_id' => submissionResume($user)->id, 'documents' => [$choice]])
+        ->assertSessionHasErrors();
+
+    $this->assertDatabaseCount('applications', 0);
+})->with(['foreign', 'archived', 'docx', 'missing file', 'both']);
 
 test('a new resume is stored privately with the application', function (string $extension, string $mime) {
     Storage::fake('local');

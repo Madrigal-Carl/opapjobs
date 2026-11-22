@@ -37,4 +37,13 @@ class ApplicantProfile extends Model
     {
         return $this->belongsTo(User::class)->withTrashed();
     }
+
+    /**
+     * Where the signed-in owner's photo is served, or null without one. The
+     * version query busts the browser cache when the photo changes.
+     */
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path ? route('profile.avatar', ['v' => $this->updated_at?->timestamp]) : null;
+    }
 }

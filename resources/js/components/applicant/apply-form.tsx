@@ -3,7 +3,10 @@ import { ApplyTag, focusApplyField } from '@/components/applicant/apply-field';
 import { ApplyQuestion } from '@/components/applicant/apply-question';
 import { FieldError } from '@/components/applicant/match-blocks';
 import { ResumePicker } from '@/components/applicant/resume-dropzone';
-import { RequiredDocumentUploads } from '@/components/applicant/required-document-uploads';
+import {
+    RequiredDocumentUploads,
+    type SupportingDocument,
+} from '@/components/applicant/required-document-uploads';
 import { Textarea } from '@/components/ui/textarea';
 import type { ApplicationDraftRecord } from '@/data/application-draft-store';
 import { COVER_LETTER_CHIPS } from '@/data/application-questions';
@@ -42,8 +45,8 @@ export function ApplicationStepForm({
     onAnswer: (questionId: string, value: ApplicationAnswer) => void;
     onFileChange: (file: File | null) => void;
     requiredDocuments?: string[];
-    supportingFiles?: ReadonlyMap<string, File>;
-    onDocumentChange?: (name: string, file: File | null) => void;
+    supportingFiles?: ReadonlyMap<string, SupportingDocument>;
+    onDocumentChange?: (name: string, file: SupportingDocument | null) => void;
 }) {
     const required = questions.filter((question) => question.required);
     const optional = questions.filter((question) => !question.required);
@@ -150,6 +153,7 @@ export function ApplicationStepForm({
                         files={supportingFiles}
                         blocked={blocked.length > 0}
                         onChange={onDocumentChange}
+                        documents={documents}
                     />
                 )}
                 {step === 3 && [...required, ...optional].map(questionField)}

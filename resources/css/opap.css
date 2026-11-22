@@ -5979,250 +5979,320 @@ select.field-control {
 }
 
 /* ==========================================================================
-   RESUME — the editor the apply wizard and the match report both read
+   PROFILE — the editor the apply wizard and the match report both read
    ========================================================================== */
-.resume-hero {
-    padding: 62px 0 56px;
+.profile-hero {
+    padding: 44px 0 0;
     background: var(--navy-deep);
 }
 
-.resume-hero-inner {
-    display: grid;
-    grid-template-columns: 1.3fr 1fr;
-    gap: 30px;
-    align-items: end;
-}
-
-.resume-hero h1 {
-    margin: 14px 0 0;
-    color: #fff;
-    font-family: var(--app-font-serif);
-    font-size: clamp(34px, 5.4vw, 64px);
-    letter-spacing: -0.058em;
-    line-height: 1;
-}
-
-/* The agencies hero gives its emphasised words the same treatment. Without
-   this the <em> was white italic on white, so the emphasis never read. */
-.resume-hero h1 em {
-    color: var(--teal);
-    font-style: normal;
-}
-
-.resume-hero p {
-    max-width: 54ch;
-    margin: 0;
-    color: rgba(255, 255, 255, 0.76);
-    font-size: 15px;
-    line-height: 1.7;
-}
-
-.resume-section {
-    padding: 42px 0 90px;
-    background: var(--cream);
-}
-
-.resume-columns {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 306px;
-    gap: 22px;
-    align-items: start;
-}
-
-.resume-card {
-    padding: 25px 27px 27px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: #fcfbf7;
-    box-shadow: 0 10px 24px rgba(26, 61, 79, 0.04);
-}
-
-.resume-card + .resume-card {
-    margin-top: 15px;
-}
-
-.resume-card-head {
+.profile-hero-inner {
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 16px;
+    gap: 24px;
+    padding-bottom: 28px;
 }
 
-.resume-card-title {
+.profile-identity {
     display: flex;
+    flex: 1 1 420px;
     align-items: center;
-    gap: 10px;
+    gap: 22px;
     min-width: 0;
 }
 
-.resume-card-title > svg {
-    flex: 0 0 auto;
-    color: var(--teal);
-}
-
-.resume-card-title h2 {
-    margin: 0;
-    color: var(--navy);
-    font-family: var(--app-font-serif);
-    font-size: 20px;
-    letter-spacing: -0.04em;
-}
-
-.resume-card-count {
-    display: inline-flex;
-    min-width: 21px;
-    height: 21px;
-    align-items: center;
-    justify-content: center;
-    padding: 0 6px;
-    border-radius: 100px;
-    background: var(--surface-soft);
-    color: var(--slate);
-    font-family: var(--app-font-mono);
-    font-size: 9px;
-    font-weight: 700;
-}
-
-.resume-card-empty {
-    margin: 17px 0 0;
-    padding: 17px;
-    border: 1px dashed var(--line);
-    border-radius: 4px;
-    color: var(--slate);
-    font-size: 12px;
-    line-height: 1.6;
-}
-
-.resume-identity {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-top: 20px;
-    padding: 17px 19px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: #fff;
-}
-
-.resume-avatar-fallback {
+.profile-avatar {
+    position: relative;
     display: grid;
-    width: 56px;
-    height: 56px;
+    width: 104px;
+    height: 104px;
     flex: 0 0 auto;
     place-items: center;
     border-radius: 50%;
     background: var(--teal-light);
+    box-shadow:
+        0 0 0 4px var(--navy-deep),
+        0 0 0 6px var(--teal);
     color: var(--navy);
     font-family: var(--app-font-serif);
-    font-size: 23px;
+    font-size: 36px;
     font-weight: 800;
 }
 
-.resume-identity-name {
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.profile-avatar-button {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border: 2px solid var(--navy-deep);
+    border-radius: 50%;
+    background: var(--amber);
+    color: var(--navy-deep);
+    cursor: pointer;
+    transition: transform 0.18s ease;
+}
+
+.profile-avatar-button:hover {
+    transform: scale(1.06);
+}
+
+.profile-avatar-button:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.profile-name {
+    margin: 10px 0 0;
+    color: #fff;
+    font-family: var(--app-font-serif);
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+}
+
+.profile-headline {
+    margin: 6px 0 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 15px;
+}
+
+.profile-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-meta li {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.profile-meta svg {
+    flex: 0 0 auto;
+    color: #8fc8c0;
+}
+
+.profile-hero-edit {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--navy);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background-color 0.18s ease;
+}
+
+.profile-hero-edit:hover {
+    background: var(--teal-light);
+}
+
+.profile-hero-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.profile-visibility {
+    display: flex;
+    flex: 1 1 360px;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.78);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.profile-visibility strong {
+    color: #fff;
+}
+
+/* A native checkbox drawn as a switch, so it keeps its keyboard and form
+   behaviour. */
+.profile-visibility input {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex: 0 0 auto;
+    margin: 0;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.24);
+    appearance: none;
+    cursor: pointer;
+    transition: background-color 0.18s ease;
+}
+
+.profile-visibility input::after {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    content: '';
+    transition: transform 0.18s ease;
+}
+
+.profile-visibility input:checked {
+    background: var(--teal);
+}
+
+.profile-visibility input:checked::after {
+    transform: translateX(20px);
+}
+
+.profile-visibility input:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+.profile-jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.profile-jump a {
+    padding: 8px 10px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 13px;
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease;
+}
+
+.profile-jump a:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.profile-body {
+    padding: 28px 0 90px;
+    background: var(--cream);
+}
+
+.profile-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    align-items: start;
+}
+
+.profile-main {
+    display: grid;
+    gap: 16px;
+    min-width: 0;
+}
+
+.profile-card {
+    /* Clears the sticky header when the rail jumps to a section. */
+    scroll-margin-top: 96px;
+    padding: 24px 26px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    transition: box-shadow 0.18s ease;
+}
+
+.profile-card.is-dragging {
+    box-shadow: 0 0 0 2px var(--teal);
+}
+
+.profile-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.profile-card-head h2 {
     margin: 0;
     color: var(--navy);
     font-family: var(--app-font-serif);
-    font-size: 19px;
+    font-size: 21px;
     font-weight: 800;
-    letter-spacing: -0.04em;
+    letter-spacing: -0.03em;
 }
 
-.resume-identity-headline {
-    margin: 4px 0 0;
+.profile-card-lede {
+    margin: 6px 0 0;
     color: var(--slate);
-    font-size: 12px;
-}
-
-.apply-toggle {
-    display: flex;
-    align-items: flex-start;
-    gap: 11px;
-    padding: 14px 16px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: #fff;
-    cursor: pointer;
-}
-
-.apply-toggle input {
-    margin-top: 2px;
-    accent-color: var(--teal);
-}
-
-.apply-toggle span {
-    color: var(--slate);
-    font-size: 11px;
+    font-size: 13px;
     line-height: 1.6;
 }
 
-.apply-toggle strong {
-    display: block;
-    margin-bottom: 3px;
-    color: var(--navy);
-    font-size: 12px;
+.profile-card-empty {
+    margin-top: 16px;
+    padding: 18px 20px;
+    border: 1px dashed #c9d5d8;
+    border-radius: 8px;
 }
 
-.resume-entries {
-    display: grid;
-    gap: 11px;
-    margin-top: 18px;
-}
-
-.resume-entry {
-    padding: 15px 17px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: #fff;
-}
-
-.resume-entry-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
-}
-
-.resume-entry-title {
+.profile-card-empty p {
     margin: 0;
-    color: var(--navy);
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.resume-entry-sub,
-.resume-entry-dates {
-    margin: 4px 0 0;
     color: var(--slate);
-    font-size: 11px;
-    line-height: 1.55;
+    font-size: 13px;
+    line-height: 1.6;
 }
 
-.resume-entry-dates {
-    font-family: var(--app-font-mono);
-    font-size: 9px;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+.profile-text-button {
+    min-height: 44px;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    color: var(--teal-ink);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
 }
 
-.resume-entry .review-answer {
-    margin-top: 11px;
+.profile-text-button:hover {
+    text-decoration: underline;
 }
 
-.resume-entry-actions {
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 11px;
-}
-
-.resume-entry-remove {
+.profile-icon-button {
     display: grid;
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     place-items: center;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 6px;
     background: transparent;
     color: var(--slate);
     cursor: pointer;
@@ -6231,233 +6301,413 @@ select.field-control {
         color 0.18s ease;
 }
 
-.resume-entry-remove:hover {
+.profile-icon-button.is-danger:hover {
     border-color: #e7c9b4;
     color: #a3421f;
 }
 
-.resume-entry-form {
-    margin-top: 14px;
-    padding-top: 15px;
+.profile-summary {
+    margin: 14px 0 0;
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+}
+
+.profile-entries {
+    display: grid;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-entries:empty {
+    display: none;
+}
+
+.profile-entry {
+    display: flex;
+    gap: 16px;
+    padding: 18px 0;
     border-top: 1px solid #e9eeec;
 }
 
-.resume-entry-form-actions {
+.profile-entry:first-child {
+    border-top: 0;
+}
+
+.profile-entry:last-child {
+    padding-bottom: 0;
+}
+
+.profile-entry-tile {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+    font-family: var(--app-font-serif);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.profile-entry-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.profile-entry-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.profile-entry-title {
+    margin: 0;
+    color: var(--navy);
+    font-size: 15px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.profile-entry-sub {
+    margin: 3px 0 0;
+    color: var(--ink);
+    font-size: 14px;
+}
+
+.profile-entry-meta {
+    margin-top: 6px;
+}
+
+.profile-entry-dates {
+    margin: 4px 0 0;
+    color: var(--slate);
+    font-family: var(--app-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.profile-entry-meta .profile-entry-dates {
+    margin: 0;
+}
+
+.profile-entry-description {
+    margin: 10px 0 0;
+    color: var(--slate);
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+}
+
+.profile-entry-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+}
+
+.profile-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+    font-family: var(--app-font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.profile-badge.is-warning {
+    background: #fdf0d5;
+    color: #8a5a00;
+}
+
+.profile-form {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e9eeec;
+}
+
+.profile-card-head + .profile-form {
+    margin-top: 4px;
+    border-top: 0;
+}
+
+.profile-form-actions {
     display: flex;
     gap: 9px;
     margin-top: 15px;
 }
 
-.resume-skill-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 152px auto;
-    gap: 9px;
-    margin-top: 18px;
-}
-
-.resume-skill-list {
-    display: grid;
-    gap: 7px;
-    margin-top: 13px;
-}
-
-.resume-skill {
+.profile-chips {
     display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-chip {
+    display: flex;
+    max-width: 100%;
     align-items: center;
-    gap: 13px;
-    padding: 10px 13px;
+    gap: 8px;
+    padding: 4px 4px 4px 14px;
     border: 1px solid var(--line);
-    border-radius: 4px;
-    background: #fff;
+    border-radius: 100px;
+    background: #f8faf9;
 }
 
-.resume-skill-name {
-    flex: 1;
+.profile-chip-name {
+    min-width: 0;
     color: var(--navy);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
-.resume-skill-dots {
+.profile-skill-dots {
     display: flex;
     gap: 3px;
 }
 
-.resume-skill-dots span {
-    width: 6px;
-    height: 6px;
+.profile-skill-dots span {
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: var(--surface-soft);
+    background: var(--line);
 }
 
-.resume-skill-dots span.is-on {
+.profile-skill-dots span.is-on {
     background: var(--teal);
 }
 
-.resume-skill-level {
-    border: 0;
-    /* 15px tall before — a <select> is a real form control and needs the same
-       24px floor as everything else here. */
-    min-height: 24px;
-    padding: 0 4px;
-    background: transparent;
+.profile-chip-level {
+    padding: 0 2px;
     color: var(--slate);
-    cursor: pointer;
     font-family: var(--app-font-mono);
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
-.resume-doc-list {
-    display: grid;
-    gap: 9px;
-    margin-top: 13px;
+.profile-chip .profile-icon-button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
 }
 
-.resume-rail {
+.profile-chip .profile-icon-button:hover {
+    background: var(--surface-soft);
+    color: var(--navy);
+}
+
+.profile-docs {
     display: grid;
+    gap: 10px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.profile-doc {
+    display: flex;
+    align-items: center;
     gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+}
+
+.profile-doc-icon {
+    display: grid;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 6px;
+    background: var(--surface-soft);
+    color: var(--navy);
+}
+
+.profile-drop {
+    margin: 12px 0 0;
+    padding: 18px;
+    border: 1px dashed #9fcfca;
+    border-radius: 8px;
+    background: #f4faf9;
+    color: var(--slate);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.profile-rail {
     position: sticky;
     top: 96px;
-}
-
-.resume-rail-card {
     display: grid;
-    gap: 11px;
-    padding: 21px 22px 23px;
-    border: 1px solid var(--line);
-    border-radius: 5px;
-    background: #fcfbf7;
+    gap: 16px;
 }
 
-.resume-rail-title {
+.profile-rail-card {
+    display: grid;
+    gap: 10px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.profile-rail-title {
     margin: 0;
-    /* --teal-ink rather than --teal: at this size --teal is 3.08:1 on the
-       card and fails AA, while --teal-ink clears it at 5.76:1. */
+    /* --teal-ink rather than --teal: --teal fails AA at this size. */
     color: var(--teal-ink);
     font-family: var(--app-font-mono);
-    font-size: 8px;
+    font-size: 11px;
     letter-spacing: 0.07em;
     text-transform: uppercase;
 }
 
-.resume-completeness {
+.profile-strength {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    align-items: baseline;
+    gap: 8px;
 }
 
-.resume-completeness .match-track {
-    flex: 1;
-}
-
-.resume-completeness-value {
+.profile-strength strong {
     color: var(--navy);
     font-family: var(--app-font-serif);
-    font-size: 22px;
+    font-size: 40px;
     font-weight: 800;
     letter-spacing: -0.04em;
+    line-height: 1;
 }
 
-.resume-checklist {
-    display: grid;
-    gap: 0;
+.profile-strength span {
+    color: var(--slate);
+    font-size: 13px;
+}
+
+.profile-nudge {
+    margin: 4px 0 0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    background: #fdf6e6;
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.profile-nudge.is-done {
+    background: var(--teal-light);
+}
+
+.profile-checklist {
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.resume-check {
+.profile-checklist a {
     display: flex;
+    min-height: 40px;
     align-items: center;
-    gap: 9px;
-    padding: 8px 0;
-    border-bottom: 1px solid #e9eeec;
+    gap: 10px;
+    border-bottom: 1px solid var(--surface-soft);
     color: var(--slate);
-    font-size: 11px;
+    font-size: 14px;
 }
 
-.resume-check:last-child {
+.profile-checklist li:last-child a {
     border-bottom: 0;
 }
 
-.resume-check strong {
+.profile-checklist a:hover span {
+    text-decoration: underline;
+}
+
+.profile-checklist a.is-done {
+    color: var(--navy);
+}
+
+.profile-checklist a.is-done svg {
+    color: var(--teal-ink);
+}
+
+.profile-checklist strong {
     margin-left: auto;
+    color: #8a5a00;
     font-family: var(--app-font-mono);
-    font-size: 9px;
+    font-size: 10px;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }
 
-.resume-check.is-done {
-    color: var(--navy);
-}
-
-.resume-check.is-done svg,
-.resume-check.is-done strong {
-    /* --teal-ink keeps the "Done" label readable at 9px (5.76:1). */
+.profile-checklist a.is-done strong {
     color: var(--teal-ink);
 }
 
-.resume-check:not(.is-done) strong {
-    /* --slate rather than the old #9aa9b3 literal, which was 2.33:1 at 9px
-       and failed AA outright. --slate reads quieter than the --teal-ink
-       "Done" but still clears 4.5:1 on the card. */
-    color: var(--slate);
-}
-
-.resume-check-blank {
-    width: 14px;
-    height: 14px;
-    border: 1px dashed var(--line);
+.profile-check-blank {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border: 1.5px dashed #b7c4c9;
     border-radius: 50%;
 }
 
+.profile-rail-links {
+    display: grid;
+    gap: 8px;
+    margin-top: 4px;
+}
+
 @media (max-width: 991.98px) {
-    .resume-columns,
-    .resume-hero-inner {
+    .profile-columns {
         grid-template-columns: 1fr;
     }
 
-    .resume-rail {
+    .profile-rail {
         position: static;
         order: -1;
     }
 }
 
 @media (max-width: 575.98px) {
-    .resume-skill-row {
-        grid-template-columns: 1fr;
+    .profile-identity {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
-    /* Phone widths only. A card head (icon + title + count badge + a
-       non-wrapping action button) has a min-content of ~368px, and with the
-       card's own 27px padding that is 424px against a 315px shell at 360 —
-       because `1fr` sizes to min-content and the single track is shared by
-       every row, the whole page was pushed 94px past the viewport. Let the
-       rows wrap and the items shrink below their intrinsic width. */
-    .resume-columns > *,
-    .resume-card {
-        min-width: 0;
+    .profile-avatar {
+        width: 80px;
+        height: 80px;
+        font-size: 28px;
     }
 
-    .resume-card-head {
+    .profile-card {
+        padding: 20px;
+    }
+
+    .profile-entry-tile {
+        display: none;
+    }
+
+    .profile-entry-head {
         flex-wrap: wrap;
     }
 
-    .resume-card-head h2 {
-        min-width: 0;
-    }
-
-    .resume-skill,
-    .resume-check,
-    .resume-identity {
+    .profile-chip {
         flex-wrap: wrap;
-    }
-
-    .resume-skill-name {
-        min-width: 0;
+        border-radius: 12px;
     }
 }
 
@@ -6911,201 +7161,546 @@ select.field-control {
     position: sticky;
 }
 
-.applications-hero {
-    background: var(--cream);
+.myjobs-hero {
+    padding: 44px 0 0;
+    background: var(--navy-deep);
 }
 
-.applications-hero-inner {
-    padding: 54px 0 0;
-}
-
-.applications-hero h1 {
-    max-width: 720px;
-    margin: 0;
-    color: var(--navy);
-    font-family: var(--app-font-serif);
-    font-size: clamp(36px, 5vw, 54px);
-    line-height: 1.02;
-    letter-spacing: -0.055em;
-}
-
-.applications-hero-inner > p {
-    max-width: 620px;
-    margin: 18px 0 0;
-    color: var(--slate);
-    font-size: 15px;
-    line-height: 1.7;
-}
-
-.applications-tabs {
+.myjobs-hero-inner {
     display: flex;
-    gap: 34px;
-    margin-top: 34px;
-    border-bottom: 1px solid var(--line);
-    overflow-x: auto;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 28px;
 }
 
-.applications-tab {
+.myjobs-hero h1 {
+    margin: 10px 0 0;
+    color: #fff;
+    font-family: var(--app-font-serif);
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+}
+
+.myjobs-hero-inner p {
+    max-width: 52ch;
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.myjobs-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0;
+}
+
+.myjobs-stats > div {
+    display: flex;
+    min-width: 112px;
+    flex-direction: column-reverse;
+    padding: 12px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.myjobs-stats dt {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+}
+
+.myjobs-stats dd {
+    margin: 0;
+    color: #fff;
+    font-family: var(--app-font-serif);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.myjobs-tabs {
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.myjobs-tab {
     display: inline-flex;
-    min-height: 52px;
+    min-height: 48px;
     flex: 0 0 auto;
     align-items: center;
-    gap: 9px;
-    padding: 0 2px;
+    gap: 8px;
+    padding: 0 16px;
     border: 0;
-    border-bottom: 2px solid transparent;
+    border-bottom: 3px solid transparent;
     background: transparent;
-    color: var(--slate);
+    color: rgba(255, 255, 255, 0.72);
     cursor: pointer;
-    font-family: var(--app-font-sans);
     font-size: 14px;
-    font-weight: 700;
-    white-space: nowrap;
+    font-weight: 600;
     transition:
-        color 0.2s ease,
-        border-color 0.2s ease;
+        color 0.18s ease,
+        border-color 0.18s ease;
 }
 
-.applications-tab:hover {
-    color: var(--navy);
+.myjobs-tab:hover {
+    color: #fff;
 }
 
-.applications-tab:focus-visible {
-    outline: 2px solid var(--teal);
-    outline-offset: 3px;
+.myjobs-tab:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
 }
 
-.applications-tab[aria-selected='true'] {
-    border-color: var(--teal);
-    color: var(--navy);
+.myjobs-tab[aria-selected='true'] {
+    border-bottom-color: var(--amber);
+    color: #fff;
 }
 
-.applications-tab-count {
-    min-width: 24px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    background: var(--teal-light);
-    color: #136b66;
+.myjobs-tab-count {
+    min-width: 22px;
+    padding: 1px 7px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.12);
     font-family: var(--app-font-mono);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 11px;
     text-align: center;
 }
 
-.applications-section {
-    padding: 36px 0 96px;
+.myjobs-tab[aria-selected='true'] .myjobs-tab-count {
+    background: var(--amber);
+    color: var(--navy-deep);
+}
+
+.myjobs-body {
+    padding: 28px 0 90px;
     background: var(--cream);
 }
 
-.applications-panel {
+.myjobs-columns {
     display: grid;
-    gap: 10px;
-    outline: none;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+    align-items: start;
 }
 
-/* One row per role: the facts on the left, the one action on the right. */
-.application-row {
+.myjobs-main {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+}
+
+.myjobs-toolbar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 20px;
-    padding: 19px 21px;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.myjobs-toolbar p {
+    margin: 0;
+    color: var(--slate);
+    font-size: 13px;
+}
+
+.myjobs-card {
+    padding: 22px 24px;
     border: 1px solid var(--line);
-    border-left: 3px solid transparent;
-    border-radius: 5px;
-    background: #fcfbf7;
-    transition:
-        border-color 0.2s ease,
-        transform 0.2s ease;
+    border-radius: 8px;
+    background: #fff;
+    transition: border-color 0.18s ease;
 }
 
-.application-row:hover {
-    border-left-color: var(--teal);
-    transform: translateY(-1px);
+.myjobs-card:hover {
+    border-color: #bccbcf;
 }
 
-.application-row-main {
+.myjobs-card.is-archived {
+    background: #fbfbf9;
+}
+
+.myjobs-card-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.myjobs-tile {
+    display: grid;
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 8px;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+    font-family: var(--app-font-serif);
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.myjobs-card.is-archived .myjobs-tile {
+    background: var(--surface-soft);
+    color: var(--slate);
+}
+
+.myjobs-card-info {
     flex: 1;
     min-width: 0;
 }
 
-.application-row-main h3 {
-    margin: 8px 0 0;
-    font-size: 16px;
-    letter-spacing: -0.02em;
+.myjobs-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
 }
 
-.application-row-main h3 a {
+.myjobs-flag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--surface-soft);
+    color: var(--navy);
+    font-family: var(--app-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.myjobs-flag.is-urgent {
+    background: #fdf0d5;
+    color: #8a5a00;
+}
+
+.myjobs-flag.is-closed {
+    background: #f3e3dc;
+    color: #8f3a1c;
+}
+
+.myjobs-card h3 {
+    margin: 0;
+    font-family: var(--app-font-serif);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.myjobs-card h3 a {
     color: var(--navy);
 }
 
-.application-row-main h3 a:hover {
-    color: var(--teal);
+.myjobs-card h3 a:hover {
+    color: var(--teal-ink);
 }
 
-.application-row-meta {
+.myjobs-agency {
+    margin: 3px 0 0;
+    color: var(--ink);
+    font-size: 14px;
+}
+
+.myjobs-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 8px 0 0;
+    color: var(--slate);
+    font-size: 13px;
+}
+
+.myjobs-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.myjobs-soon {
+    color: #8a5a00;
+    font-weight: 600;
+}
+
+.myjobs-pill {
+    flex: 0 0 auto;
+    padding: 5px 11px;
+    border-radius: 100px;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.myjobs-pill.is-strong {
+    background: var(--navy);
+    color: #fff;
+}
+
+.myjobs-pill.is-muted {
+    background: var(--surface-soft);
+    color: var(--slate);
+}
+
+.myjobs-track {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin: 18px 0 0;
+    padding: 16px 0 0;
+    border-top: 1px solid #e9eeec;
+    list-style: none;
+}
+
+.myjobs-track li {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    color: var(--slate);
+    font-size: 12px;
+    text-align: center;
+}
+
+/* The connector runs from the previous step's dot to this one. */
+.myjobs-track li::before {
+    position: absolute;
+    top: 8px;
+    right: 50%;
+    width: 100%;
+    height: 2px;
+    background: var(--line);
+    content: '';
+}
+
+.myjobs-track li:first-child::before {
+    display: none;
+}
+
+.myjobs-track li > span {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 2px solid var(--line);
+    border-radius: 50%;
+    background: #fff;
+}
+
+.myjobs-track li.is-done,
+.myjobs-track li.is-current {
+    color: var(--ink);
+}
+
+.myjobs-track li.is-done::before,
+.myjobs-track li.is-current::before {
+    background: var(--teal);
+}
+
+.myjobs-track li.is-done > span {
+    border-color: var(--teal);
+    background: var(--teal);
+}
+
+.myjobs-track li.is-current > span {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 4px var(--teal-light);
+}
+
+.myjobs-track li.is-current {
+    color: var(--navy);
+    font-weight: 700;
+}
+
+.myjobs-notice {
+    margin: 16px 0 0;
+    padding: 12px 14px;
+    border-radius: 6px;
+    background: var(--surface-soft);
+    color: var(--slate);
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.myjobs-card-foot {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 7px;
-    margin: 9px 0 0;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.myjobs-date {
+    margin: 0;
     color: var(--slate);
+    font-family: var(--app-font-mono);
     font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
-.application-row-meta svg {
-    color: var(--teal);
-}
-
-.application-row-dot {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: var(--line);
-}
-
-.application-row-actions {
+.myjobs-actions {
     display: flex;
-    flex: 0 0 auto;
-    flex-direction: column;
-    align-items: flex-end;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
-.application-row-status {
-    display: flex;
-    align-items: center;
-    gap: 7px;
+.myjobs-empty {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+    padding: 48px 24px;
+    border: 1px dashed #c9d5d8;
+    border-radius: 8px;
+    background: #fff;
+    text-align: center;
+}
+
+.myjobs-empty > span {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+}
+
+.myjobs-empty h2 {
+    margin: 4px 0 0;
+    color: var(--navy);
+    font-family: var(--app-font-serif);
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.myjobs-empty p {
+    max-width: 44ch;
+    margin: 0 0 6px;
+    color: var(--slate);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.myjobs-rail {
+    position: sticky;
+    top: 96px;
+    display: grid;
+    gap: 16px;
+}
+
+.myjobs-rail-card {
+    display: grid;
+    gap: 12px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.myjobs-rail-title {
     margin: 0;
-    color: #136b66;
+    color: var(--teal-ink);
+    font-family: var(--app-font-mono);
+    font-size: 11px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.myjobs-rail-copy {
+    margin: 0;
+    color: var(--slate);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.myjobs-legend {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.myjobs-legend li {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+}
+
+.myjobs-legend li > span {
+    display: grid;
+    width: 22px;
+    height: 22px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--teal-light);
+    color: var(--teal-ink);
+    font-family: var(--app-font-mono);
     font-size: 11px;
     font-weight: 700;
 }
 
-.application-row-status svg {
-    color: var(--teal);
+.myjobs-legend p {
+    margin: 0;
+    color: var(--slate);
+    font-size: 13px;
+    line-height: 1.5;
 }
 
-@media (max-width: 767.98px) {
-    .application-row {
-        align-items: stretch;
-        flex-direction: column;
-    }
-
-    .application-row-actions {
-        align-items: stretch;
-    }
-}
-
-.applications-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 14px;
-}
-
-.applications-toolbar-link:hover {
+.myjobs-legend strong {
+    display: block;
     color: var(--navy);
+}
+
+@media (max-width: 991.98px) {
+    .myjobs-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .myjobs-rail {
+        position: static;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .myjobs-card {
+        padding: 18px;
+    }
+
+    .myjobs-tile {
+        display: none;
+    }
+
+    .myjobs-card-head {
+        flex-wrap: wrap;
+    }
+
+    .myjobs-track li {
+        font-size: 11px;
+    }
+
+    /* Five labels do not fit at phone width; the current step keeps its
+       label and the aria-label on the list names the stage. */
+    .myjobs-track li:not([aria-current]) {
+        color: transparent;
+    }
+
+    .myjobs-stats {
+        width: 100%;
+    }
+
+    .myjobs-stats > div {
+        min-width: 0;
+        flex: 1 1 0;
+    }
 }
 
 .job-action.has-status {
@@ -7172,109 +7767,10 @@ select.field-control {
     }
 }
 
-.applications-end {
-    padding: 28px 0 0;
-    color: #879498;
-    font-family: var(--app-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.06em;
-    text-align: center;
-    text-transform: uppercase;
-}
-
-.applications-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 64px 26px;
-    border: 1px dashed var(--line);
-    border-radius: 6px;
-    background: #fcfbf7;
-    text-align: center;
-}
-
-.applications-empty svg {
-    color: var(--teal);
-}
-
-.applications-empty h2 {
-    margin: 6px 0 0;
-    color: var(--navy);
-    font-family: var(--app-font-serif);
-    font-size: 24px;
-    letter-spacing: -0.04em;
-}
-
-.applications-empty p {
-    max-width: 430px;
-    margin: 0;
-    color: var(--slate);
-    font-size: 13px;
-    line-height: 1.7;
-}
-
-.applications-empty a {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    gap: 7px;
-    margin-top: 10px;
-    padding: 0 18px;
-    border-radius: 4px;
-    background: var(--amber);
-    color: var(--ink);
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.applications-empty a:hover {
-    filter: brightness(1.04);
-}
-
 @media (prefers-reduced-motion: reduce) {
     .applications-loader-dot {
         animation: none;
         opacity: 0.6;
-    }
-}
-
-@media (max-width: 767.98px) {
-    .applications-hero-inner {
-        padding-top: 44px;
-    }
-
-    .applications-tabs {
-        gap: 26px;
-    }
-
-    .applications-section {
-        padding: 30px 0 74px;
-    }
-}
-
-@media (max-width: 639.98px) {
-    .applications-hero-inner {
-        padding-top: 34px;
-    }
-
-    .applications-hero-inner > p {
-        font-size: 14px;
-    }
-
-    .applications-tab {
-        min-height: 48px;
-        font-size: 13px;
-    }
-
-    .applications-toolbar {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .applications-empty {
-        padding: 48px 20px;
     }
 }
 

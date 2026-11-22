@@ -115,10 +115,13 @@ test('application details include stored job requirements and document context w
     [$poster, $post, $applicant] = applicationDetailContext();
     $post->update([
         'salary_currency' => 'SAR', 'job_order_number' => 'JO-2026-0100',
-        'gender_requirement' => 'any', 'required_documents' => ['Valid passport', 'Trade certificate'],
+        'gender_requirement' => 'any',
         'application_instructions' => 'Bring original certificates to the interview.',
         'contact_person_name' => 'Hiring coordinator', 'contact_email' => 'hiring@example.test',
         'contact_phone' => '+63 917 555 0200', 'is_urgent' => true,
+    ]);
+    $post->requiredDocuments()->createMany([
+        ['document_name' => 'Valid passport', 'sort_order' => 0], ['document_name' => 'Trade certificate', 'sort_order' => 1],
     ]);
     $resume = ApplicantDocument::create([
         'applicant_user_id' => $applicant->id, 'document_type' => 'resume',

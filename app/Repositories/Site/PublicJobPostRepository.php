@@ -34,7 +34,7 @@ class PublicJobPostRepository
     private const PREVIEW_COLUMNS = [
         'job_posts.contract_type', 'job_posts.education_level', 'job_posts.min_experience_years',
         'job_posts.max_experience_years', 'job_posts.gender_requirement', 'job_posts.job_description',
-        'job_posts.other_requirements', 'job_posts.application_instructions', 'job_posts.required_documents',
+        'job_posts.other_requirements', 'job_posts.application_instructions',
     ];
 
     private const DETAIL_COLUMNS = [
@@ -76,7 +76,7 @@ class PublicJobPostRepository
             $query->where('job_posts.created_at', '>=', $this->recentSince());
         }
 
-        return $this->cards($query, self::PREVIEW_COLUMNS)->with('languages:job_post_id,language,proficiency')
+        return $this->cards($query, self::PREVIEW_COLUMNS)->with(['languages:job_post_id,language,proficiency', 'requiredDocuments'])
             ->paginate($perPage, page: $filters->page);
     }
 
@@ -102,6 +102,7 @@ class PublicJobPostRepository
                 'subcategory:id,job_category_id,subcategory_name', 'subcategory.category:id,category_name',
                 'employer:id,employer_name,employer_location,employer_license_number',
                 'languages:job_post_id,language,proficiency',
+                'requiredDocuments',
             ])
             ->first();
     }
@@ -121,14 +122,11 @@ class PublicJobPostRepository
      *
      * @return Collection<int, JobPost>
      */
-    public function appliedBy(int $applicantUserId, bool $archived): Collection
+    public function appliedBy(int $applicantUserId): Collection
     {
         $query = JobPost::query()
             ->join('applications', 'applications.job_post_id', '=', 'job_posts.id')
-            ->where('applications.applicant_user_id', $applicantUserId)
-            ->when($archived,
-                fn (Builder $query) => $query->whereNotNull('applications.applicant_archived_at'),
-                fn (Builder $query) => $query->whereNull('applications.applicant_archived_at'));
+            ->where('applications.applicant_user_id', $applicantUserId);
 
         return $this->cards($this->visibleToApplicant($query), [
             'applications.stage as application_stage', 'applications.submitted_at as application_submitted_at',

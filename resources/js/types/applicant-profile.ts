@@ -92,8 +92,8 @@ export type ProfileOwner = {
     avatar?: string;
 };
 
-/** Sections counted when working out resume completeness. */
-export const RESUME_COMPLETENESS_FIELDS = [
+/** Sections counted when working out profile completeness. */
+export const PROFILE_COMPLETENESS_FIELDS = [
     'summary',
     'experiences',
     'education',

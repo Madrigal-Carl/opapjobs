@@ -55,7 +55,7 @@ it('lets a superadmin reach every console screen', function (string $url): void 
 /** Pages that only make sense to somebody applying for a job. */
 dataset('applicantUrls', [
     'apply' => '/job/land-1/apply',
-    'resume' => '/resume',
+    'profile' => '/profile',
     'my jobs' => '/applications',
 ]);
 
