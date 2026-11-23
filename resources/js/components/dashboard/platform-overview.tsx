@@ -9,16 +9,13 @@ import {
     UserRoundCheck,
     Users,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { DashboardEmptyState } from '@/components/dashboard/empty-state';
 import { KpiCard, KpiGrid } from '@/components/dashboard/kpi-card';
 import { DashboardPage } from '@/components/dashboard/page';
 import { PageHeader } from '@/components/dashboard/page-header';
-import {
-    TrendChart,
-    formatShortDate,
-} from '@/components/dashboard/overview-trend-chart';
+import { formatShortDate } from '@/components/dashboard/overview-trend-chart';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -104,16 +101,18 @@ function Panel({
     action,
     testId,
     children,
+    className,
 }: {
     title: string;
     subtitle: string;
     action?: ReactNode;
     testId?: string;
     children: ReactNode;
+    className?: string;
 }) {
     return (
         <section
-            className="overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-xs"
+            className={`overflow-hidden rounded-lg border border-[var(--line)] bg-white shadow-xs ${className ?? ''}`}
             data-testid={testId}
         >
             <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
@@ -212,6 +211,41 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
         () => fillDailySeries(days, start, end),
         [days, start, end],
     );
+
+    const chartHost = useRef<HTMLDivElement | null>(null);
+
+    /**
+     * ApexCharts is browser-only and heavy, so the chart module is requested
+     * after hydration and kept out of the server bundle.
+     */
+    useEffect(() => {
+        const element = chartHost.current;
+
+        if (!element || !filteredDays.length) {
+            return;
+        }
+
+        let active = true;
+        const mounted: { chart: { destroy: () => void } | null } = {
+            chart: null,
+        };
+
+        void import('@/components/dashboard/overview-bar-chart').then(
+            ({ createApplicationBarChart }) => {
+                if (active) {
+                    mounted.chart = createApplicationBarChart(
+                        element,
+                        filteredDays,
+                    );
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+            mounted.chart?.destroy();
+        };
+    }, [filteredDays]);
 
     const periodApplications = filteredDays.reduce(
         (sum, day) => sum + day.applications,
@@ -404,17 +438,17 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                             }
                         >
                             {filteredDays.length ? (
-                                <TrendChart days={filteredDays} />
+                                <div ref={chartHost} className="h-60 w-full" />
                             ) : (
                                 <div
                                     className="flex flex-col items-center gap-2 py-10 text-center"
                                     data-testid="empty-report-trend"
                                 >
                                     <Activity
-                                        className="size-6 text-[var(--slate)]"
+                                        className="size-6 text-(--slate)"
                                         aria-hidden="true"
                                     />
-                                    <p className="text-sm text-[var(--slate)]">
+                                    <p className="text-sm text-(--slate)">
                                         No application activity for these dates.
                                         Try a wider reporting period.
                                     </p>
@@ -428,14 +462,15 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                             title="Hiring funnel"
                             subtitle="Applicant progress by stage"
                             testId="panel-hiring-funnel"
+                            className="min-h-80"
                             action={
                                 <ListFilter
-                                    className="size-4 text-[var(--slate)]"
+                                    className="size-6 text-(--slate)"
                                     aria-hidden="true"
                                 />
                             }
                         >
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-5.5">
                                 {summary.total_applications ? (
                                     STAGE_LABELS.map((stage) => (
                                         <FunnelRow
@@ -448,16 +483,16 @@ export function PlatformOverview({ data }: { data: PlatformOverviewData }) {
                                 ) : (
                                     <div className="flex flex-col items-center gap-2 py-6 text-center">
                                         <Users
-                                            className="size-6 text-[var(--slate)]"
+                                            className="size-6 text-(--slate)"
                                             aria-hidden="true"
                                         />
-                                        <p className="text-sm text-[var(--slate)]">
+                                        <p className="text-sm text-(--slate)">
                                             There are no applicants yet.
                                         </p>
                                     </div>
                                 )}
-                                <div className="mt-2 flex items-center justify-between border-t border-[var(--line)] pt-3">
-                                    <span className="text-sm text-[var(--slate)]">
+                                <div className="mt-3.5 flex items-center justify-between border-t border-(--line) pt-3">
+                                    <span className="text-sm text-(--slate)">
                                         Application to hire
                                     </span>
                                     <strong className="tabular-nums">

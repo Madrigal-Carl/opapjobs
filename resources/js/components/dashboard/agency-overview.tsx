@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     Activity,
@@ -29,10 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DashboardPage } from '@/components/dashboard/page';
-import {
-    formatShortDate,
-    TrendChart,
-} from '@/components/dashboard/overview-trend-chart';
+import { formatShortDate } from '@/components/dashboard/overview-trend-chart';
 
 /**
  * The two overviews still served from reference data. `platform` is not
@@ -171,6 +168,7 @@ export function AgencyOverview({
     const [start, setStart] = useState('2026-02-01');
     const [end, setEnd] = useState('2026-02-28');
     const [filterMessage, setFilterMessage] = useState('');
+    const chartHost = useRef<HTMLDivElement | null>(null);
 
     const summary = getOverviewSummary();
     const days = getOverviewDays();
@@ -179,6 +177,41 @@ export function AgencyOverview({
         () => days.filter((day) => day.date >= start && day.date <= end),
         [days, start, end],
     );
+
+    /**
+     * ApexCharts is browser-only and heavy, so the chart module is requested
+     * after hydration and kept out of the server bundle. The cancelled first
+     * effect of StrictMode's double mount never reaches the chart, so only
+     * one canvas is ever created.
+     */
+    useEffect(() => {
+        const element = chartHost.current;
+
+        if (!element || !filteredDays.length) {
+            return;
+        }
+
+        let active = true;
+        const mounted: { chart: { destroy: () => void } | null } = {
+            chart: null,
+        };
+
+        void import('@/components/dashboard/overview-bar-chart').then(
+            ({ createApplicationBarChart }) => {
+                if (active) {
+                    mounted.chart = createApplicationBarChart(
+                        element,
+                        filteredDays,
+                    );
+                }
+            },
+        );
+
+        return () => {
+            active = false;
+            mounted.chart?.destroy();
+        };
+    }, [filteredDays]);
 
     const periodApplications = filteredDays.reduce(
         (sum, day) => sum + day.applications,
@@ -376,25 +409,15 @@ export function AgencyOverview({
                     className="xl:col-span-3"
                     data-testid="panel-application-trends"
                 >
-                    <CardHeader className="flex flex-row items-center justify-between gap-2">
-                        <div>
-                            <CardTitle>Application trends</CardTitle>
-                            <CardDescription>
-                                Applications received within the selected period
-                            </CardDescription>
-                        </div>
-                        <span className="flex items-center gap-1.5 text-xs text-[var(--slate)]">
-                            <span
-                                className="size-2 rounded-full"
-                                style={{ background: 'var(--teal)' }}
-                                aria-hidden="true"
-                            />
-                            Applications
-                        </span>
+                    <CardHeader>
+                        <CardTitle>Application trends</CardTitle>
+                        <CardDescription>
+                            Applications received within the selected period
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         {filteredDays.length ? (
-                            <TrendChart days={filteredDays} />
+                            <div ref={chartHost} className="h-60 w-full" />
                         ) : (
                             <div
                                 className="flex flex-col items-center gap-2 py-10 text-center"
@@ -414,10 +437,10 @@ export function AgencyOverview({
                 </Card>
 
                 <Card
-                    className="xl:col-span-2"
+                    className="min-h-80 xl:col-span-2"
                     data-testid="panel-hiring-funnel"
                 >
-                    <CardHeader className="flex flex-row items-center justify-between gap-2">
+                    <CardHeader className="flex flex-row items-center justify-between gap-3">
                         <div>
                             <CardTitle>Hiring funnel</CardTitle>
                             <CardDescription>
@@ -425,11 +448,11 @@ export function AgencyOverview({
                             </CardDescription>
                         </div>
                         <ListFilter
-                            className="size-4 text-muted-foreground"
+                            className="size-6 text-muted-foreground"
                             aria-hidden="true"
                         />
                     </CardHeader>
-                    <CardContent className="flex flex-col gap-3">
+                    <CardContent className="flex flex-1 flex-col justify-between gap-5.5">
                         {summary.totalApplications ? (
                             STAGE_LABELS.map((stage) => (
                                 <FunnelRow
@@ -445,13 +468,13 @@ export function AgencyOverview({
                                     className="size-6 text-muted-foreground"
                                     aria-hidden="true"
                                 />
-                                <p className="text-sm text-[var(--slate)]">
+                                <p className="text-sm text-(--slate)">
                                     There are no applicants yet.
                                 </p>
                             </div>
                         )}
-                        <div className="mt-2 flex items-center justify-between border-t border-[var(--line)] pt-3">
-                            <span className="text-sm text-[var(--slate)]">
+                        <div className="mt-3.5 flex items-center justify-between border-t border-(--line) pt-3">
+                            <span className="text-sm text-(--slate)">
                                 Application to hire
                             </span>
                             <strong className="tabular-nums">
