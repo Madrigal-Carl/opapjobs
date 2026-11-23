@@ -67,7 +67,7 @@ class ApplicationDetailResource extends JsonResource
                 'posted_at' => $post->created_at?->toISOString(),
                 'other_requirements' => $post->other_requirements,
                 'job_description' => $post->job_description,
-                'required_documents' => $post->required_documents ?? [],
+                'required_documents' => $post->requiredDocuments->pluck('document_name')->all(),
                 'application_instructions' => $post->application_instructions,
                 'contact_person_name' => $post->contact_person_name,
                 'contact_email' => $post->contact_email,
@@ -147,6 +147,8 @@ class ApplicationDetailResource extends JsonResource
         return array_values($this->applicant->documents
             ->filter(fn (ApplicantDocument $document): bool => $document->uploaded_at->lessThanOrEqualTo($this->submitted_at))
             ->merge($this->supportingDocuments)
+            // Kept even after the applicant removes it from their profile.
+            ->merge(array_filter([$this->resumeDocument]))
             ->map(fn (ApplicantDocument $document): array => [
                 'id' => $document->id,
                 'name' => ($document->getRelationValue('pivot')?->getAttribute('requirement_name') !== null

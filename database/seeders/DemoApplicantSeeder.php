@@ -8,6 +8,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class DemoApplicantSeeder extends Seeder
@@ -115,6 +116,12 @@ class DemoApplicantSeeder extends Seeder
                         'is_primary' => $documentIndex === 0, 'uploaded_at' => $uploaded,
                         'deleted_at' => null, 'created_at' => $uploaded, 'updated_at' => $uploaded,
                     ])->save();
+
+                    // Applying refuses a row whose file is missing, so each demo row gets one.
+                    // shortcut: the DOCX placeholder is plain text, not a real Word file; generate one if demos need to open it.
+                    if (! Storage::disk('local')->exists($document->storage_path)) {
+                        Storage::disk('local')->put($document->storage_path, $extension === 'pdf' ? "%PDF-1.4\n% Demo file: {$filename}\n%%EOF\n" : "Demo file: {$filename}\n");
+                    }
                 }
 
                 $active = JobPost::active()->whereHas('agency', fn ($query) => $query->whereNull('suspended_at'))

@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ApplicationDraftRecord } from '@/data/application-draft-store';
+import type { SupportingDocument } from '@/components/applicant/required-document-uploads';
 import type { ResumeDocument } from '@/types/applicant-profile';
 import type { JobQuestion } from '@/types/job';
 
@@ -21,7 +22,7 @@ export function ReviewStep({
     documents: ResumeDocument[];
     onEditSection: (id: string) => void;
     requiredDocuments?: string[];
-    supportingFiles?: ReadonlyMap<string, File>;
+    supportingFiles?: ReadonlyMap<string, SupportingDocument>;
 }) {
     const resumeName =
         draft.uploadedResume?.name ||

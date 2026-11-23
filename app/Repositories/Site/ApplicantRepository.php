@@ -2,7 +2,6 @@
 
 namespace App\Repositories\Site;
 
-use App\Enums\DocumentType;
 use App\Models\ApplicantDocument;
 use App\Models\Application;
 use App\Models\JobPost;
@@ -13,8 +12,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * Reads of the signed-in applicant's own rows: what they applied to, saved
- * or archived, their resume, and the questions a job post asks them.
+ * The signed-in applicant's own rows: what they applied to, saved or
+ * archived, their profile and files, and the questions a job post asks them.
  */
 class ApplicantRepository
 {
@@ -28,10 +27,57 @@ class ApplicantRepository
         return Application::query()->where('applicant_user_id', $userId)->where('job_post_id', $jobId)->exists();
     }
 
-    public function resumeDocument(int $userId, int $documentId): ?ApplicantDocument
+    /** One of the applicant's own files that has not been removed, optionally only of one MIME type. */
+    public function ownDocument(int $userId, int $documentId, ?string $mimeType = null): ?ApplicantDocument
     {
         return ApplicantDocument::query()->whereKey($documentId)->where('applicant_user_id', $userId)
-            ->where('document_type', DocumentType::Resume)->lockForUpdate()->first();
+            ->when($mimeType !== null, fn ($query) => $query->where('mime_type', $mimeType))
+            ->lockForUpdate()->first();
+    }
+
+    public function documentCount(int $userId): int
+    {
+        return ApplicantDocument::query()->where('applicant_user_id', $userId)->count();
+    }
+
+    /**
+     * Writes the profile row and replaces every section list, keeping the
+     * order the applicant sees.
+     *
+     * @param  array<string, mixed>  $profile
+     * @param  array{experiences: list<array<string, mixed>>, education: list<array<string, mixed>>, certifications: list<array<string, mixed>>, skills: list<array<string, mixed>>}  $sections
+     */
+    public function saveProfile(User $user, string $name, array $profile, array $sections): void
+    {
+        $user->update(['name' => $name]);
+        $user->applicantProfile()->updateOrCreate([], $profile);
+
+        foreach ($sections as $relation => $rows) {
+            $user->{$relation}()->delete();
+            $user->{$relation}()->createMany(array_map(
+                fn (array $row, int $index): array => [...$row, 'sort_order' => $index],
+                $rows, array_keys($rows),
+            ));
+        }
+    }
+
+    public function setAvatarPath(User $user, string $path): ?string
+    {
+        $profile = $user->applicantProfile()->firstOrCreate([]);
+        $previous = $profile->avatar_path;
+        $profile->update(['avatar_path' => $path]);
+
+        return $previous;
+    }
+
+    public function save(int $userId, int $jobId): void
+    {
+        SavedJobPost::query()->insertOrIgnore(['applicant_user_id' => $userId, 'job_post_id' => $jobId, 'created_at' => now()]);
+    }
+
+    public function unsave(int $userId, int $jobId): void
+    {
+        SavedJobPost::query()->where('applicant_user_id', $userId)->where('job_post_id', $jobId)->delete();
     }
 
     /** @param array{job_post_id: int, applicant_user_id: int, resume_document_id: int, cover_letter: ?string, stage: string, submitted_at: CarbonImmutable} $attributes */
@@ -72,8 +118,8 @@ class ApplicantRepository
         ];
     }
 
-    /** The applicant with their profile and every resume section, in display order. */
-    public function resume(int $userId): ?User
+    /** The applicant with their profile and every profile section, in display order. */
+    public function profile(int $userId): ?User
     {
         return User::query()->whereKey($userId)
             ->select(['id', 'name', 'email'])
@@ -99,7 +145,8 @@ class ApplicantRepository
     {
         return JobPostQuestion::query()
             ->where('job_post_id', $jobPostId)
-            ->select(['id', 'job_post_id', 'question_text', 'answer_type', 'options', 'is_required', 'sort_order'])
+            ->select(['id', 'job_post_id', 'question_text', 'answer_type', 'is_required', 'sort_order'])
+            ->with('options')
             ->orderBy('sort_order')->orderBy('id')
             ->get();
     }

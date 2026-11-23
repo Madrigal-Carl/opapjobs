@@ -61,9 +61,15 @@ export function ApplyRailRow({
 }
 
 /** Explains why a field cannot be left blank. */
-export function FieldError({ children }: { children: ReactNode }) {
+export function FieldError({
+    children,
+    id,
+}: {
+    children: ReactNode;
+    id?: string;
+}) {
     return (
-        <p className="field-error" role="alert">
+        <p className="field-error" role="alert" id={id}>
             <CircleHelp size={13} aria-hidden="true" />
             {children}
         </p>

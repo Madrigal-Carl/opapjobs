@@ -2,12 +2,14 @@
 
 use App\Enums\Permission;
 use App\Http\Controllers\ApplicantApplicationController;
+use App\Http\Controllers\ApplicantProfileController;
 use App\Http\Controllers\Dashboard\AccountController;
 use App\Http\Controllers\Dashboard\ApplicationController;
 use App\Http\Controllers\Dashboard\EmployerController;
 use App\Http\Controllers\Dashboard\JobPostController;
 use App\Http\Controllers\Dashboard\OverviewController;
 use App\Http\Controllers\RedirectController;
+use App\Http\Controllers\SavedJobPostController;
 use App\Http\Controllers\ViewController;
 use Illuminate\Support\Facades\Route;
 
@@ -40,7 +42,20 @@ Route::middleware(['auth', 'verified', 'redirect.staff'])->group(function () {
     Route::post('job/{job}/apply', [ApplicantApplicationController::class, 'store'])
         ->whereNumber('job')->middleware('throttle:10,1')->name('jobs.submit');
 
-    Route::get('resume', [ViewController::class, 'resume'])->name('resume');
+    Route::get('profile', [ViewController::class, 'profile'])->name('profile');
+    Route::put('profile', [ApplicantProfileController::class, 'update'])->middleware('throttle:30,1')->name('profile.save');
+    Route::post('profile/documents', [ApplicantProfileController::class, 'storeDocuments'])
+        ->middleware('throttle:20,1')->name('profile.documents.store');
+    Route::delete('profile/documents/{document}', [ApplicantProfileController::class, 'destroyDocument'])
+        ->whereNumber('document')->name('profile.documents.destroy');
+    Route::get('profile/avatar', [ApplicantProfileController::class, 'avatar'])->name('profile.avatar');
+    Route::post('profile/avatar', [ApplicantProfileController::class, 'updateAvatar'])
+        ->middleware('throttle:20,1')->name('profile.avatar.update');
+
+    Route::post('job/{job}/save', [SavedJobPostController::class, 'store'])
+        ->whereNumber('job')->middleware('throttle:60,1')->name('jobs.save');
+    Route::delete('job/{job}/save', [SavedJobPostController::class, 'destroy'])
+        ->whereNumber('job')->middleware('throttle:60,1')->name('jobs.unsave');
 
     Route::get('applications', [ViewController::class, 'applications'])->name('applications');
 });

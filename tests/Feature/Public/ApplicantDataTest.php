@@ -45,7 +45,7 @@ test('staff and users without a role never get applicant activity', function (st
         ->assertInertia(fn (Assert $page) => $page->where('applicantActivity', null));
 })->with(['agency', 'admin', 'superadmin', 'no role']);
 
-test('my jobs lists applications, saved and archived job posts from the database', function () {
+test('my jobs lists every application and the saved job posts from the database', function () {
     $agency = PublicCatalog::agency(Pathway::Landbased, ['agency_name' => 'Kalinaw Overseas Staffing']);
     $older = PublicCatalog::post($agency, ['job_title' => 'Older Application']);
     $newer = PublicCatalog::post($agency, ['job_title' => 'Newer Application', 'status' => 'closed']);
@@ -56,7 +56,8 @@ test('my jobs lists applications, saved and archived job posts from the database
 
     Application::factory()->for($older, 'jobPost')->create(['applicant_user_id' => $this->applicant->id, 'stage' => 'shortlisted', 'submitted_at' => now()->subDays(3)]);
     Application::factory()->for($newer, 'jobPost')->create(['applicant_user_id' => $this->applicant->id, 'submitted_at' => now()->subDay()]);
-    Application::factory()->for($archived, 'jobPost')->create(['applicant_user_id' => $this->applicant->id, 'applicant_archived_at' => now()]);
+    // There is no Archived tab yet, so an archived application stays under Applied.
+    Application::factory()->for($archived, 'jobPost')->create(['applicant_user_id' => $this->applicant->id, 'applicant_archived_at' => now(), 'submitted_at' => now()->subDays(5)]);
     Application::factory()->for($hiddenJob, 'jobPost')->create(['applicant_user_id' => $this->applicant->id]);
     Application::factory()->for($suspendedJob, 'jobPost')->create(['applicant_user_id' => $this->applicant->id]);
     Application::factory()->for($saved, 'jobPost')->create();
@@ -66,7 +67,7 @@ test('my jobs lists applications, saved and archived job posts from the database
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('applicant/applications')
-            ->where('applied', fn ($rows) => collect($rows)->pluck('title')->all() === ['Newer Application', 'Older Application'])
+            ->where('applied', fn ($rows) => collect($rows)->pluck('title')->all() === ['Newer Application', 'Older Application', 'Archived Application'])
             ->where('applied.0.isAcceptingApplications', false)
             ->where('applied.0.displayStatus', 'closed')
             ->where('applied.1.applicationStage', 'shortlisted')
@@ -75,8 +76,7 @@ test('my jobs lists applications, saved and archived job posts from the database
             ->where('saved.0.title', 'Saved Job')
             ->where('saved.0.applicationStage', null)
             ->where('saved.0.isAcceptingApplications', true)
-            ->has('archived', 1)
-            ->where('archived.0.title', 'Archived Application'));
+            ->missing('archived'));
 });
 
 test('my jobs only shows the signed-in applicant their own rows', function () {
@@ -85,10 +85,10 @@ test('my jobs only shows the signed-in applicant their own rows', function () {
     savePost(User::factory()->applicant()->create(), $post->id);
 
     $this->actingAs($this->applicant)->get(route('applications'))
-        ->assertInertia(fn (Assert $page) => $page->where('applied', [])->where('saved', [])->where('archived', []));
+        ->assertInertia(fn (Assert $page) => $page->where('applied', [])->where('saved', []));
 });
 
-test('the resume page reads the applicant profile and resume sections from the database', function () {
+test('the profile page reads the applicant profile and its sections from the database', function () {
     $this->applicant->applicantProfile()->create([
         'headline' => 'Electrical Technician', 'phone_number' => '+63 900 000 2001', 'current_location' => 'Cebu City, Philippines',
         'professional_summary' => 'Eight years on switchgear.', 'default_cover_letter' => 'Please consider me.', 'is_visible_to_agencies' => false,
@@ -110,34 +110,34 @@ test('the resume page reads the applicant profile and resume sections from the d
         'mime_type' => 'application/pdf', 'file_size_bytes' => 1000, 'is_primary' => false, 'uploaded_at' => now(),
     ])->delete();
 
-    $response = $this->actingAs($this->applicant)->get(route('resume'));
+    $response = $this->actingAs($this->applicant)->get(route('profile'));
 
     $response->assertOk()->assertInertia(fn (Assert $page) => $page
-        ->component('applicant/resume')
-        ->where('resume.name', 'Mariel Santos')
-        ->where('resume.headline', 'Electrical Technician')
-        ->where('resume.location', 'Cebu City, Philippines')
-        ->where('resume.visibleToEmployers', false)
-        ->where('resume.coverLetter', 'Please consider me.')
-        ->where('resume.experiences.0.start', 'Mar 2019')
-        ->where('resume.experiences.0.end', '')
-        ->where('resume.education.0.start', '2017')
-        ->where('resume.skills.0.level', 'Advanced')
-        ->has('resume.documents', 1)
-        ->where('resume.documents.0.name', 'resume.pdf')
-        ->where('resume.documents.0.size', '186 KB')
-        ->where('resume.documents.0.uploadedAt', 'Sep 14, 2026')
-        ->where('resume.documents.0.url', ''));
+        ->component('applicant/profile')
+        ->where('profile.name', 'Mariel Santos')
+        ->where('profile.headline', 'Electrical Technician')
+        ->where('profile.location', 'Cebu City, Philippines')
+        ->where('profile.visibleToEmployers', false)
+        ->where('profile.coverLetter', 'Please consider me.')
+        ->where('profile.experiences.0.start', 'Mar 2019')
+        ->where('profile.experiences.0.end', '')
+        ->where('profile.education.0.start', '2017')
+        ->where('profile.skills.0.level', 'Advanced')
+        ->has('profile.documents', 1)
+        ->where('profile.documents.0.name', 'resume.pdf')
+        ->where('profile.documents.0.size', '186 KB')
+        ->where('profile.documents.0.uploadedAt', 'Sep 14, 2026')
+        ->where('profile.documents.0.url', ''));
 
     expect($response->getContent())->not->toContain('resumes/a.pdf');
 });
 
-test('an applicant without a profile gets an empty resume', function () {
-    $this->actingAs($this->applicant)->get(route('resume'))
+test('an applicant without a profile gets an empty profile', function () {
+    $this->actingAs($this->applicant)->get(route('profile'))
         ->assertInertia(fn (Assert $page) => $page
-            ->where('resume.headline', '')
-            ->where('resume.experiences', [])
-            ->where('resume.documents', []));
+            ->where('profile.headline', '')
+            ->where('profile.experiences', [])
+            ->where('profile.documents', []));
 });
 
 test('the apply page loads the job post and its questions without the expected answers', function () {
@@ -167,7 +167,7 @@ test('the apply page loads the job post and its questions without the expected a
             ['Years in an ICU?', 'short', false, ''],
             ['Do you hold a valid PRC licence?', 'yesno', true, ''],
         ])
-        ->where('resume.name', 'Mariel Santos')->has('resume.documents', 1)->where('resume.documents.0.name', 'resume.pdf'));
+        ->where('profile.name', 'Mariel Santos')->where('profile.documents', fn ($documents) => collect($documents)->pluck('name')->sort()->values()->all() === ['passport.pdf', 'resume.pdf']));
 
     expect($response->getContent())->not->toContain('SECRET-EXPECTED')->not->toContain('SECRET-TWO');
 });

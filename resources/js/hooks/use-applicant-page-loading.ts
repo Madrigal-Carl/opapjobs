@@ -1,19 +1,19 @@
 import type { PendingVisit } from '@inertiajs/core';
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
-import { applications, resume } from '@/routes';
+import { applications, profile } from '@/routes';
 import { apply } from '@/routes/jobs';
 
 /** The wizard path from `routes/web.php`, split around its `{job}` segment. */
 const [applyPrefix, applySuffix] = apply.definition.url.split('{job}');
 
 /**
- * The applicant pages: resume, my jobs and the apply wizard, the three
+ * The applicant pages: profile, my jobs and the apply wizard, the three
  * routes in `routes/web.php` behind `auth` + `redirect.staff`.
  */
 function isApplicantPage(pathname: string): boolean {
     return (
-        pathname === resume().url ||
+        pathname === profile().url ||
         pathname === applications().url ||
         (pathname.startsWith(applyPrefix) &&
             pathname.endsWith(applySuffix) &&
@@ -31,13 +31,13 @@ function isApplicantPageVisit(visit: PendingVisit): boolean {
     );
 }
 
-/** A visit to the resume editor itself is a plain document load of it. */
-function isResumeVisit(visit: PendingVisit): boolean {
+/** A visit to the profile editor itself is a plain document load of it. */
+function isProfileVisit(visit: PendingVisit): boolean {
     return (
         visit.method === 'get' &&
         visit.only.length === 0 &&
         !visit.prefetch &&
-        visit.url.pathname === resume().url
+        visit.url.pathname === profile().url
     );
 }
 
@@ -146,9 +146,9 @@ export function useApplicantPageLoading(): boolean {
 }
 
 /**
- * True while a visit to the resume editor itself is in flight, so the
- * resume page can stand in a skeleton shaped like the editor.
+ * True while a visit to the profile editor itself is in flight, so the
+ * profile page can stand in a skeleton shaped like the editor.
  */
-export function useResumePageLoading(): boolean {
-    return usePendingVisit(isResumeVisit);
+export function useProfilePageLoading(): boolean {
+    return usePendingVisit(isProfileVisit);
 }

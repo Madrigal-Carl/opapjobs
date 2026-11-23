@@ -51,7 +51,7 @@ test('staff save and edit selection choices and numeric screening questions', fu
     $post = JobPost::sole();
     $questions = $post->questions()->orderBy('sort_order')->get();
     expect($questions[0]->answer_type->value)->toBe('number');
-    expect($questions[1]->options)->toBe(['Immediately', 'Within 2 weeks']);
+    expect($questions[1]->options->pluck('option_text')->all())->toBe(['Immediately', 'Within 2 weeks']);
     expect($questions[1]->expected_answer)->toBeNull();
     $this->get("/dashboard/jobs/{$post->id}/edit")->assertInertia(fn (AssertableInertia $page) => $page
         ->where('jobPost.questions.1.options', ['Immediately', 'Within 2 weeks']));
@@ -59,7 +59,7 @@ test('staff save and edit selection choices and numeric screening questions', fu
     $input['questions'][1]['id'] = $questions[1]->id;
     $input['questions'][1]['options'] = ['Next week', 'Next month'];
     $this->put("/dashboard/jobs/{$post->id}", $input)->assertSessionHasNoErrors()->assertRedirect(route('dashboard.jobs'));
-    expect(JobPostQuestion::findOrFail($questions[1]->id)->options)->toBe(['Next week', 'Next month']);
+    expect(JobPostQuestion::findOrFail($questions[1]->id)->options->pluck('option_text')->all())->toBe(['Next week', 'Next month']);
 });
 
 test('selection questions require a valid list of distinct choices', function (mixed $options, string $field) {
@@ -315,7 +315,7 @@ test('a job order posting requires its number, which manpooling never carries, a
 
     $post = JobPost::sole();
     expect($post->job_order_number)->toBe('JO-2026-0001');
-    expect($post->required_documents)->toBe(['COC', 'PSNC']);
+    expect($post->requiredDocuments->pluck('document_name')->all())->toBe(['COC', 'PSNC']);
 
     // A number typed before the toggle moved must not survive the switch.
     $input = JobPostInput::for($user);

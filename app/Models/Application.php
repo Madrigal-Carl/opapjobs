@@ -68,7 +68,8 @@ class Application extends Model
     /** @return BelongsToMany<ApplicantDocument, $this> */
     public function supportingDocuments(): BelongsToMany
     {
-        return $this->belongsToMany(ApplicantDocument::class, 'application_documents')->withPivot('requirement_name');
+        // A file the applicant later removes from their profile was still sent with this application.
+        return $this->belongsToMany(ApplicantDocument::class, 'application_documents')->withPivot('requirement_name')->withTrashed();
     }
 
     /** @return HasMany<ApplicationAnswer, $this> */

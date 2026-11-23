@@ -44,7 +44,7 @@ $pages = [
 
     'agency profile' => ['agencies.show', 'applicant', 'agencies/show', ['slug' => 'no-such-agency']],
     'apply' => ['jobs.apply', 'applicant', 'jobs/apply', ['job' => '999999']],
-    'resume' => ['resume', 'applicant', 'applicant/resume'],
+    'profile' => ['profile', 'applicant', 'applicant/profile'],
     'my jobs' => ['applications', 'applicant', 'applicant/applications'],
 
     'hiring overview' => ['dashboard.overview', 'agency', 'dashboard/overview/hiring'],
@@ -82,6 +82,7 @@ $notPlainPages = [
     'dashboard.jobs.edit', // needs a record: the job post flow below
     'dashboard.applications.show', // needs a record: the application flow below
     'dashboard.applications.documents', // a file download: ApplicationShowTest
+    'profile.avatar', // an image: ApplicantProfileTest
 ];
 
 $consolePages = array_values(array_filter($pages, fn (array $page): bool => $page[1] === 'superadmin'));
@@ -323,19 +324,19 @@ test('a new applicant registers, verifies, signs out and signs back in', functio
     ])->assertRedirect(route('verification.notice'));
     $user = User::query()->where('email', 'maria@example.test')->sole();
 
-    $this->get(route('resume'))->assertRedirect(route('verification.notice'));
+    $this->get(route('profile'))->assertRedirect(route('verification.notice'));
 
     $this->get(URL::temporarySignedRoute('verification.verify', now()->addHour(), [
         'id' => $user->id, 'hash' => sha1($user->email),
     ]))->assertRedirect();
 
-    $this->get(route('resume'))->assertOk()->assertInertia(fn (Assert $page) => $page
-        ->component('applicant/resume')
+    $this->get(route('profile'))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('applicant/profile')
         ->where('auth.user.email', 'maria@example.test'));
 
     $this->post(route('logout'))->assertRedirect();
     $this->assertGuest();
-    $this->get(route('resume'))->assertRedirect(route('login'));
+    $this->get(route('profile'))->assertRedirect(route('login'));
 
     $this->post(route('login.store'), ['email' => 'maria@example.test', 'password' => 'password'])->assertRedirect();
     $this->assertAuthenticatedAs($user);

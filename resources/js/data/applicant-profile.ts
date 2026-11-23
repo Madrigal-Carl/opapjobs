@@ -1,16 +1,16 @@
 import {
-    RESUME_COMPLETENESS_FIELDS,
+    PROFILE_COMPLETENESS_FIELDS,
     type ApplicantProfile,
     type SkillLevel,
 } from '@/types/applicant-profile';
 
 /**
- * How much of the resume is filled in, as a percentage. Each section counts
+ * How much of the profile is filled in, as a percentage. Each section counts
  * once no matter how many entries it holds, so one long history cannot stand
  * in for a missing section.
  */
-export function resumeCompleteness(profile: ApplicantProfile): number {
-    const filled = RESUME_COMPLETENESS_FIELDS.filter((field) => {
+export function profileCompleteness(profile: ApplicantProfile): number {
+    const filled = PROFILE_COMPLETENESS_FIELDS.filter((field) => {
         const value = profile[field];
 
         if (typeof value === 'string') {
@@ -20,7 +20,7 @@ export function resumeCompleteness(profile: ApplicantProfile): number {
         return value.length > 0;
     }).length;
 
-    return Math.round((filled / RESUME_COMPLETENESS_FIELDS.length) * 100);
+    return Math.round((filled / PROFILE_COMPLETENESS_FIELDS.length) * 100);
 }
 
 export function formatToday(): string {

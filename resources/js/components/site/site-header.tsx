@@ -17,7 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Brand } from '@/components/site/brand';
 import { SignedInMenu } from '@/components/site/signed-in-menu';
-import { contact, home, resume } from '@/routes';
+import { contact, home, profile } from '@/routes';
 import { index as agenciesIndex } from '@/routes/agencies';
 import { index as jobsIndex } from '@/routes/jobs';
 
@@ -30,11 +30,11 @@ function resourceLinkTag(href: string): typeof Link | 'a' {
 }
 
 /**
- * Resources menu. "Resume Template" is a real applicant page; the rest deep
+ * Resources menu. "Resume Template" opens the applicant profile; the rest deep
  * link into the field guide on the home page.
  */
 const resourceLinks = [
-    { label: 'Resume Template', icon: FileText, href: resume.url() },
+    { label: 'Resume Template', icon: FileText, href: profile.url() },
     { label: 'Online Resources', icon: Globe, href: RESOURCES_ANCHOR },
     { label: 'Career Tips', icon: Compass, href: RESOURCES_ANCHOR },
     { label: 'Interview Guide', icon: Star, href: RESOURCES_ANCHOR },

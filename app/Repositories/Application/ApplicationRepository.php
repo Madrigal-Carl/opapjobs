@@ -27,6 +27,10 @@ class ApplicationRepository
 
     public function findVisibleDocument(Application $application, int $documentId): ?ApplicantDocument
     {
+        if ($application->resume_document_id === $documentId) {
+            return $application->resumeDocument;
+        }
+
         return $application->supportingDocuments->firstWhere('id', $documentId) ?? $application->applicant->documents
             ->first(fn (ApplicantDocument $document): bool => $document->id === $documentId
                 && $document->uploaded_at->lessThanOrEqualTo($application->submitted_at));
@@ -39,11 +43,13 @@ class ApplicationRepository
             'applicant.applicantProfile',
             'applicant.documents' => fn ($query) => $query->whereDoesntHave('supportingApplications')->orderByDesc('is_primary')->orderBy('uploaded_at')->orderBy('id'),
             'supportingDocuments',
+            'resumeDocument',
             'jobPost.employer',
             'jobPost.agency',
             'jobPost.poster',
             'jobPost.subcategory.category',
             'jobPost.languages',
+            'jobPost.requiredDocuments',
             'jobPost.questions' => fn ($query) => $query->withTrashed()->orderBy('sort_order'),
             'answers.question',
             'stageHistory' => fn ($query) => $query->orderBy('created_at')->orderBy('id'),

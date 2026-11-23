@@ -28,7 +28,7 @@ test('staff update the shared form without changing ownership or status', functi
     $post->refresh();
     expect($post->job_title)->toBe('Electrician');
     expect($post->job_order_number)->toBe('JO-2026-0001');
-    expect($post->required_documents)->toBe(['COC', 'NBI']);
+    expect($post->requiredDocuments->pluck('document_name')->all())->toBe(['COC', 'NBI']);
     expect($post->agency_id)->toBe($poster->agency_id);
     expect($post->posted_by_user_id)->toBe($poster->id);
     expect($post->status->value)->toBe('closed');

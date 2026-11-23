@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\Site\ListPublicAgenciesAction;
 use App\Actions\Site\ListPublicJobPostsAction;
-use App\Actions\Site\ShowApplicantResumeAction;
+use App\Actions\Site\ShowApplicantProfileAction;
 use App\Actions\Site\ShowHomeAction;
 use App\Actions\Site\ShowJobApplicationAction;
 use App\Actions\Site\ShowMyJobsAction;
@@ -14,7 +14,7 @@ use App\Http\Requests\Site\PublicAgencyIndexRequest;
 use App\Http\Requests\Site\PublicAgencyShowRequest;
 use App\Http\Requests\Site\PublicJobPostIndexRequest;
 use App\Http\Resources\Site\ApplicantJobPostResource;
-use App\Http\Resources\Site\ApplicantResumeResource;
+use App\Http\Resources\Site\ApplicantProfileResource;
 use App\Http\Resources\Site\PublicAgencyCardResource;
 use App\Http\Resources\Site\PublicAgencyListedByResource;
 use App\Http\Resources\Site\PublicAgencyProfileResource;
@@ -129,16 +129,16 @@ class ViewController extends Controller
             'jobPost' => PublicJobPostDetailResource::make($result['post'])->resolve($request),
             'questions' => PublicJobPostQuestionResource::collection($result['questions'])->resolve($request),
             'submittedApplicationId' => $request->session()->get('submitted_application_id'),
-            'resume' => $result['applicant'] === null ? null : ApplicantResumeResource::make($result['applicant'])->resolve($request),
+            'profile' => $result['applicant'] === null ? null : ApplicantProfileResource::make($result['applicant'])->resolve($request),
         ]);
     }
 
-    public function resume(Request $request, ShowApplicantResumeAction $action): Response
+    public function profile(Request $request, ShowApplicantProfileAction $action): Response
     {
         $applicant = $action->execute($request->user());
 
-        return Inertia::render('applicant/resume', [
-            'resume' => $applicant === null ? null : ApplicantResumeResource::make($applicant)->resolve($request),
+        return Inertia::render('applicant/profile', [
+            'profile' => $applicant === null ? null : ApplicantProfileResource::make($applicant)->resolve($request),
         ]);
     }
 
@@ -149,7 +149,6 @@ class ViewController extends Controller
         return Inertia::render('applicant/applications', [
             'applied' => ApplicantJobPostResource::collection($myJobs['applied'])->resolve($request),
             'saved' => ApplicantJobPostResource::collection($myJobs['saved'])->resolve($request),
-            'archived' => ApplicantJobPostResource::collection($myJobs['archived'])->resolve($request),
         ]);
     }
 

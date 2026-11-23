@@ -20,7 +20,7 @@ dataset('publicPages', [
 /** Pages that only make sense once there is somebody to apply as. */
 dataset('protectedPages', [
     'apply' => ['/job/land-1/apply'],
-    'resume' => ['/resume'],
+    'profile' => ['/profile'],
     'my jobs' => ['/applications'],
 ]);
 
@@ -45,7 +45,7 @@ dataset('allApplicantPages', [
     'jobs index' => ['/jobs'],
     'job detail' => ['/job/land-1'],
     'apply' => ['/job/land-1/apply'],
-    'resume' => ['/resume'],
+    'profile' => ['/profile'],
     'my jobs' => ['/applications'],
     'contact' => ['/contact'],
 ]);
@@ -85,7 +85,7 @@ it('names every applicant route', function (): void {
             'jobs.index',
             'jobs.show',
             'jobs.apply',
-            'resume',
+            'profile',
             'applications',
             'contact',
         );
@@ -106,7 +106,7 @@ it('does not gate applicant pages behind an agency permission', function (string
     ['/jobs', 'jobs.index'],
     ['/job/land-1', 'jobs.show'],
     ['/job/land-1/apply', 'jobs.apply'],
-    ['/resume', 'resume'],
+    ['/profile', 'profile'],
     ['/applications', 'applications'],
     ['/contact', 'contact'],
 ]);

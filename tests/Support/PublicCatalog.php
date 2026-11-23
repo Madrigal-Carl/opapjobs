@@ -11,6 +11,7 @@ use App\Models\JobPost;
 use App\Models\JobSubcategory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Sequence;
+use Illuminate\Support\Arr;
 
 /** Small builders for the public-page tests; SQLite has no demo data. */
 class PublicCatalog
@@ -31,11 +32,17 @@ class PublicCatalog
     {
         $poster = User::factory()->agency()->forAgency($agency)->create();
         $subcategory = $attributes['job_subcategory_id'] ?? self::sharedSubcategory($agency->pathway)->id;
+        $documents = Arr::pull($attributes, 'required_documents', []);
 
-        return JobPost::factory()->create([
+        $post = JobPost::factory()->create([
             'agency_id' => $agency->id, 'posted_by_user_id' => $poster->id, 'job_subcategory_id' => $subcategory,
             'work_location' => 'Riyadh, Saudi Arabia', ...$attributes,
         ]);
+        $post->requiredDocuments()->createMany(array_map(
+            fn (string $name, int $index): array => ['document_name' => $name, 'sort_order' => $index], $documents, array_keys($documents),
+        ));
+
+        return $post;
     }
 
     public static function hire(JobPost $post, int $count): void

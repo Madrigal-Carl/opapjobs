@@ -1,12 +1,14 @@
 import { createInertiaApp } from '@inertiajs/react';
-import { ResumePageSkeleton } from '@/components/applicant/resume-page-skeleton';
+// No components are defined in this entry file: React Fast Refresh makes such a
+// module import itself, and after an edit the dev server serves that import as
+// a second copy that would mount the app twice.
+import { ProfilePageSkeletonLoader } from '@/components/applicant/profile-page-skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import PublicLayout from '@/layouts/public-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { useResumePageLoading } from '@/hooks/use-applicant-page-loading';
 import { jobs } from '@/routes/dashboard';
 
 /** Every page shares one browser-tab title; per-page `<Head title>` values are ignored. */
@@ -18,20 +20,6 @@ const fullBleedAuthPages = [
     'auth/forgot-password',
     'auth/verify-email',
 ];
-
-/**
- * Stand-in for the resume editor while the router is still fetching it, so
- * the skeleton can cover the viewport from outside the page it replaces.
- */
-function ResumePageSkeletonLoader() {
-    const loading = useResumePageLoading();
-
-    if (!loading) {
-        return null;
-    }
-
-    return <ResumePageSkeleton />;
-}
 
 void createInertiaApp({
     title: () => PAGE_TITLE,
@@ -103,9 +91,9 @@ void createInertiaApp({
                     PublicLayout,
                     { className: 'applicant-page', footer: false },
                 ];
-            case name === 'applicant/resume':
+            case name === 'applicant/profile':
                 // An editor, not a page read to the end: the marketing
-                // footer would only sit below the last resume section.
+                // footer would only sit below the last profile section.
                 return [
                     PublicLayout,
                     { className: 'applicant-page', footer: false },
@@ -122,7 +110,7 @@ void createInertiaApp({
             <TooltipProvider delayDuration={0}>
                 {app}
                 {/* Outside the page so it survives the swap it covers. */}
-                <ResumePageSkeletonLoader />
+                <ProfilePageSkeletonLoader />
                 <Toaster />
             </TooltipProvider>
         );

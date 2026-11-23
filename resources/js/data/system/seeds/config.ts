@@ -587,7 +587,7 @@ export function seedContent(): SiteContentState {
                 eyebrow: 'Prepare',
                 title: 'Build a resume agencies can read',
                 body: 'Keep your experience, education and certifications in one place so every application starts from a complete profile.',
-                link: '/resume',
+                link: '/profile',
             },
             {
                 id: 'resource-2',

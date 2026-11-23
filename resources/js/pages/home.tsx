@@ -3,6 +3,10 @@ import { ArrowRight, Building2, MapPin, Search, Ship } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AgencyCard } from '@/components/site/agency-card';
 import { JobListingCard } from '@/components/site/job-listing-card';
+import {
+    ApplicationsProvider,
+    useApplications,
+} from '@/contexts/applications-context';
 import { countryOptions } from '@/data/countries';
 import { homeResources } from '@/data/home-resources';
 import { index as agenciesIndex } from '@/routes/agencies';
@@ -51,14 +55,22 @@ function ArrowUpRightIcon() {
     );
 }
 
-export default function Home({ agencies, topHirers, jobs, stats }: HomeProps) {
+export default function Home(props: HomeProps) {
+    return (
+        <ApplicationsProvider>
+            <HomePage {...props} />
+        </ApplicationsProvider>
+    );
+}
+
+function HomePage({ agencies, topHirers, jobs, stats }: HomeProps) {
+    const { isSaved, toggleSaved } = useApplications();
     const [search, setSearch] = useState({ keyword: '', location: '' });
     const [countryOpen, setCountryOpen] = useState(false);
     const [agencyPathway, setAgencyPathway] = useState<Pathway>('landbased');
     const [topHirerPathway, setTopHirerPathway] =
         useState<Pathway>('landbased');
     const [jobPathway, setJobPathway] = useState<Pathway>('landbased');
-    const [saved, setSaved] = useState<string[]>([]);
 
     const activeAgencies = agencies[agencyPathway];
     const activeTopHirers = topHirers[topHirerPathway];
@@ -75,14 +87,6 @@ export default function Home({ agencies, topHirers, jobs, stats }: HomeProps) {
             country.toLowerCase().includes(query),
         );
     }, [search.location]);
-
-    const toggleSaved = (id: string) => {
-        setSaved((current) =>
-            current.includes(id)
-                ? current.filter((savedId) => savedId !== id)
-                : [...current, id],
-        );
-    };
 
     const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -498,7 +502,7 @@ export default function Home({ agencies, topHirers, jobs, stats }: HomeProps) {
                                         ? `${jobPathway}-jobs`
                                         : undefined
                                 }
-                                isSaved={saved.includes(job.id)}
+                                isSaved={isSaved(job.id)}
                                 onToggleSaved={() => toggleSaved(job.id)}
                                 testId={`card-job-${job.id}`}
                             />

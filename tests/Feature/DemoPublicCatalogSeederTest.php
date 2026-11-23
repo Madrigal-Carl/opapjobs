@@ -7,6 +7,7 @@ use App\Models\JobPost;
 use App\Support\PublicAgencyRules;
 use Database\Seeders\DemoPublicCatalogSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /** @return array<string, int> */
 function publicCatalogTableCounts(): array
@@ -17,6 +18,7 @@ function publicCatalogTableCounts(): array
 
 test('the public catalog seeder meets the volume targets and is idempotent', function () {
     app()->detectEnvironment(fn () => 'local');
+    Storage::fake('local');
 
     $this->seed();
     $first = publicCatalogTableCounts();

@@ -12,7 +12,7 @@ class ShowMyJobsAction
 {
     public function __construct(private ApplicantService $applicant) {}
 
-    /** @return array{applied: Collection<int, JobPost>, saved: Collection<int, JobPost>, archived: Collection<int, JobPost>} */
+    /** @return array{applied: Collection<int, JobPost>, saved: Collection<int, JobPost>} */
     public function execute(User $applicant): array
     {
         return DB::transaction(fn (): array => $this->applicant->myJobs($applicant->id));

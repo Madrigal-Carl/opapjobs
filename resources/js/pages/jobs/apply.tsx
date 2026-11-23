@@ -18,6 +18,10 @@ import { ApplicationStepForm } from '@/components/applicant/apply-form';
 import { ApplyPageSkeleton } from '@/components/applicant/apply-page-skeleton';
 import { ReviewStep } from '@/components/applicant/apply-review';
 import {
+    isProfileDocument,
+    type SupportingDocument,
+} from '@/components/applicant/required-document-uploads';
+import {
     ApplyRailRow,
     MatchBlockList,
 } from '@/components/applicant/match-blocks';
@@ -133,9 +137,9 @@ function JobApplyBody({
     const [blocked, setBlocked] = useState<string[]>([]);
     const [submitted, setSubmitted] = useState(() => isApplied(jobId));
     const [resumeFile, setResumeFile] = useState<File | null>(null);
-    const [supportingFiles, setSupportingFiles] = useState<Map<string, File>>(
-        () => new Map(),
-    );
+    const [supportingFiles, setSupportingFiles] = useState<
+        Map<string, SupportingDocument>
+    >(() => new Map());
     const [processing, setProcessing] = useState(false);
     const [submissionResult, setSubmissionResult] = useState<
         'success' | 'error' | null
@@ -303,7 +307,7 @@ function JobApplyBody({
         }));
     }, []);
 
-    const changeDocument = (name: string, file: File | null) => {
+    const changeDocument = (name: string, file: SupportingDocument | null) => {
         setSupportingFiles((current) => {
             const next = new Map(current);
             if (file) next.set(name, file);
@@ -400,10 +404,13 @@ function JobApplyBody({
                     : (draft.resumeId?.replace(/^doc-/, '') ?? null),
                 resume: resumeFile,
                 cover_letter: draft.coverLetter.trim() || null,
-                documents: requiredDocuments.map((name) => ({
-                    name,
-                    file: supportingFiles.get(name)!,
-                })),
+                documents: requiredDocuments.map((name) => {
+                    const chosen = supportingFiles.get(name)!;
+
+                    return isProfileDocument(chosen)
+                        ? { name, document_id: chosen.id.replace(/^doc-/, '') }
+                        : { name, file: chosen };
+                }),
                 answers: Object.fromEntries(
                     questions.map((question) => [
                         question.id,
