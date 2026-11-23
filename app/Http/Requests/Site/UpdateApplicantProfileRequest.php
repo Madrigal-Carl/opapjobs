@@ -12,10 +12,18 @@ use Illuminate\Validation\Rule;
  * The whole profile, saved at once: every section list replaces what is
  * stored. Dates use the formats the profile page shows ("Mar 2021" for
  * roles, a year for schooling, ISO for certificates).
+ *
+ * @phpstan-type ProfileData array{name: string, headline?: ?string, phone?: ?string, location?: ?string, summary?: ?string, is_visible: bool, experiences: list<array{role: string, company: string, start: string, end?: ?string, location?: ?string, description?: ?string}>, education: list<array{school: string, degree: string, field?: ?string, start: string, end?: ?string}>, certifications: list<array{name: string, issuer: string, issued_on?: ?string, expires_on?: ?string, credential_url?: ?string}>, skills: list<array{name: string, level: string}>}
  */
 class UpdateApplicantProfileRequest extends FormRequest
 {
     use AuthorizesApplicant;
+
+    /** @return ProfileData */
+    public function validated($key = null, $default = null)
+    {
+        return parent::validated($key, $default);
+    }
 
     /**
      * Get the validation rules that apply to the request.

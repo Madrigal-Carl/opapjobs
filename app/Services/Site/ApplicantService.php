@@ -23,6 +23,8 @@ use Illuminate\Validation\ValidationException;
 /**
  * The signed-in applicant's side of the site, read from the database:
  * My Jobs, the profile, and job application submission.
+ *
+ * @phpstan-import-type ProfileData from \App\Http\Requests\Site\UpdateApplicantProfileRequest
  */
 class ApplicantService
 {
@@ -108,11 +110,13 @@ class ApplicantService
                 if ($file === null || ! Storage::disk('local')->exists($file->storage_path)) {
                     throw ValidationException::withMessages(['documents.'.$index => __('Choose an available PDF from your profile or upload :name.', ['name' => $document['name']])]);
                 }
-            } else {
+            } elseif (isset($document['file'])) {
                 $file = $user->documents()->create([
                     ...$document['file'], 'document_type' => DocumentType::Other,
                     'is_primary' => false, 'uploaded_at' => $application->submitted_at,
                 ]);
+            } else {
+                throw ValidationException::withMessages(['documents.'.$index => __('Upload :name as a PDF.', ['name' => $document['name']])]);
             }
             $application->supportingDocuments()->attach($file->id, ['requirement_name' => $document['name']]);
         }
@@ -144,7 +148,7 @@ class ApplicantService
      * Saves the whole profile. Dates arrive in the formats the profile page
      * shows and are stored as the first day of that month or year.
      *
-     * @param  array{name: string, headline?: ?string, phone?: ?string, location?: ?string, summary?: ?string, is_visible: bool, experiences: list<array{role: string, company: string, start: string, end?: ?string, location?: ?string, description?: ?string}>, education: list<array{school: string, degree: string, field?: ?string, start: string, end?: ?string}>, certifications: list<array{name: string, issuer: string, issued_on?: ?string, expires_on?: ?string, credential_url?: ?string}>, skills: list<array{name: string, level: string}>}  $data
+     * @param  ProfileData  $data
      */
     public function updateProfile(User $user, array $data): void
     {

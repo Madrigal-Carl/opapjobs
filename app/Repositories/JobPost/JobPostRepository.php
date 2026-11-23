@@ -137,8 +137,8 @@ class JobPostRepository
      */
     private function saveQuestion(JobPostQuestion $model, array $question, int $index): int
     {
-        $options = Arr::pull($question, 'options', []);
-        unset($question['id']);
+        $options = $question['options'];
+        unset($question['options'], $question['id']);
         $model->fill([...$question, 'sort_order' => $index])->save();
 
         $model->options()->delete();
